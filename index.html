@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="id" class="no-js">
+<head>
+    <meta charset="UTF-8">
+
+    <!-- Enhanced viewport for all devices - User scalable for accessibility -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://wa.me; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:; frame-src https://wa.me;">
+    
+    <!-- iOS Safari optimizations -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Premium Gift Box">
+    
+    <!-- iOS splash screens -->
+    <link rel="apple-touch-startup-image" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)">
+    
+    <!-- Android Chrome optimizations -->
+    <meta name="theme-color" content="#f1d886">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Microsoft Edge/IE optimizations -->
+    <meta name="msapplication-TileColor" content="#f1d886">
+    <meta name="msapplication-config" content="browserconfig.xml">
+    
+    <!-- Prevent auto-detection of numbers as links -->
+    <meta name="format-detection" content="telephone=no, date=no, email=no, address=no">
+    
+    <title>Premium Gift Box - Luxury Handcrafted Packaging Solutions</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Premium Gift Box menyediakan kemasan hadiah mewah handcrafted berkualitas tinggi di Sukoharjo. Spesialisasi corporate gifts, wedding favors, dan custom packaging.">
+    <meta name="keywords" content="premium gift box, luxury packaging, handcrafted boxes, Sukoharjo, corporate gifts, wedding favors, custom packaging">
+    <meta name="author" content="Premium Gift Box">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://premiumgiftbox.com/">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Premium Gift Box - Luxury Handcrafted Packaging">
+    <meta property="og:description" content="Kemasan hadiah mewah handcrafted berkualitas tinggi di Sukoharjo Indonesia">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://premiumgiftbox.com">
+    <meta property="og:locale" content="id_ID">
+    <meta property="og:image" content="https://premiumgiftbox.com/assets/og-image.jpg">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Premium Gift Box - Luxury Handcrafted Packaging">
+    <meta name="twitter:description" content="Kemasan hadiah mewah handcrafted berkualitas tinggi di Sukoharjo Indonesia">
+    <meta name="twitter:image" content="https://premiumgiftbox.com/assets/og-image.jpg">
+
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- AOS Animation Library -->
+    <link rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css">
+    
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="public/styles.min.css">
+    
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+    
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "Premium Gift Box",
+      "description": "Luxury handcrafted gift packaging solutions",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Raya Grogol 110",
+        "addressLocality": "Sukoharjo",
+        "addressCountry": "ID"
+      },
+      "telephone": "+62-821-4848-9595",
+      "email": "cardosebox@gmail.com",
+      "url": "https://premiumgiftbox.com",
+      "priceRange": "$$"
+    }
+    </script>
+</head>
+<body>
+    <!-- Skip to main content for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="#home" class="logo">
+                <div class="logo-icon">📦</div>
+                Premium Gift Box
+            </a>
+            
+            <nav>
+                <ul class="nav-menu">
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#collections">Collections</a></li>
+                    <li><a href="#process">Process</a></li>
+                    <li><a href="#investment">Investment</a></li>
+                    <li><a href="#testimonials">Testimonials</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </nav>
+            
+            <button class="hamburger" aria-label="Toggle mobile menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <main id="main-content">
+    <section class="hero-slider" id="home">
+        <div class="slider-container">
+            <div class="slide active" data-slide="1">
+                <div class="slide-bg"></div>
+                <div class="slide-content">
+                    <div class="hero-badge">
+                        <ion-icon name="star-outline"></ion-icon>
+                        15+ Years Crafting Excellence
+                    </div>
+                    <h1>Transforming Moments into Masterpieces</h1>
+                    <p class="hero-subtitle">
+                        Handcrafted luxury gift packaging that elevates every occasion. 
+                        From corporate excellence to wedding memories, we create packaging that speaks your story.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="#collections" class="btn btn-primary">
+                            <ion-icon name="gift-outline"></ion-icon>
+                            Explore Collections
+                        </a>
+                        <a href="#contact" class="btn btn-secondary">
+                            <ion-icon name="chatbubble-outline"></ion-icon>
+                            Free Consultation
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="slide" data-slide="2">
+                <div class="slide-bg"></div>
+                <div class="slide-content">
+                    <div class="hero-badge">
+                        <ion-icon name="shield-checkmark-outline"></ion-icon>
+                        100% Satisfaction Guarantee
+                    </div>
+                    <h2>Bespoke Elegance for Every Occasion</h2>
+                    <p class="hero-subtitle">
+                        Our master craftsmen blend traditional techniques with modern design, 
+                        creating gift boxes that are as memorable as the moments they celebrate.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="#investment" class="btn btn-accent">
+                            <ion-icon name="diamond-outline"></ion-icon>
+                            View Investment Plans
+                        </a>
+                        <a href="#portfolio" class="btn btn-secondary">
+                            <ion-icon name="images-outline"></ion-icon>
+                            See Our Work
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="slide" data-slide="3">
+                <div class="slide-bg"></div>
+                <div class="slide-content">
+                    <div class="hero-badge">
+                        <ion-icon name="location-outline"></ion-icon>
+                        Proudly Made in Sukoharjo
+                    </div>
+                    <h2>Where Heritage Meets Innovation</h2>
+                    <p class="hero-subtitle">
+                        From our workshop in Sukoharjo, we serve discerning clients across Indonesia 
+                        with packaging solutions that reflect their values and aspirations.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="#process" class="btn btn-primary">
+                            <ion-icon name="hammer-outline"></ion-icon>
+                            Our Process
+                        </a>
+                        <a href="#contact" class="btn btn-secondary">
+                            <ion-icon name="call-outline"></ion-icon>
+                            Schedule Visit
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="slider-controls">
+            <button class="dot active" data-slide="1" aria-label="Go to slide 1"></button>
+            <button class="dot" data-slide="2" aria-label="Go to slide 2"></button>
+            <button class="dot" data-slide="3" aria-label="Go to slide 3"></button>
+        </div>
+    </section>
+
+    <!-- Trust Indicators -->
+    <section class="trust-indicators">
+        <div class="container">
+            <div class="trust-grid">
+                <div class="trust-item" data-aos="fade-up" data-aos-delay="100">
+                    <div class="trust-icon">
+                        <ion-icon name="shield-checkmark-outline"></ion-icon>
+                    </div>
+                    <h4>Guaranteed Quality</h4>
+                    <p>100% satisfaction guarantee on all our handcrafted packaging solutions</p>
+                </div>
+                <div class="trust-item" data-aos="fade-up" data-aos-delay="200">
+                    <div class="trust-icon">
+                        <ion-icon name="rocket-outline"></ion-icon>
+                    </div>
+                    <h4>Fast Delivery</h4>
+                    <p>Express delivery available nationwide with careful packaging protection</p>
+                </div>
+                <div class="trust-item" data-aos="fade-up" data-aos-delay="300">
+                    <div class="trust-icon">
+                        <ion-icon name="people-outline"></ion-icon>
+                    </div>
+                    <h4>5000+ Happy Clients</h4>
+                    <p>Trusted by leading corporations and families across Indonesia</p>
+                </div>
+                <div class="trust-item" data-aos="fade-up" data-aos-delay="400">
+                    <div class="trust-icon">
+                        <ion-icon name="leaf-outline"></ion-icon>
+                    </div>
+                    <h4>Eco-Sustainable</h4>
+                    <p>Environmentally responsible materials and processes</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Craftsman Story -->
+    <section class="craftsman-story" data-aos="fade-up">
+        <div class="container">
+            <div class="story-content">
+                <div class="story-text" data-aos="fade-right">
+                    <div class="section-badge">Our Story</div>
+                    <h2>Master Craftsman's Legacy</h2>
+                    <p>
+                        For over 15 years, our workshop in Sukoharjo has been the birthplace of Indonesia's 
+                        finest handcrafted gift packaging. What started as a passion project has evolved 
+                        into a trusted name among discerning clients who understand that presentation 
+                        is as important as the gift itself.
+                    </p>
+                    <p>
+                        Every box that leaves our workshop carries the essence of traditional Indonesian 
+                        craftsmanship, enhanced by modern design principles and an unwavering commitment 
+                        to excellence. We don't just make boxes; we create experiences.
+                    </p>
+                    <div class="story-stats">
+                        <div class="stat-item">
+                            <h4>5000+</h4>
+                            <p>Happy Moments Created</p>
+                        </div>
+                        <div class="stat-item">
+                            <h4>98%</h4>
+                            <p>Client Return Rate</p>
+                        </div>
+                        <div class="stat-item">
+                            <h4>15+</h4>
+                            <p>Years of Excellence</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="story-visual" data-aos="fade-left">
+                    <div class="workshop-image">
+                        🏭
+                        <div class="workshop-overlay">
+                            <h4>Our Workshop</h4>
+                            <p>Sukoharjo, Indonesia</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Investment Section -->
+    <section id="investment" class="investment-section" data-aos="fade-up">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <div class="section-badge">Investment Plans</div>
+                <h2>Choose Your Perfect Package</h2>
+                <p>Transparent pricing for exceptional value. Every investment includes personalized consultation and satisfaction guarantee.</p>
+            </div>
+            
+            <div class="investment-grid">
+                <div class="investment-card" data-aos="fade-up" data-aos-delay="100">
+                    <h3>Essential</h3>
+                    <div class="investment-price">IDR 150K</div>
+                    <p>Perfect for personal gifts and small events</p>
+                    <ul class="investment-features">
+                        <li>5-10 premium boxes</li>
+                        <li>Standard customization</li>
+                        <li>Basic ribbon selection</li>
+                        <li>3-5 day completion</li>
+                        <li>Free consultation</li>
+                        <li>Quality guarantee</li>
+                    </ul>
+                    <a href="#contact" class="btn btn-secondary">Get Started</a>
+                </div>
+                
+                <div class="investment-card featured" data-aos="fade-up" data-aos-delay="200">
+                    <h3>Professional</h3>
+                    <div class="investment-price">IDR 350K</div>
+                    <p>Ideal for corporate events and medium celebrations</p>
+                    <ul class="investment-features">
+                        <li>25-50 premium boxes</li>
+                        <li>Advanced customization</li>
+                        <li>Premium ribbon & materials</li>
+                        <li>Logo embossing available</li>
+                        <li>5-7 day completion</li>
+                        <li>Priority support</li>
+                        <li>Delivery included</li>
+                    </ul>
+                    <a href="#contact" class="btn btn-primary">Most Popular</a>
+                </div>
+                
+                <div class="investment-card" data-aos="fade-up" data-aos-delay="300">
+                    <h3>Enterprise</h3>
+                    <div class="investment-price">IDR 750K</div>
+                    <p>Premium solution for large corporate orders</p>
+                    <ul class="investment-features">
+                        <li>100+ premium boxes</li>
+                        <li>Bespoke design service</li>
+                        <li>Luxury materials</li>
+                        <li>Custom branding</li>
+                        <li>7-10 day completion</li>
+                        <li>Dedicated account manager</li>
+                        <li>Nationwide delivery</li>
+                        <li>Bulk pricing available</li>
+                    </ul>
+                    <a href="#contact" class="btn btn-accent">Contact Sales</a>
+                </div>
+            </div>
+            
+            <div class="investment-includes" data-aos="fade-up" data-aos-delay="400">
+                <h3>Every Investment Includes:</h3>
+                <div class="includes-grid">
+                    <div class="include-item">
+                        <ion-icon name="checkmark-circle-outline"></ion-icon>
+                        <span>Free Design Consultation</span>
+                    </div>
+                    <div class="include-item">
+                        <ion-icon name="checkmark-circle-outline"></ion-icon>
+                        <span>3D Preview Mockup</span>
+                    </div>
+                    <div class="include-item">
+                        <ion-icon name="checkmark-circle-outline"></ion-icon>
+                        <span>Quality Assurance</span>
+                    </div>
+                    <div class="include-item">
+                        <ion-icon name="checkmark-circle-outline"></ion-icon>
+                        <span>Satisfaction Guarantee</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Collections Showcase -->
+    <section id="collections" class="collections-showcase" data-aos="fade-up">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <div class="section-badge">Our Collections</div>
+                <h2>Signature Collection Series</h2>
+                <p>Each collection tells a unique story, crafted to perfection for your special moments.</p>
+            </div>
+            
+            <div class="collections-grid">
+                <div class="collection-card" data-aos="zoom-in" data-aos-delay="100">
+                    <div class="collection-image">
+                        👑
+                    </div>
+                    <div class="collection-content">
+                        <h3 class="collection-title">Executive Gold Collection</h3>
+                        <p class="collection-features">
+                            Premium brown & gold materials with corporate-grade finishing. 
+                            Perfect for business gifts and professional events.
+                        </p>
+                        <div class="collection-actions">
+                            <button class="btn btn-primary quick-preview" data-collection="executive-gold">
+                                Quick Preview
+                            </button>
+                            <button class="btn btn-secondary">
+                                <ion-icon name="heart-outline"></ion-icon>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="collection-card" data-aos="zoom-in" data-aos-delay="200">
+                    <div class="collection-image">
+                        🌙
+                    </div>
+                    <div class="collection-content">
+                        <h3 class="collection-title">Midnight Elegance Series</h3>
+                        <p class="collection-features">
+                            Ultra-luxury black presentation with gold accent detailing. 
+                            Sophisticated design for exclusive occasions.
+                        </p>
+                        <div class="collection-actions">
+                            <button class="btn btn-primary quick-preview" data-collection="midnight-elegance">
+                                Quick Preview
+                            </button>
+                            <button class="btn btn-secondary">
+                                <ion-icon name="heart-outline"></ion-icon>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="collection-card" data-aos="zoom-in" data-aos-delay="300">
+                    <div class="collection-image">
+                        🌿
+                    </div>
+                    <div class="collection-content">
+                        <h3 class="collection-title">Heritage Craft</h3>
+                        <p class="collection-features">
+                            Traditional Indonesian motifs with modern interpretation. 
+                            Celebrating cultural heritage in contemporary design.
+                        </p>
+                        <div class="collection-actions">
+                            <button class="btn btn-primary quick-preview" data-collection="heritage-craft">
+                                Quick Preview
+                            </button>
+                            <button class="btn btn-secondary">
+                                <ion-icon name="heart-outline"></ion-icon>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="collection-card" data-aos="zoom-in" data-aos-delay="400">
+                    <div class="collection-image">
+                        💎
+                    </div>
+                    <div class="collection-content">
+                        <h3 class="collection-title">Crystal Luxe</h3>
+                        <p class="collection-features">
+                            Premium crystal-inspired design with metallic accents. 
+                            Perfect for weddings and milestone celebrations.
+                        </p>
+                        <div class="collection-actions">
+                            <button class="btn btn-primary quick-preview" data-collection="crystal-luxe">
+                                Quick Preview
+                            </button>
+                            <button class="btn btn-secondary">
+                                <ion-icon name="heart-outline"></ion-icon>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="collections-cta" data-aos="fade-up" data-aos-delay="500">
+                <h3>Need Something Unique?</h3>
+                <p>We specialize in bespoke designs tailored to your specific vision and requirements.</p>
+                <a href="#contact" class="btn btn-accent">
+                    <ion-icon name="create-outline"></ion-icon>
+                    Custom Design Request
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Craftsmanship Process -->
+    <section id="process" class="craftsmanship-process" data-aos="fade-up">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <div class="section-badge">Our Process</div>
+                <h2>From Vision to Reality</h2>
+                <p>Our meticulous 5-step process ensures every detail meets our exacting standards.</p>
+            </div>
+            
+            <div class="process-grid">
+                <div class="process-step" data-aos="fade-right" data-aos-delay="100">
+                    <div class="process-number">1</div>
+                    <h4>Consultation & Design</h4>
+                    <p>In-depth discussion of your vision, requirements, and preferences. We create initial concepts and mood boards.</p>
+                </div>
+                
+                <div class="process-step" data-aos="fade-left" data-aos-delay="200">
+                    <div class="process-number">2</div>
+                    <h4>3D Visualization</h4>
+                    <p>Detailed 3D mockups and renderings allow you to see and refine your design before production begins.</p>
+                </div>
+                
+                <div class="process-step" data-aos="fade-right" data-aos-delay="300">
+                    <div class="process-number">3</div>
+                    <h4>Material Selection</h4>
+                    <p>Choose from our curated selection of premium materials, finishes, and decorative elements.</p>
+                </div>
+                
+                <div class="process-step" data-aos="fade-left" data-aos-delay="400">
+                    <div class="process-number">4</div>
+                    <h4>Master Craftsmanship</h4>
+                    <p>Our skilled artisans bring your design to life using time-honored techniques and modern precision tools.</p>
+                </div>
+                
+                <div class="process-step" data-aos="fade-right" data-aos-delay="500">
+                    <div class="process-number">5</div>
+                    <h4>Quality Assurance & Delivery</h4>
+                    <p>Rigorous quality checks ensure perfection before careful packaging and timely delivery to your location.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Portfolio Gallery -->
+    <section id="portfolio" class="portfolio-gallery" data-aos="fade-up">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <div class="section-badge">Portfolio</div>
+                <h2>Our Masterpieces</h2>
+                <p>Explore our recent projects and see how we've helped bring our clients' visions to life.</p>
+            </div>
+            
+            <div class="portfolio-filters" data-aos="fade-up" data-aos-delay="100">
+                <button class="filter-btn active" data-filter="all">All Projects</button>
+                <button class="filter-btn" data-filter="corporate">Corporate</button>
+                <button class="filter-btn" data-filter="wedding">Wedding</button>
+                <button class="filter-btn" data-filter="luxury">Luxury</button>
+                <button class="filter-btn" data-filter="eco">Eco-Friendly</button>
+            </div>
+            
+            <div class="portfolio-grid">
+                <div class="portfolio-item corporate" data-aos="zoom-in" data-aos-delay="100">
+                    <div class="portfolio-image">🏢</div>
+                    <div class="portfolio-overlay">
+                        <h4>Corporate Excellence</h4>
+                        <p>Executive gift boxes for PT. Indofood</p>
+                    </div>
+                </div>
+                
+                <div class="portfolio-item wedding" data-aos="zoom-in" data-aos-delay="200">
+                    <div class="portfolio-image">💒</div>
+                    <div class="portfolio-overlay">
+                        <h4>Wedding Elegance</h4>
+                        <p>Custom favor boxes for Jakarta wedding</p>
+                    </div>
+                </div>
+                
+                <div class="portfolio-item luxury" data-aos="zoom-in" data-aos-delay="300">
+                    <div class="portfolio-image">💎</div>
+                    <div class="portfolio-overlay">
+                        <h4>Luxury Collection</h4>
+                        <p>Premium jewelry packaging series</p>
+                    </div>
+                </div>
+                
+                <div class="portfolio-item eco" data-aos="zoom-in" data-aos-delay="400">
+                    <div class="portfolio-image">🌱</div>
+                    <div class="portfolio-overlay">
+                        <h4>Eco-Sustainable</h4>
+                        <p>Environmental-friendly corporate gifts</p>
+                    </div>
+                </div>
+                
+                <div class="portfolio-item corporate" data-aos="zoom-in" data-aos-delay="500">
+                    <div class="portfolio-image">🎖️</div>
+                    <div class="portfolio-overlay">
+                        <h4>Achievement Awards</h4>
+                        <p>Recognition ceremony packaging</p>
+                    </div>
+                </div>
+                
+                <div class="portfolio-item wedding" data-aos="zoom-in" data-aos-delay="600">
+                    <div class="portfolio-image">🌹</div>
+                    <div class="portfolio-overlay">
+                        <h4>Romantic Collection</h4>
+                        <p>Anniversary celebration boxes</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="portfolio-cta" data-aos="fade-up" data-aos-delay="700">
+                <h3>Ready to Create Your Masterpiece?</h3>
+                <p>Let's discuss how we can bring your vision to life with our expert craftsmanship.</p>
+                <a href="#contact" class="btn btn-primary">
+                    <ion-icon name="create-outline"></ion-icon>
+                    Start Your Project
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section id="testimonials" class="testimonials-section" data-aos="fade-up">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <div class="section-badge">Client Stories</div>
+                <h2>What Our Clients Say</h2>
+                <p>Don't just take our word for it. Hear from satisfied clients who chose Premium Gift Box for their special moments.</p>
+            </div>
+            
+            <div class="testimonials-grid">
+                <div class="testimonial-card" data-aos="zoom-in" data-aos-delay="100">
+                    <p class="testimonial-text">
+                        "Kualitas luar biasa! Box yang dibuat untuk corporate gift perusahaan kami mendapat pujian dari semua klien. 
+                        Detailnya sangat halus dan finishing-nya premium sekali."
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">S</div>
+                        <div class="author-info">
+                            <h5>Sarah Wijaya</h5>
+                            <p>Marketing Director, PT. Maju Bersama</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="testimonial-card" data-aos="zoom-in" data-aos-delay="200">
+                    <p class="testimonial-text">
+                        "Perfect untuk wedding favor kami! Guests semua bilang packaging-nya beautiful dan elegant banget. 
+                        Terima kasih sudah membuat hari special kami makin memorable!"
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">M</div>
+                        <div class="author-info">
+                            <h5>Maya & Andi</h5>
+                            <p>Happy Couple</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="testimonial-card" data-aos="zoom-in" data-aos-delay="300">
+                    <p class="testimonial-text">
+                        "Service yang professional dan hasil yang memuaskan. Timeline sesuai janji dan komunikasi lancar. 
+                        Definitely akan order lagi untuk event berikutnya."
+                    </p>
+                    <div class="testimonial-author">
+                        <div class="author-avatar">B</div>
+                        <div class="author-info">
+                            <h5>Budi Santoso</h5>
+                            <p>Event Organizer</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="faq-section" data-aos="fade-up">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <div class="section-badge">FAQ</div>
+                <h2>Frequently Asked Questions</h2>
+                <p>Get answers to the most common questions about our services and processes.</p>
+            </div>
+            
+            <div class="faq-container">
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="100">
+                    <button class="faq-question">
+                        <span>Berapa lama waktu produksi untuk custom gift box?</span>
+                        <ion-icon name="chevron-down-outline" class="faq-icon"></ion-icon>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Waktu produksi bervariasi tergantung kompleksitas design dan jumlah order. Umumnya 3-5 hari untuk order standard, 5-7 hari untuk design custom, dan 7-10 hari untuk order dalam jumlah besar.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="200">
+                    <button class="faq-question">
+                        <span>Apakah bisa pesan dalam jumlah kecil?</span>
+                        <ion-icon name="chevron-down-outline" class="faq-icon"></ion-icon>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Ya, kami melayani order mulai dari 5 pieces. Tidak ada minimum order yang terlalu tinggi karena kami memahami kebutuhan yang beragam dari setiap klien.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="300">
+                    <button class="faq-question">
+                        <span>Bagaimana sistem pembayaran yang tersedia?</span>
+                        <ion-icon name="chevron-down-outline" class="faq-icon"></ion-icon>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Kami menerima transfer bank, e-wallet (Dana, GoPay, OVO), dan untuk area Sukoharjo tersedia COD. Sistem pembayaran 30% DP dan 70% pelunasan sebelum pengiriman.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="400">
+                    <button class="faq-question">
+                        <span>Apakah ada garansi untuk produk yang dibuat?</span>
+                        <ion-icon name="chevron-down-outline" class="faq-icon"></ion-icon>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Ya, kami memberikan 100% satisfaction guarantee. Jika ada ketidakpuasan terhadap hasil, kami akan melakukan revisi atau penggantian sesuai kesepakatan.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="500">
+                    <button class="faq-question">
+                        <span>Bagaimana cara melakukan konsultasi design?</span>
+                        <ion-icon name="chevron-down-outline" class="faq-icon"></ion-icon>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Konsultasi bisa dilakukan melalui WhatsApp, video call, atau kunjungan langsung ke workshop kami di Sukoharjo. Konsultasi initial selalu gratis dan termasuk preview 3D mockup.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="contact-section" data-aos="fade-up">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <div class="section-badge">Get In Touch</div>
+                <h2>Ready to Start Your Project?</h2>
+                <p>Let's discuss your vision and create something extraordinary together.</p>
+            </div>
+            
+            <div class="contact-content">
+                <div class="contact-info" data-aos="fade-right">
+                    <h3>Contact Information</h3>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <ion-icon name="location-outline"></ion-icon>
+                        </div>
+                        <div class="contact-details">
+                            <h5>Workshop Location</h5>
+                            <p>Raya Grogol 110<br>Sukoharjo, Indonesia</p>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <ion-icon name="call-outline"></ion-icon>
+                        </div>
+                        <div class="contact-details">
+                            <h5>Phone & WhatsApp</h5>
+                            <p>+62-821-4848-9595</p>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <ion-icon name="mail-outline"></ion-icon>
+                        </div>
+                        <div class="contact-details">
+                            <h5>Email</h5>
+                            <p>cardosebox@gmail.com</p>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">
+                            <ion-icon name="time-outline"></ion-icon>
+                        </div>
+                        <div class="contact-details">
+                            <h5>Business Hours</h5>
+                            <p>Mon - Sat: 8:00 - 17:00<br>Sunday: By appointment</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="contact-form-wrapper" data-aos="fade-left">
+                    <form class="contact-form" id="contactForm">
+                        <h3>Send us a Message</h3>
+                        
+                        <div class="form-group">
+                            <label for="name">Full Name *</label>
+                            <input type="text" id="name" name="name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="phone">Phone Number</label>
+                            <input type="tel" id="phone" name="phone">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="boxType">Project Type</label>
+                            <select id="boxType" name="boxType">
+                                <option value="">Select project type</option>
+                                <option value="corporate">Corporate Gifts</option>
+                                <option value="wedding">Wedding Favors</option>
+                                <option value="personal">Personal Gifts</option>
+                                <option value="bulk">Bulk Orders</option>
+                                <option value="custom">Custom Design</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="message">Project Details</label>
+                            <textarea id="message" name="message" rows="4" placeholder="Tell us about your vision, quantity needed, timeline, and any specific requirements..."></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-full-width">
+                            <ion-icon name="send-outline"></ion-icon>
+                            Send Message
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Premium Gift Box</h4>
+                    <p>Transforming moments into masterpieces with handcrafted luxury packaging solutions from the heart of Sukoharjo, Indonesia.</p>
+                    <div class="footer-social">
+                        <a href="#" aria-label="Facebook"><ion-icon name="logo-facebook"></ion-icon></a>
+                        <a href="#" aria-label="Instagram"><ion-icon name="logo-instagram"></ion-icon></a>
+                        <a href="#" aria-label="WhatsApp"><ion-icon name="logo-whatsapp"></ion-icon></a>
+                    </div>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Services</h4>
+                    <ul>
+                        <li><a href="#collections">Corporate Gifts</a></li>
+                        <li><a href="#collections">Wedding Favors</a></li>
+                        <li><a href="#collections">Custom Design</a></li>
+                        <li><a href="#collections">Bulk Orders</a></li>
+                        <li><a href="#process">Design Consultation</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="#portfolio">Portfolio</a></li>
+                        <li><a href="#testimonials">Testimonials</a></li>
+                        <li><a href="#process">Our Process</a></li>
+                        <li><a href="#faq">FAQ</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Contact</h4>
+                    <p>Raya Grogol 110<br>Sukoharjo, Indonesia</p>
+                    <p>Phone: +62-821-4848-9595</p>
+                    <p>Email: cardosebox@gmail.com</p>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2025 Premium Gift Box. All rights reserved. Made with ❤️ in Sukoharjo, Indonesia.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- WhatsApp Float Button -->
+    <div class="whatsapp-float">
+        <button class="wa-main-button" aria-label="Contact via WhatsApp">
+            <ion-icon name="logo-whatsapp"></ion-icon>
+        </button>
+    </div>
+
+    <!-- Exit Intent Popup -->
+    <div id="exitIntentPopup" class="exit-popup">
+        <div class="popup-content">
+            <button class="popup-close" aria-label="Close popup">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+            
+            <h3>Wait! Don't Miss Out!</h3>
+            <p>Get a <strong>FREE consultation</strong> and <strong>15% discount</strong> on your first order.</p>
+            
+            <div class="popup-timer">
+                <h4>Limited Time Offer:</h4>
+                <div class="countdown">
+                    <span id="minutes">14</span>:<span id="seconds">59</span>
+                </div>
+            </div>
+            
+            <div class="popup-actions">
+                <button class="btn btn-primary popup-accept">
+                    <ion-icon name="logo-whatsapp"></ion-icon>
+                    Claim Free Consultation
+                </button>
+                <button class="btn btn-secondary popup-decline">
+                    Maybe Later
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Urgency Bar -->
+    <div id="urgencyBar">
+        <div class="urgency-notification">
+            <div class="urgency-icon">
+                <ion-icon name="flash-outline"></ion-icon>
+            </div>
+            <div class="urgency-content">
+                <div class="urgency-text">Only <strong data-dynamic="slots">3</strong> slots left for this month!</div>
+                <div class="urgency-subtext">Book your free consultation before they're gone</div>
+            </div>
+            <button class="urgency-cta">Book Now</button>
+            <button class="urgency-close" aria-label="Close notification">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+    </div>
+
+    <!-- Social Proof Notifications Container -->
+    <div id="socialProofNotifications"></div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="public/script.min.js"></script>
+</body>
+</html>
