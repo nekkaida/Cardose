@@ -154,6 +154,80 @@ class DatabaseService {
       }
     });
   }
+
+  // ==================== USER METHODS ====================
+
+  async createUser(user) {
+    const sql = `
+      INSERT INTO users (id, username, email, password_hash, role, full_name, phone, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    return await this.run(sql, [
+      user.id,
+      user.username,
+      user.email,
+      user.password_hash,
+      user.role,
+      user.full_name,
+      user.phone,
+      user.is_active
+    ]);
+  }
+
+  async getUserById(userId) {
+    const sql = 'SELECT * FROM users WHERE id = ?';
+    return await this.get(sql, [userId]);
+  }
+
+  async getUserByUsername(username) {
+    const sql = 'SELECT * FROM users WHERE username = ?';
+    return await this.get(sql, [username]);
+  }
+
+  async getUserByEmail(email) {
+    const sql = 'SELECT * FROM users WHERE email = ?';
+    return await this.get(sql, [email]);
+  }
+
+  async getUser(username, email) {
+    const sql = 'SELECT * FROM users WHERE username = ? OR email = ?';
+    return await this.get(sql, [username, email]);
+  }
+
+  async updateUser(userId, updates) {
+    const fields = Object.keys(updates);
+    const values = Object.values(updates);
+
+    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    const sql = `UPDATE users SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+
+    return await this.run(sql, [...values, userId]);
+  }
+
+  async deleteUser(userId) {
+    const sql = 'DELETE FROM users WHERE id = ?';
+    return await this.run(sql, [userId]);
+  }
+
+  async deactivateUser(userId) {
+    const sql = 'UPDATE users SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+    return await this.run(sql, [userId]);
+  }
+
+  async activateUser(userId) {
+    const sql = 'UPDATE users SET is_active = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?';
+    return await this.run(sql, [userId]);
+  }
+
+  async getAllUsers() {
+    const sql = 'SELECT id, username, email, role, full_name, phone, is_active, created_at FROM users ORDER BY created_at DESC';
+    return await this.all(sql);
+  }
+
+  async getUsersByRole(role) {
+    const sql = 'SELECT id, username, email, role, full_name, phone, is_active, created_at FROM users WHERE role = ? ORDER BY created_at DESC';
+    return await this.all(sql, [role]);
+  }
 }
 
 module.exports = DatabaseService;
