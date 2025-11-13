@@ -1,0 +1,290 @@
+/* ==========================================
+   CARD COMPONENTS
+   ==========================================*/
+
+/* Base Card */
+.card {
+    background: white;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    transition: all var(--transition-base);
+    position: relative;
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.card-header {
+    padding: var(--space-6);
+    border-bottom: 1px solid var(--border);
+}
+
+.card-body {
+    padding: var(--space-6);
+}
+
+.card-footer {
+    padding: var(--space-6);
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+
+/* Investment Cards */
+.investment-card {
+    background: white;
+    border-radius: var(--radius-xl);
+    padding: var(--space-8);
+    box-shadow: var(--shadow);
+    transition: all var(--transition-base);
+    position: relative;
+    border: 1px solid var(--border);
+    text-align: center;
+}
+
+.investment-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.investment-card.featured {
+    border-color: var(--accent);
+    transform: scale(1.02);
+    background: linear-gradient(135deg, white 0%, var(--bg-secondary) 100%);
+}
+
+.investment-card.featured::before {
+    content: 'MOST POPULAR';
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: var(--primary);
+    padding: var(--space-2) var(--space-4);
+    border-radius: 9999px;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    box-shadow: var(--shadow);
+}
+
+.investment-price {
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-4xl);
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: var(--space-2);
+}
+
+.investment-features {
+    list-style: none;
+    margin: var(--space-6) 0;
+    text-align: left;
+}
+
+.investment-features li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+    color: var(--text-secondary);
+}
+
+.investment-features li::before {
+    content: '✓';
+    color: var(--accent-dark);
+    font-weight: 700;
+    font-size: var(--font-size-lg);
+    flex-shrink: 0;
+}
+
+/* Collection Cards */
+.collection-card {
+    background: white;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: all var(--transition-slow);
+    border: 1px solid var(--border);
+}
+
+.collection-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-lg);
+}
+
+.collection-image {
+    width: 100%;
+    height: 240px;
+    background: var(--bg-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-5xl);
+    color: var(--accent-dark);
+    position: relative;
+    overflow: hidden;
+}
+
+.collection-image::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(241,216,134,0.1), rgba(166,124,54,0.1));
+}
+
+.collection-content {
+    padding: var(--space-6);
+}
+
+.collection-title {
+    margin-bottom: var(--space-3);
+    color: var(--primary);
+}
+
+.collection-features {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-6);
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+}
+
+.collection-actions {
+    display: flex;
+    gap: var(--space-3);
+}
+
+/* Testimonial Cards */
+.testimonial-card {
+    background: white;
+    padding: var(--space-8);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    position: relative;
+    border: 1px solid var(--border);
+    transition: transform var(--transition-base);
+}
+
+.testimonial-card:hover {
+    transform: translateY(-4px);
+}
+
+.testimonial-card::before {
+    content: '"';
+    position: absolute;
+    top: var(--space-4);
+    left: var(--space-6);
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-6xl);
+    color: var(--accent);
+    line-height: 1;
+    opacity: 0.3;
+}
+
+.testimonial-text {
+    margin-bottom: var(--space-6);
+    font-style: italic;
+    color: var(--text-secondary);
+    position: relative;
+    z-index: 2;
+    line-height: 1.6;
+}
+
+.testimonial-author {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    position: relative;
+    z-index: 2;
+}
+
+.author-avatar {
+    width: 48px;
+    height: 48px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.author-info h5 {
+    margin-bottom: var(--space-1);
+    color: var(--primary);
+}
+
+.author-info p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+/* Trust Cards */
+.trust-item {
+    text-align: center;
+    padding: var(--space-6);
+    background: white;
+    border-radius: var(--radius-lg);
+    transition: transform var(--transition-base);
+}
+
+.trust-item:hover {
+    transform: translateY(-4px);
+}
+
+.trust-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto var(--space-4);
+    background: var(--accent);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-2xl);
+    color: var(--primary);
+}
+
+.trust-item h4 {
+    margin-bottom: var(--space-2);
+    color: var(--primary);
+}
+
+.trust-item p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .investment-card,
+    .collection-card,
+    .testimonial-card {
+        margin-bottom: var(--space-6);
+    }
+    
+    .investment-price {
+        font-size: var(--font-size-3xl);
+    }
+    
+    .collection-image {
+        height: 200px;
+        font-size: var(--font-size-4xl);
+    }
+    
+    .testimonial-card::before {
+        font-size: var(--font-size-5xl);
+    }
+    
+    .collection-actions {
+        flex-direction: column;
+    }
+}
