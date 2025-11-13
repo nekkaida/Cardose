@@ -5,8 +5,12 @@ yarn-debug.log*
 yarn-error.log*
 package-lock.json
 
-# Build outputs
-public/
+# Build outputs (keep minified files for production)
+public/*.css
+public/*.js
+public/*.map
+!public/*.min.css
+!public/*.min.js
 dist/
 build/
 
