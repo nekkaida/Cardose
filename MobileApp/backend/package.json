@@ -1,0 +1,33 @@
+{
+  "name": "cardose-backend",
+  "version": "1.0.0",
+  "description": "Self-hosted backend for Cardose business management",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "init-db": "node src/database/init.js",
+    "migrate": "node src/database/migrate.js",
+    "seed": "node src/database/seed.js",
+    "backup": "node src/database/backup.js",
+    "sync": "node ../../Tools/sync-system/sync-to-backup.js",
+    "lint": "eslint src/**/*.js"
+  },
+  "dependencies": {
+    "fastify": "^4.24.0",
+    "@fastify/cors": "^8.4.0",
+    "@fastify/multipart": "^8.0.0",
+    "@fastify/jwt": "^7.2.0",
+    "sqlite3": "^5.1.6",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^9.0.0",
+    "joi": "^17.11.0",
+    "date-fns": "^2.30.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "keywords": ["business", "management", "self-hosted", "sqlite"],
+  "author": "Premium Gift Box Team",
+  "license": "MIT"
+}
