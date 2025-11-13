@@ -1,0 +1,218 @@
+-- Premium Gift Box Business Database Schema
+-- SQLite database for self-hosted business management
+
+-- Enable foreign key constraints
+PRAGMA foreign_keys = ON;
+
+-- Users table (business owners, managers, employees)
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('owner', 'manager', 'employee')),
+    full_name TEXT NOT NULL,
+    phone TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Customers table
+CREATE TABLE IF NOT EXISTS customers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT,
+    whatsapp TEXT,
+    phone TEXT,
+    address TEXT,
+    business_type TEXT CHECK (business_type IN ('individual', 'corporate', 'wedding', 'event')),
+    company_name TEXT,
+    industry TEXT,
+    preferred_contact TEXT CHECK (preferred_contact IN ('whatsapp', 'email', 'phone')),
+    notes TEXT,
+    loyalty_status TEXT DEFAULT 'new' CHECK (loyalty_status IN ('new', 'regular', 'vip')),
+    referred_by TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (referred_by) REFERENCES customers(id)
+);
+
+-- Orders table
+CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY,
+    order_number TEXT UNIQUE NOT NULL,
+    customer_id TEXT NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'designing', 'approved', 'production', 'quality_control', 'completed', 'cancelled')),
+    
+    -- Specifications
+    box_type TEXT CHECK (box_type IN ('executive', 'luxury', 'custom')),
+    width REAL,
+    height REAL,
+    depth REAL,
+    materials TEXT, -- JSON array of materials
+    colors TEXT, -- JSON array of colors
+    special_requests TEXT,
+    design_files TEXT, -- JSON array of file paths
+    
+    -- Pricing
+    material_cost REAL DEFAULT 0,
+    labor_cost REAL DEFAULT 0,
+    markup_percentage REAL DEFAULT 0,
+    total_price REAL NOT NULL,
+    currency TEXT DEFAULT 'IDR',
+    
+    -- Workflow
+    estimated_completion DATE,
+    actual_completion DATE,
+    
+    -- Communication
+    whatsapp_thread TEXT,
+    last_contact DATE,
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+);
+
+-- Order stages tracking
+CREATE TABLE IF NOT EXISTS order_stages (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    start_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    end_date DATETIME,
+    notes TEXT,
+    created_by TEXT,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Inventory materials
+CREATE TABLE IF NOT EXISTS inventory_materials (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT CHECK (category IN ('cardboard', 'fabric', 'ribbon', 'accessories', 'packaging', 'tools')),
+    supplier TEXT,
+    unit_cost REAL NOT NULL,
+    current_stock REAL NOT NULL DEFAULT 0,
+    reorder_level REAL NOT NULL DEFAULT 0,
+    unit TEXT NOT NULL, -- pcs, meters, kg, etc.
+    last_restocked DATE,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Finished products inventory
+CREATE TABLE IF NOT EXISTS inventory_products (
+    id TEXT PRIMARY KEY,
+    product_type TEXT NOT NULL,
+    description TEXT,
+    in_stock INTEGER NOT NULL DEFAULT 0,
+    reserved INTEGER NOT NULL DEFAULT 0, -- For pending orders
+    cost_per_unit REAL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Inventory movements log
+CREATE TABLE IF NOT EXISTS inventory_movements (
+    id TEXT PRIMARY KEY,
+    type TEXT CHECK (type IN ('purchase', 'usage', 'sale', 'adjustment', 'waste')),
+    item_id TEXT NOT NULL,
+    item_type TEXT CHECK (item_type IN ('material', 'product')),
+    quantity REAL NOT NULL,
+    unit_cost REAL,
+    total_cost REAL,
+    reason TEXT,
+    order_id TEXT, -- If related to an order
+    notes TEXT,
+    created_by TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+);
+
+-- Financial transactions
+CREATE TABLE IF NOT EXISTS financial_transactions (
+    id TEXT PRIMARY KEY,
+    type TEXT CHECK (type IN ('income', 'expense')),
+    category TEXT NOT NULL, -- sales, materials, labor, overhead, etc.
+    amount REAL NOT NULL,
+    currency TEXT DEFAULT 'IDR',
+    description TEXT NOT NULL,
+    order_id TEXT, -- If related to an order
+    reference_number TEXT,
+    payment_method TEXT,
+    payment_date DATE,
+    notes TEXT,
+    created_by TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Customer communication log
+CREATE TABLE IF NOT EXISTS communications (
+    id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    order_id TEXT,
+    type TEXT CHECK (type IN ('whatsapp', 'email', 'phone', 'meeting', 'note')),
+    subject TEXT,
+    content TEXT NOT NULL,
+    direction TEXT CHECK (direction IN ('incoming', 'outgoing', 'internal')),
+    created_by TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Business settings and configuration
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    description TEXT,
+    updated_by TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (updated_by) REFERENCES users(id)
+);
+
+-- Data sync log (for backup synchronization)
+CREATE TABLE IF NOT EXISTS sync_log (
+    id TEXT PRIMARY KEY,
+    sync_type TEXT CHECK (sync_type IN ('backup', 'restore', 'sync')),
+    target TEXT, -- backup computer IP or location
+    status TEXT CHECK (status IN ('success', 'failed', 'in_progress')),
+    records_count INTEGER,
+    file_size INTEGER,
+    checksum TEXT,
+    error_message TEXT,
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
+CREATE INDEX IF NOT EXISTS idx_order_stages_order_id ON order_stages(order_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_movements_item_id ON inventory_movements(item_id);
+CREATE INDEX IF NOT EXISTS idx_financial_transactions_order_id ON financial_transactions(order_id);
+CREATE INDEX IF NOT EXISTS idx_communications_customer_id ON communications(customer_id);
+CREATE INDEX IF NOT EXISTS idx_communications_order_id ON communications(order_id);
+
+-- Insert default settings
+INSERT OR IGNORE INTO settings (key, value, description) VALUES
+('business_name', 'Premium Gift Box', 'Business name'),
+('currency', 'IDR', 'Default currency'),
+('tax_rate', '11', 'Tax rate percentage (PPN)'),
+('default_markup', '100', 'Default markup percentage'),
+('backup_frequency', '4', 'Backup frequency in hours'),
+('sync_enabled', '1', 'Enable automatic synchronization');
+
+-- Insert default admin user (password: admin123 - CHANGE THIS!)
+INSERT OR IGNORE INTO users (id, username, email, password_hash, role, full_name) VALUES
+('admin-001', 'admin', 'admin@premiumgiftbox.com', '$2a$10$rQZ4nQRz9.ZYBzJhw4rWBOF7GhVQBQjTJhFwZLhf4tRKlNYf4tYK6', 'owner', 'Administrator');
