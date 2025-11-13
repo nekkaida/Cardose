@@ -19,6 +19,10 @@ const db = new Database();
 // Make database available in all routes
 fastify.decorate('db', db);
 
+// Register authentication decorators globally
+const { authenticateDecorator } = require('./routes/auth');
+fastify.register(authenticateDecorator);
+
 // Register routes
 fastify.register(require('./routes/auth'), { prefix: '/api/auth' });
 fastify.register(require('./routes/orders'), { prefix: '/api/orders' });
