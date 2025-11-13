@@ -1,75 +1,58 @@
 {
-  "name": "cardose-marketing-website",
-  "version": "2.0.0",
-  "type": "module",
-  "description": "Marketing website for Premium Gift Box - Luxury handcrafted packaging solutions",
-  "main": "src/js/main.js",
+  "name": "cardose",
+  "version": "1.0.0",
+  "description": "Premium Gift Box - Complete Business Management Solution",
+  "private": true,
+  "workspaces": [
+    "Web",
+    "MobileApp/backend",
+    "MobileApp/mobile"
+  ],
   "scripts": {
-    "start": "npm run dev",
-    "dev": "npm run serve",
-    "build": "npm run build:css && npm run build:js && npm run optimize",
-    "build:css": "postcss src/css/main.css -o public/styles.css --config config/postcss.config.cjs",
-    "build:js": "rollup -c config/rollup.config.js",
-    "serve": "http-server . -p 3000 -o index.html --cors",
-    "optimize": "npm run minify:css && npm run minify:js",
-    "minify:css": "cleancss public/styles.css -o public/styles.min.css",
-    "minify:js": "terser public/script.js -o public/script.min.js",
-    "lint": "eslint src/js/**/*.js --config config/.eslintrc.cjs",
-    "lint:fix": "eslint src/js/**/*.js --config config/.eslintrc.cjs --fix",
-    "format": "prettier --write src/**/*.{js,css,html} --config config/.prettierrc",
-    "test": "jest",
-    "clean": "rimraf public/*.css public/*.js",
-    "deploy": "npm run build && npm run deploy:files",
-    "deploy:files": "echo 'Copy files to your hosting provider'",
-    "watch": "npm-run-all --parallel watch:*",
-    "watch:css": "postcss src/css/main.css -o public/styles.css --config config/postcss.config.cjs --watch",
-    "watch:js": "rollup -c config/rollup.config.js --watch",
-    "dev:watch": "npm run build && npm-run-all --parallel watch:* serve:only",
-    "serve:only": "http-server . -p 3000"
+    "setup": "npm install && npm run setup:web && npm run setup:mobile",
+    "setup:web": "cd Web && npm install",
+    "setup:mobile": "cd MobileApp/backend && npm install && cd ../mobile && npm install",
+
+    "dev:web": "cd Web && npm run dev",
+    "dev:backend": "cd MobileApp/backend && npm run dev",
+    "dev:mobile": "cd MobileApp/mobile && npm start",
+
+    "build:web": "cd Web && npm run build",
+    "build:backend": "cd MobileApp/backend && npm run build",
+    "build:mobile": "cd MobileApp/mobile && npm run build:android",
+
+    "start:backend": "cd MobileApp/backend && npm start",
+    "start:all": "npm-run-all --parallel start:backend dev:mobile",
+
+    "lint": "npm run lint:web && npm run lint:backend",
+    "lint:web": "cd Web && npm run lint",
+    "lint:backend": "cd MobileApp/backend && npm run lint",
+
+    "clean": "npm run clean:web && npm run clean:mobile",
+    "clean:web": "cd Web && npm run clean",
+    "clean:mobile": "cd MobileApp/backend && rm -rf node_modules && cd ../mobile && rm -rf node_modules",
+
+    "backup:db": "cd MobileApp/backend && npm run backup",
+    "sync:db": "cd MobileApp/backend && npm run sync"
   },
   "keywords": [
-    "gift-box",
-    "luxury-packaging",
-    "handcrafted",
-    "corporate-gifts",
-    "wedding-favors",
-    "sukoharjo",
+    "premium-gift-box",
+    "business-management",
+    "react-native",
+    "self-hosted",
     "indonesia"
   ],
-  "author": "Premium Gift Box",
+  "author": "Cardose Team",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/premium-gift-box/website.git"
+    "url": "https://github.com/cardose/cardose"
   },
-  "bugs": {
-    "url": "https://github.com/premium-gift-box/website/issues"
-  },
-  "homepage": "https://premium-gift-box.github.io/website/",
-  "devDependencies": {
-    "@rollup/plugin-node-resolve": "^15.0.1",
-    "@rollup/plugin-terser": "^0.4.0",
-    "autoprefixer": "^10.4.13",
-    "clean-css-cli": "^5.6.1",
-    "eslint": "^8.34.0",
-    "http-server": "^14.1.1",
-    "jest": "^29.4.2",
-    "npm-run-all": "^4.1.5",
-    "postcss": "^8.4.21",
-    "postcss-cli": "^10.1.0",
-    "postcss-import": "^15.1.0",
-    "prettier": "^2.8.4",
-    "rimraf": "^4.1.2",
-    "rollup": "^3.15.0",
-    "terser": "^5.16.4"
-  },
-  "browserslist": [
-    "> 1%",
-    "last 2 versions",
-    "not dead"
-  ],
   "engines": {
     "node": ">=16.0.0",
     "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
   }
 }
