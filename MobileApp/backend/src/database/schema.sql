@@ -65,7 +65,8 @@ CREATE TABLE IF NOT EXISTS orders (
     -- Workflow
     estimated_completion DATE,
     actual_completion DATE,
-    
+    priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+
     -- Communication
     whatsapp_thread TEXT,
     last_contact DATE,
