@@ -1,7 +1,9 @@
 // Financial management routes
-const { sampleOrders, indonesianTaxRates } = require('../data/sampleData');
+const { v4: uuidv4 } = require('uuid');
 
 async function financialRoutes(fastify, options) {
+  const db = fastify.db;
+  const PPN_RATE = 0.11; // 11% Indonesian VAT
   // Get financial summary
   fastify.get('/summary', async (request, reply) => {
     const totalRevenue = sampleOrders.reduce((sum, order) => sum + order.pricing.finalPrice, 0);
@@ -283,6 +285,432 @@ async function financialRoutes(fastify, options) {
         }
       }
     };
+  });
+
+  // ==================== INVOICE MANAGEMENT ====================
+
+  // Create invoice for an order
+  fastify.post('/invoices', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { orderId, dueDate, notes, discountAmount = 0 } = request.body;
+
+      if (!orderId) {
+        return reply.status(400).send({ error: 'Order ID is required' });
+      }
+
+      // Get order details
+      const order = await db.getOrderById(orderId);
+      if (!order) {
+        return reply.status(404).send({ error: 'Order not found' });
+      }
+
+      // Get customer details
+      const customer = await db.getCustomerById(order.customer_id);
+
+      // Calculate pricing
+      const subtotal = order.total_price || 0;
+      const discount = discountAmount || 0;
+      const afterDiscount = subtotal - discount;
+      const ppnAmount = afterDiscount * PPN_RATE;
+      const totalAmount = afterDiscount + ppnAmount;
+
+      // Generate invoice number
+      const invoiceNumber = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+
+      // Create invoice
+      const invoiceId = uuidv4();
+      const invoice = {
+        id: invoiceId,
+        invoice_number: invoiceNumber,
+        order_id: orderId,
+        customer_id: order.customer_id,
+        subtotal: subtotal,
+        discount: discount,
+        ppn_rate: PPN_RATE * 100,
+        ppn_amount: ppnAmount,
+        total_amount: totalAmount,
+        status: 'unpaid',
+        issue_date: new Date().toISOString().split('T')[0],
+        due_date: dueDate || null,
+        notes: notes || null,
+        created_by: request.user.id
+      };
+
+      await db.createInvoice(invoice);
+
+      return {
+        success: true,
+        message: 'Invoice created successfully',
+        invoice: {
+          ...invoice,
+          customerName: customer?.name,
+          orderNumber: order.order_number
+        }
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to create invoice: ' + error.message });
+    }
+  });
+
+  // Get invoice by ID
+  fastify.get('/invoices/:invoiceId', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { invoiceId } = request.params;
+
+      const invoice = await db.getInvoiceById(invoiceId);
+      if (!invoice) {
+        return reply.status(404).send({ error: 'Invoice not found' });
+      }
+
+      // Get related data
+      const order = await db.getOrderById(invoice.order_id);
+      const customer = await db.getCustomerById(invoice.customer_id);
+
+      return {
+        invoice: {
+          ...invoice,
+          order: {
+            id: order.id,
+            orderNumber: order.order_number,
+            status: order.status
+          },
+          customer: {
+            id: customer.id,
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+            address: customer.address
+          }
+        }
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to fetch invoice' });
+    }
+  });
+
+  // Get all invoices
+  fastify.get('/invoices', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { status, customerId, startDate, endDate } = request.query;
+
+      const invoices = await db.getAllInvoices({ status, customerId, startDate, endDate });
+
+      return {
+        invoices,
+        total: invoices.length
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to fetch invoices' });
+    }
+  });
+
+  // Update invoice status
+  fastify.put('/invoices/:invoiceId/status', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { invoiceId } = request.params;
+      const { status, paidDate, paymentMethod } = request.body;
+
+      if (!['unpaid', 'paid', 'cancelled'].includes(status)) {
+        return reply.status(400).send({ error: 'Invalid status' });
+      }
+
+      const updates = { status };
+      if (status === 'paid') {
+        updates.paid_date = paidDate || new Date().toISOString().split('T')[0];
+        updates.payment_method = paymentMethod || null;
+      }
+
+      await db.updateInvoice(invoiceId, updates);
+
+      // If paid, create transaction record
+      if (status === 'paid') {
+        const invoice = await db.getInvoiceById(invoiceId);
+        const transactionId = uuidv4();
+        await db.run(
+          `INSERT INTO financial_transactions (id, type, category, amount, description, order_id, payment_method, payment_date, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            transactionId,
+            'income',
+            'sales',
+            invoice.total_amount,
+            `Payment for Invoice ${invoice.invoice_number}`,
+            invoice.order_id,
+            paymentMethod || 'cash',
+            paidDate || new Date().toISOString().split('T')[0],
+            request.user.id
+          ]
+        );
+      }
+
+      return {
+        success: true,
+        message: 'Invoice status updated successfully'
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to update invoice status' });
+    }
+  });
+
+  // ==================== PRICING CALCULATOR ====================
+
+  // Calculate order pricing with materials and labor
+  fastify.post('/calculate-pricing', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const {
+        materials = [],
+        laborHours = 0,
+        overheadPercentage = 10,
+        markupPercentage = 50,
+        discountAmount = 0
+      } = request.body;
+
+      // Calculate material costs
+      const materialCost = materials.reduce((sum, m) => {
+        return sum + (m.quantity * m.unitCost);
+      }, 0);
+
+      // Calculate labor cost (IDR 50,000 per hour default)
+      const laborCost = laborHours * 50000;
+
+      // Calculate overhead
+      const overheadCost = (materialCost + laborCost) * (overheadPercentage / 100);
+
+      // Subtotal before markup
+      const subtotal = materialCost + laborCost + overheadCost;
+
+      // Apply markup
+      const markupAmount = subtotal * (markupPercentage / 100);
+      const afterMarkup = subtotal + markupAmount;
+
+      // Apply discount
+      const afterDiscount = afterMarkup - discountAmount;
+
+      // Calculate PPN (11%)
+      const ppnAmount = afterDiscount * PPN_RATE;
+
+      // Final price
+      const finalPrice = afterDiscount + ppnAmount;
+
+      // Calculate profit
+      const profit = afterDiscount - materialCost - laborCost - overheadCost;
+      const profitMargin = afterDiscount > 0 ? (profit / afterDiscount) * 100 : 0;
+
+      return {
+        success: true,
+        pricing: {
+          breakdown: {
+            materialCost,
+            laborCost,
+            overheadCost,
+            subtotal,
+            markupAmount,
+            markupPercentage,
+            afterMarkup,
+            discountAmount,
+            afterDiscount,
+            ppnRate: PPN_RATE * 100,
+            ppnAmount,
+            finalPrice
+          },
+          profitAnalysis: {
+            profit,
+            profitMargin: profitMargin.toFixed(2),
+            costBreakdown: {
+              materials: ((materialCost / subtotal) * 100).toFixed(1),
+              labor: ((laborCost / subtotal) * 100).toFixed(1),
+              overhead: ((overheadCost / subtotal) * 100).toFixed(1)
+            }
+          },
+          formattedPrices: {
+            subtotal: `Rp ${subtotal.toLocaleString('id-ID')}`,
+            afterDiscount: `Rp ${afterDiscount.toLocaleString('id-ID')}`,
+            ppn: `Rp ${ppnAmount.toLocaleString('id-ID')}`,
+            total: `Rp ${finalPrice.toLocaleString('id-ID')}`
+          }
+        }
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to calculate pricing' });
+    }
+  });
+
+  // ==================== BUDGET TRACKING ====================
+
+  // Create budget
+  fastify.post('/budgets', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { category, amount, period, startDate, endDate, notes } = request.body;
+
+      if (!category || !amount || !period) {
+        return reply.status(400).send({ error: 'Category, amount, and period are required' });
+      }
+
+      const budgetId = uuidv4();
+      const budget = {
+        id: budgetId,
+        category,
+        amount,
+        period,
+        start_date: startDate,
+        end_date: endDate,
+        notes: notes || null,
+        created_by: request.user.id
+      };
+
+      await db.createBudget(budget);
+
+      return {
+        success: true,
+        message: 'Budget created successfully',
+        budget
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to create budget' });
+    }
+  });
+
+  // Get budget with actual spending
+  fastify.get('/budgets/:budgetId', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { budgetId } = request.params;
+
+      const budget = await db.getBudgetById(budgetId);
+      if (!budget) {
+        return reply.status(404).send({ error: 'Budget not found' });
+      }
+
+      // Calculate actual spending
+      const actualSpending = await db.getBudgetActualSpending(
+        budget.category,
+        budget.start_date,
+        budget.end_date
+      );
+
+      const variance = budget.amount - actualSpending;
+      const percentageUsed = budget.amount > 0 ? (actualSpending / budget.amount) * 100 : 0;
+
+      return {
+        budget: {
+          ...budget,
+          actualSpending,
+          variance,
+          percentageUsed: percentageUsed.toFixed(2),
+          status: percentageUsed > 100 ? 'over' : percentageUsed > 90 ? 'warning' : 'good'
+        }
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to fetch budget' });
+    }
+  });
+
+  // Get all budgets
+  fastify.get('/budgets', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const budgets = await db.getAllBudgets();
+
+      // Add actual spending to each budget
+      const budgetsWithActuals = await Promise.all(
+        budgets.map(async (budget) => {
+          const actualSpending = await db.getBudgetActualSpending(
+            budget.category,
+            budget.start_date,
+            budget.end_date
+          );
+
+          const variance = budget.amount - actualSpending;
+          const percentageUsed = budget.amount > 0 ? (actualSpending / budget.amount) * 100 : 0;
+
+          return {
+            ...budget,
+            actualSpending,
+            variance,
+            percentageUsed: percentageUsed.toFixed(2),
+            status: percentageUsed > 100 ? 'over' : percentageUsed > 90 ? 'warning' : 'good'
+          };
+        })
+      );
+
+      return {
+        budgets: budgetsWithActuals,
+        summary: {
+          totalBudgeted: budgets.reduce((sum, b) => sum + b.amount, 0),
+          totalSpent: budgetsWithActuals.reduce((sum, b) => sum + b.actualSpending, 0)
+        }
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to fetch budgets' });
+    }
+  });
+
+  // ==================== TAX REPORTS ====================
+
+  // Get tax report for period
+  fastify.get('/tax-report', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { startDate, endDate, month, year } = request.query;
+
+      let start, end;
+      if (month && year) {
+        start = new Date(year, month - 1, 1).toISOString().split('T')[0];
+        end = new Date(year, month, 0).toISOString().split('T')[0];
+      } else {
+        start = startDate;
+        end = endDate;
+      }
+
+      const taxData = await db.getTaxReport(start, end);
+
+      return {
+        period: {
+          start,
+          end,
+          display: month && year ? `${month}/${year}` : `${start} to ${end}`
+        },
+        ppn: {
+          rate: PPN_RATE * 100,
+          collected: taxData.ppnCollected || 0,
+          paid: taxData.ppnPaid || 0,
+          netPayable: (taxData.ppnCollected || 0) - (taxData.ppnPaid || 0),
+          baseAmount: taxData.ppnBase || 0
+        },
+        summary: {
+          totalIncome: taxData.totalIncome || 0,
+          totalExpenses: taxData.totalExpenses || 0,
+          netIncome: (taxData.totalIncome || 0) - (taxData.totalExpenses || 0),
+          totalInvoices: taxData.invoiceCount || 0
+        }
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to generate tax report' });
+    }
   });
 }
 
