@@ -42,10 +42,15 @@ fastify.register(require('./routes/communication'), { prefix: '/api/communicatio
 fastify.register(require('./routes/backup'), { prefix: '/api/backup' });
 fastify.register(require('./routes/sync'), { prefix: '/api/sync' });
 fastify.register(require('./routes/templates'), { prefix: '/api/templates' });
+fastify.register(require('./routes/notifications'), { prefix: '/api/notifications' });
 
 // Backup service setup
 const BackupService = require('./services/BackupService');
 const backupService = new BackupService();
+
+// Notification service setup
+const NotificationService = require('./services/NotificationService');
+const notificationService = new NotificationService(db);
 
 // Health check endpoint
 fastify.get('/api/health', async (request, reply) => {
@@ -69,6 +74,11 @@ const start = async () => {
     if (process.env.AUTO_BACKUP === 'true') {
       const backupFrequency = parseInt(process.env.BACKUP_FREQUENCY || '4');
       backupService.startAutoBackup(backupFrequency);
+    }
+
+    // Start automated notifications if enabled
+    if (process.env.ENABLE_NOTIFICATIONS !== 'false') {
+      notificationService.startAutomatedChecks();
     }
   } catch (err) {
     fastify.log.error(err);
