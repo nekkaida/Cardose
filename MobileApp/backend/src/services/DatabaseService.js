@@ -228,6 +228,64 @@ class DatabaseService {
     const sql = 'SELECT id, username, email, role, full_name, phone, is_active, created_at FROM users WHERE role = ? ORDER BY created_at DESC';
     return await this.all(sql, [role]);
   }
+
+  // ==================== FILE METHODS ====================
+
+  async createFile(file) {
+    const sql = `
+      INSERT INTO files (id, filename, stored_filename, mimetype, size, uploaded_by, has_thumbnail)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+    return await this.run(sql, [
+      file.id,
+      file.filename,
+      file.stored_filename,
+      file.mimetype,
+      file.size,
+      file.uploaded_by,
+      file.has_thumbnail ? 1 : 0
+    ]);
+  }
+
+  async getFileById(fileId) {
+    const sql = 'SELECT * FROM files WHERE id = ?';
+    return await this.get(sql, [fileId]);
+  }
+
+  async getFilesByUser(userId) {
+    const sql = 'SELECT * FROM files WHERE uploaded_by = ? ORDER BY created_at DESC';
+    return await this.all(sql, [userId]);
+  }
+
+  async deleteFile(fileId) {
+    const sql = 'DELETE FROM files WHERE id = ?';
+    return await this.run(sql, [fileId]);
+  }
+
+  async getFileStats() {
+    const sql = 'SELECT COUNT(*) as count, SUM(size) as size FROM files';
+    return await this.get(sql);
+  }
+
+  async attachFileToOrder(orderId, fileId) {
+    const sql = 'INSERT INTO order_files (order_id, file_id) VALUES (?, ?)';
+    return await this.run(sql, [orderId, fileId]);
+  }
+
+  async getOrderFiles(orderId) {
+    const sql = `
+      SELECT f.* FROM files f
+      INNER JOIN order_files of ON f.id = of.file_id
+      WHERE of.order_id = ?
+      ORDER BY f.created_at DESC
+    `;
+    return await this.all(sql, [orderId]);
+  }
+
+  async detachFileFromOrder(orderId, fileId) {
+    const sql = 'DELETE FROM order_files WHERE order_id = ? AND file_id = ?';
+    return await this.run(sql, [orderId, fileId]);
+  }
 }
 
 module.exports = DatabaseService;
