@@ -1,10 +1,12 @@
 // Financial management routes
 const { v4: uuidv4 } = require('uuid');
 const PDFService = require('../services/PDFService');
+const ExcelService = require('../services/ExcelService');
 
 async function financialRoutes(fastify, options) {
   const db = fastify.db;
   const pdfService = new PDFService();
+  const excelService = new ExcelService();
   const PPN_RATE = 0.11; // 11% Indonesian VAT
   // Get financial summary
   fastify.get('/summary', async (request, reply) => {
@@ -864,6 +866,158 @@ async function financialRoutes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       reply.status(500).send({ error: 'Failed to generate financial report PDF' });
+    }
+  });
+
+  // Generate invoice Excel
+  fastify.get('/invoices/:invoiceId/excel', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { invoiceId } = request.params;
+
+      // Get invoice
+      const invoice = await db.get(
+        'SELECT * FROM invoices WHERE id = ?',
+        [invoiceId]
+      );
+
+      if (!invoice) {
+        return reply.status(404).send({ error: 'Invoice not found' });
+      }
+
+      // Get customer
+      const customer = await db.get(
+        'SELECT * FROM customers WHERE id = ?',
+        [invoice.customer_id]
+      );
+
+      // Get order if exists
+      let order = null;
+      if (invoice.order_id) {
+        order = await db.get(
+          'SELECT * FROM orders WHERE id = ?',
+          [invoice.order_id]
+        );
+      }
+
+      // Generate Excel
+      const { filepath, filename } = await excelService.generateInvoiceExcel(
+        invoice,
+        customer,
+        order
+      );
+
+      // Send Excel file
+      reply.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      reply.header('Content-Disposition', `attachment; filename="${filename}"`);
+      return reply.sendFile(filename, filepath.replace(filename, ''));
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to generate invoice Excel' });
+    }
+  });
+
+  // Generate financial report Excel
+  fastify.get('/reports/excel', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { startDate, endDate, period = 'month' } = request.query;
+
+      // Calculate date range
+      let start = startDate;
+      let end = endDate;
+
+      if (!start || !end) {
+        const now = new Date();
+        end = now.toISOString().split('T')[0];
+
+        switch (period) {
+          case 'week':
+            start = new Date(now.setDate(now.getDate() - 7)).toISOString().split('T')[0];
+            break;
+          case 'month':
+            start = new Date(now.setMonth(now.getMonth() - 1)).toISOString().split('T')[0];
+            break;
+          case 'quarter':
+            start = new Date(now.setMonth(now.getMonth() - 3)).toISOString().split('T')[0];
+            break;
+          case 'year':
+            start = new Date(now.setFullYear(now.getFullYear() - 1)).toISOString().split('T')[0];
+            break;
+          default:
+            start = new Date(now.setMonth(now.getMonth() - 1)).toISOString().split('T')[0];
+        }
+      }
+
+      // Get report data (reuse dashboard analytics logic)
+      const dateFilter = `DATE(created_at) >= DATE('${start}') AND DATE(created_at) <= DATE('${end}')`;
+
+      const revenueStats = await db.get(`
+        SELECT
+          COUNT(*) as invoice_count,
+          SUM(total_amount) as total_revenue,
+          SUM(CASE WHEN status = 'paid' THEN total_amount ELSE 0 END) as paid_revenue,
+          SUM(CASE WHEN status = 'unpaid' THEN total_amount ELSE 0 END) as pending_revenue
+        FROM invoices
+        WHERE ${dateFilter}
+      `);
+
+      const orderStats = await db.get(`
+        SELECT
+          COUNT(*) as total_orders,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_orders,
+          SUM(CASE WHEN status IN ('pending', 'designing', 'approved', 'production', 'quality_control') THEN 1 ELSE 0 END) as active_orders
+        FROM orders
+        WHERE ${dateFilter}
+      `);
+
+      const inventoryStats = await db.get(`
+        SELECT
+          COUNT(*) as total_materials,
+          SUM(CASE WHEN current_stock <= 0 THEN 1 ELSE 0 END) as out_of_stock,
+          SUM(CASE WHEN current_stock <= reorder_level AND current_stock > 0 THEN 1 ELSE 0 END) as low_stock,
+          SUM(current_stock * unit_cost) as total_value
+        FROM inventory_materials
+      `);
+
+      const reportData = {
+        revenue: {
+          total_revenue: revenueStats.total_revenue || 0,
+          paid_revenue: revenueStats.paid_revenue || 0,
+          pending_revenue: revenueStats.pending_revenue || 0,
+          invoice_count: revenueStats.invoice_count || 0
+        },
+        orders: {
+          total_orders: orderStats.total_orders || 0,
+          completed_orders: orderStats.completed_orders || 0,
+          active_orders: orderStats.active_orders || 0,
+          completion_rate: orderStats.total_orders > 0
+            ? ((orderStats.completed_orders / orderStats.total_orders) * 100).toFixed(2)
+            : 0
+        },
+        inventory: {
+          total_materials: inventoryStats.total_materials || 0,
+          out_of_stock: inventoryStats.out_of_stock || 0,
+          low_stock: inventoryStats.low_stock || 0,
+          total_value: inventoryStats.total_value || 0
+        }
+      };
+
+      // Generate Excel
+      const { filepath, filename } = await excelService.generateFinancialReportExcel(
+        reportData,
+        { start, end }
+      );
+
+      // Send Excel file
+      reply.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      reply.header('Content-Disposition', `attachment; filename="${filename}"`);
+      return reply.sendFile(filename, filepath.replace(filename, ''));
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to generate financial report Excel' });
     }
   });
 }
