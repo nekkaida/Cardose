@@ -38,6 +38,7 @@ fastify.register(require('./routes/inventory'), { prefix: '/api/inventory' });
 fastify.register(require('./routes/financial'), { prefix: '/api/financial' });
 fastify.register(require('./routes/production'), { prefix: '/api/production' });
 fastify.register(require('./routes/analytics'), { prefix: '/api/analytics' });
+fastify.register(require('./routes/communication'), { prefix: '/api/communication' });
 
 // Health check endpoint
 fastify.get('/api/health', async (request, reply) => {
