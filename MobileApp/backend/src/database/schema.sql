@@ -194,6 +194,29 @@ CREATE TABLE IF NOT EXISTS sync_log (
     completed_at DATETIME
 );
 
+-- Files table (for uploaded images, documents, etc.)
+CREATE TABLE IF NOT EXISTS files (
+    id TEXT PRIMARY KEY,
+    filename TEXT NOT NULL,
+    stored_filename TEXT NOT NULL,
+    mimetype TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    uploaded_by TEXT NOT NULL,
+    has_thumbnail INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id)
+);
+
+-- Order files junction table (many-to-many relationship)
+CREATE TABLE IF NOT EXISTS order_files (
+    order_id TEXT NOT NULL,
+    file_id TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (order_id, file_id),
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
@@ -203,6 +226,9 @@ CREATE INDEX IF NOT EXISTS idx_inventory_movements_item_id ON inventory_movement
 CREATE INDEX IF NOT EXISTS idx_financial_transactions_order_id ON financial_transactions(order_id);
 CREATE INDEX IF NOT EXISTS idx_communications_customer_id ON communications(customer_id);
 CREATE INDEX IF NOT EXISTS idx_communications_order_id ON communications(order_id);
+CREATE INDEX IF NOT EXISTS idx_files_uploaded_by ON files(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_order_files_order_id ON order_files(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_files_file_id ON order_files(file_id);
 
 -- Insert default settings
 INSERT OR IGNORE INTO settings (key, value, description) VALUES
