@@ -286,6 +286,165 @@ class DatabaseService {
     const sql = 'DELETE FROM order_files WHERE order_id = ? AND file_id = ?';
     return await this.run(sql, [orderId, fileId]);
   }
+
+  // ==================== INVOICE METHODS ====================
+
+  async createInvoice(invoice) {
+    const sql = `
+      INSERT INTO invoices (id, invoice_number, order_id, customer_id, subtotal, discount, ppn_rate, ppn_amount, total_amount, status, issue_date, due_date, notes, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    return await this.run(sql, [
+      invoice.id,
+      invoice.invoice_number,
+      invoice.order_id,
+      invoice.customer_id,
+      invoice.subtotal,
+      invoice.discount,
+      invoice.ppn_rate,
+      invoice.ppn_amount,
+      invoice.total_amount,
+      invoice.status,
+      invoice.issue_date,
+      invoice.due_date,
+      invoice.notes,
+      invoice.created_by
+    ]);
+  }
+
+  async getInvoiceById(invoiceId) {
+    const sql = 'SELECT * FROM invoices WHERE id = ?';
+    return await this.get(sql, [invoiceId]);
+  }
+
+  async getAllInvoices(filters = {}) {
+    let sql = 'SELECT * FROM invoices WHERE 1=1';
+    const params = [];
+
+    if (filters.status) {
+      sql += ' AND status = ?';
+      params.push(filters.status);
+    }
+
+    if (filters.customerId) {
+      sql += ' AND customer_id = ?';
+      params.push(filters.customerId);
+    }
+
+    if (filters.startDate) {
+      sql += ' AND issue_date >= ?';
+      params.push(filters.startDate);
+    }
+
+    if (filters.endDate) {
+      sql += ' AND issue_date <= ?';
+      params.push(filters.endDate);
+    }
+
+    sql += ' ORDER BY created_at DESC';
+
+    return await this.all(sql, params);
+  }
+
+  async updateInvoice(invoiceId, updates) {
+    const fields = Object.keys(updates);
+    const values = Object.values(updates);
+
+    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    const sql = `UPDATE invoices SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+
+    return await this.run(sql, [...values, invoiceId]);
+  }
+
+  async deleteInvoice(invoiceId) {
+    const sql = 'DELETE FROM invoices WHERE id = ?';
+    return await this.run(sql, [invoiceId]);
+  }
+
+  // ==================== BUDGET METHODS ====================
+
+  async createBudget(budget) {
+    const sql = `
+      INSERT INTO budgets (id, category, amount, period, start_date, end_date, notes, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    return await this.run(sql, [
+      budget.id,
+      budget.category,
+      budget.amount,
+      budget.period,
+      budget.start_date,
+      budget.end_date,
+      budget.notes,
+      budget.created_by
+    ]);
+  }
+
+  async getBudgetById(budgetId) {
+    const sql = 'SELECT * FROM budgets WHERE id = ?';
+    return await this.get(sql, [budgetId]);
+  }
+
+  async getAllBudgets() {
+    const sql = 'SELECT * FROM budgets ORDER BY created_at DESC';
+    return await this.all(sql);
+  }
+
+  async getBudgetActualSpending(category, startDate, endDate) {
+    const sql = `
+      SELECT COALESCE(SUM(amount), 0) as total
+      FROM financial_transactions
+      WHERE type = 'expense'
+        AND category = ?
+        AND payment_date BETWEEN ? AND ?
+    `;
+    const result = await this.get(sql, [category, startDate, endDate]);
+    return result?.total || 0;
+  }
+
+  async updateBudget(budgetId, updates) {
+    const fields = Object.keys(updates);
+    const values = Object.values(updates);
+
+    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    const sql = `UPDATE budgets SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+
+    return await this.run(sql, [...values, budgetId]);
+  }
+
+  async deleteBudget(budgetId) {
+    const sql = 'DELETE FROM budgets WHERE id = ?';
+    return await this.run(sql, [budgetId]);
+  }
+
+  // ==================== TAX REPORT METHODS ====================
+
+  async getTaxReport(startDate, endDate) {
+    const sql = `
+      SELECT
+        COUNT(DISTINCT i.id) as invoiceCount,
+        COALESCE(SUM(i.subtotal), 0) as ppnBase,
+        COALESCE(SUM(i.ppn_amount), 0) as ppnCollected,
+        COALESCE(SUM(CASE WHEN ft.type = 'income' THEN ft.amount ELSE 0 END), 0) as totalIncome,
+        COALESCE(SUM(CASE WHEN ft.type = 'expense' THEN ft.amount ELSE 0 END), 0) as totalExpenses
+      FROM invoices i
+      LEFT JOIN financial_transactions ft ON i.order_id = ft.order_id
+      WHERE i.issue_date BETWEEN ? AND ?
+    `;
+    return await this.get(sql, [startDate, endDate]);
+  }
+
+  // ==================== ORDER METHODS ====================
+
+  async getOrderById(orderId) {
+    const sql = 'SELECT * FROM orders WHERE id = ?';
+    return await this.get(sql, [orderId]);
+  }
+
+  async getCustomerById(customerId) {
+    const sql = 'SELECT * FROM customers WHERE id = ?';
+    return await this.get(sql, [customerId]);
+  }
 }
 
 module.exports = DatabaseService;
