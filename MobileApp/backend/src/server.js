@@ -25,6 +25,7 @@ fastify.register(authenticateDecorator);
 
 // Register routes
 fastify.register(require('./routes/auth'), { prefix: '/api/auth' });
+fastify.register(require('./routes/files'), { prefix: '/api/files' });
 fastify.register(require('./routes/orders'), { prefix: '/api/orders' });
 fastify.register(require('./routes/customers'), { prefix: '/api/customers' });
 fastify.register(require('./routes/inventory'), { prefix: '/api/inventory' });
