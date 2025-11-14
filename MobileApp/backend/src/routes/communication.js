@@ -1,9 +1,11 @@
 // Communication routes for WhatsApp, Email, SMS
 const WhatsAppService = require('../services/WhatsAppService');
+const EmailService = require('../services/EmailService');
 
 async function communicationRoutes(fastify, options) {
   const db = fastify.db;
   const whatsappService = new WhatsAppService();
+  const emailService = new EmailService();
 
   // ============= WhatsApp Routes =============
 
@@ -402,6 +404,302 @@ async function communicationRoutes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       return reply.status(500).send({ error: 'Webhook processing failed' });
+    }
+  });
+
+  // ============= Email Routes =============
+
+  /**
+   * Send email
+   */
+  fastify.post('/email/send', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { to, subject, html, text, attachments } = request.body;
+
+      if (!to || !subject || !html) {
+        return reply.status(400).send({ error: 'Recipient, subject, and HTML content are required' });
+      }
+
+      const result = await emailService.sendEmail(to, subject, html, text, attachments);
+
+      // Log email
+      await db.run(
+        `INSERT INTO communication_logs (type, recipient, message, status, sent_at, metadata)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+        ['email', to, subject, 'sent', JSON.stringify({ messageId: result.messageId })]
+      );
+
+      return {
+        success: true,
+        messageId: result.messageId
+      };
+    } catch (error) {
+      fastify.log.error(error);
+
+      // Log failed email
+      try {
+        await db.run(
+          `INSERT INTO communication_logs (type, recipient, message, status, sent_at, error_message)
+           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+          ['email', request.body.to, request.body.subject, 'failed', error.message]
+        );
+      } catch (dbError) {
+        fastify.log.error('Failed to log communication error:', dbError);
+      }
+
+      return reply.status(500).send({ error: 'Failed to send email', details: error.message });
+    }
+  });
+
+  /**
+   * Send order confirmation email
+   */
+  fastify.post('/email/notify/order', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { orderId } = request.body;
+
+      if (!orderId) {
+        return reply.status(400).send({ error: 'Order ID is required' });
+      }
+
+      // Get order details
+      const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+      if (!order) {
+        return reply.status(404).send({ error: 'Order not found' });
+      }
+
+      // Get customer details
+      const customer = await db.get('SELECT * FROM customers WHERE id = ?', [order.customer_id]);
+      if (!customer || !customer.email) {
+        return reply.status(400).send({ error: 'Customer email not found' });
+      }
+
+      const result = await emailService.sendOrderConfirmation(customer, order);
+
+      // Log notification
+      await db.run(
+        `INSERT INTO communication_logs (type, recipient, message, status, sent_at, reference_type, reference_id, metadata)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)`,
+        ['email', customer.email, 'Order Confirmation', 'sent', 'order', orderId, JSON.stringify({ messageId: result.messageId })]
+      );
+
+      return {
+        success: true,
+        messageId: result.messageId
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to send order confirmation email', details: error.message });
+    }
+  });
+
+  /**
+   * Send invoice email
+   */
+  fastify.post('/email/notify/invoice', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { invoiceId, attachPdf } = request.body;
+
+      if (!invoiceId) {
+        return reply.status(400).send({ error: 'Invoice ID is required' });
+      }
+
+      // Get invoice details
+      const invoice = await db.get('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
+      if (!invoice) {
+        return reply.status(404).send({ error: 'Invoice not found' });
+      }
+
+      // Get customer details
+      const customer = await db.get('SELECT * FROM customers WHERE id = ?', [invoice.customer_id]);
+      if (!customer || !customer.email) {
+        return reply.status(400).send({ error: 'Customer email not found' });
+      }
+
+      // Generate PDF if requested
+      let pdfPath = null;
+      if (attachPdf) {
+        const PDFService = require('../services/PDFService');
+        const pdfService = new PDFService();
+
+        // Get order if exists
+        let order = null;
+        if (invoice.order_id) {
+          order = await db.get('SELECT * FROM orders WHERE id = ?', [invoice.order_id]);
+        }
+
+        const { filepath } = await pdfService.generateInvoicePDF(invoice, customer, order);
+        pdfPath = filepath;
+      }
+
+      const result = await emailService.sendInvoiceEmail(customer, invoice, pdfPath);
+
+      // Log notification
+      await db.run(
+        `INSERT INTO communication_logs (type, recipient, message, status, sent_at, reference_type, reference_id, metadata)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)`,
+        ['email', customer.email, 'Invoice Email', 'sent', 'invoice', invoiceId, JSON.stringify({ messageId: result.messageId })]
+      );
+
+      return {
+        success: true,
+        messageId: result.messageId
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to send invoice email', details: error.message });
+    }
+  });
+
+  /**
+   * Send production update email
+   */
+  fastify.post('/email/notify/production', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { orderId, stage } = request.body;
+
+      if (!orderId || !stage) {
+        return reply.status(400).send({ error: 'Order ID and stage are required' });
+      }
+
+      // Get order details
+      const order = await db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+      if (!order) {
+        return reply.status(404).send({ error: 'Order not found' });
+      }
+
+      // Get customer details
+      const customer = await db.get('SELECT * FROM customers WHERE id = ?', [order.customer_id]);
+      if (!customer || !customer.email) {
+        return reply.status(400).send({ error: 'Customer email not found' });
+      }
+
+      const result = await emailService.sendProductionUpdateEmail(customer, order, stage);
+
+      // Log notification
+      await db.run(
+        `INSERT INTO communication_logs (type, recipient, message, status, sent_at, reference_type, reference_id, metadata)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)`,
+        ['email', customer.email, `Production Update: ${stage}`, 'sent', 'order', orderId, JSON.stringify({ messageId: result.messageId })]
+      );
+
+      return {
+        success: true,
+        messageId: result.messageId
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to send production update email', details: error.message });
+    }
+  });
+
+  /**
+   * Send payment reminder email
+   */
+  fastify.post('/email/notify/payment-reminder', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { invoiceId } = request.body;
+
+      if (!invoiceId) {
+        return reply.status(400).send({ error: 'Invoice ID is required' });
+      }
+
+      // Get invoice details
+      const invoice = await db.get('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
+      if (!invoice) {
+        return reply.status(404).send({ error: 'Invoice not found' });
+      }
+
+      // Get customer details
+      const customer = await db.get('SELECT * FROM customers WHERE id = ?', [invoice.customer_id]);
+      if (!customer || !customer.email) {
+        return reply.status(400).send({ error: 'Customer email not found' });
+      }
+
+      // Calculate days overdue
+      const dueDate = new Date(invoice.due_date);
+      const today = new Date();
+      const daysOverdue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+
+      const result = await emailService.sendPaymentReminderEmail(customer, invoice, daysOverdue);
+
+      // Log notification
+      await db.run(
+        `INSERT INTO communication_logs (type, recipient, message, status, sent_at, reference_type, reference_id, metadata)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)`,
+        ['email', customer.email, 'Payment Reminder', 'sent', 'invoice', invoiceId, JSON.stringify({ messageId: result.messageId })]
+      );
+
+      return {
+        success: true,
+        messageId: result.messageId,
+        daysOverdue
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to send payment reminder email', details: error.message });
+    }
+  });
+
+  /**
+   * Send bulk emails
+   */
+  fastify.post('/email/bulk-send', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { customerIds, subject, html } = request.body;
+
+      if (!customerIds || !Array.isArray(customerIds) || customerIds.length === 0) {
+        return reply.status(400).send({ error: 'Customer IDs array is required' });
+      }
+
+      if (!subject || !html) {
+        return reply.status(400).send({ error: 'Subject and HTML content are required' });
+      }
+
+      // Get customers
+      const placeholders = customerIds.map(() => '?').join(',');
+      const customers = await db.all(
+        `SELECT id, name, email FROM customers WHERE id IN (${placeholders}) AND email IS NOT NULL`,
+        customerIds
+      );
+
+      if (customers.length === 0) {
+        return reply.status(400).send({ error: 'No customers with email addresses found' });
+      }
+
+      // Send bulk emails
+      const result = await emailService.sendBulkEmails(customers, subject, html);
+
+      // Log bulk send
+      await db.run(
+        `INSERT INTO communication_logs (type, recipient, message, status, sent_at, metadata)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
+        ['email', 'bulk', subject, 'sent', JSON.stringify({
+          totalRecipients: result.total,
+          successful: result.successful,
+          failed: result.failed
+        })]
+      );
+
+      return {
+        success: true,
+        result
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      return reply.status(500).send({ error: 'Failed to send bulk emails', details: error.message });
     }
   });
 }
