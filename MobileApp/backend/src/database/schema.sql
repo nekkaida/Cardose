@@ -290,6 +290,23 @@ CREATE TABLE IF NOT EXISTS quality_checks (
     FOREIGN KEY (checked_by) REFERENCES users(id)
 );
 
+-- Purchase orders table
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id TEXT PRIMARY KEY,
+    po_number TEXT UNIQUE NOT NULL,
+    supplier TEXT NOT NULL,
+    items TEXT NOT NULL, -- JSON array of purchase items
+    total_amount REAL NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'ordered', 'received', 'cancelled')),
+    expected_delivery DATE,
+    received_date DATE,
+    notes TEXT,
+    created_by TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
@@ -312,6 +329,8 @@ CREATE INDEX IF NOT EXISTS idx_production_tasks_order_id ON production_tasks(ord
 CREATE INDEX IF NOT EXISTS idx_production_tasks_assigned_to ON production_tasks(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_production_tasks_status ON production_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_quality_checks_order_id ON quality_checks(order_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier ON purchase_orders(supplier);
 
 -- Insert default settings
 INSERT OR IGNORE INTO settings (key, value, description) VALUES
