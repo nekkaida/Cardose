@@ -40,6 +40,7 @@ fastify.register(require('./routes/production'), { prefix: '/api/production' });
 fastify.register(require('./routes/analytics'), { prefix: '/api/analytics' });
 fastify.register(require('./routes/communication'), { prefix: '/api/communication' });
 fastify.register(require('./routes/backup'), { prefix: '/api/backup' });
+fastify.register(require('./routes/sync'), { prefix: '/api/sync' });
 
 // Backup service setup
 const BackupService = require('./services/BackupService');
