@@ -39,6 +39,11 @@ fastify.register(require('./routes/financial'), { prefix: '/api/financial' });
 fastify.register(require('./routes/production'), { prefix: '/api/production' });
 fastify.register(require('./routes/analytics'), { prefix: '/api/analytics' });
 fastify.register(require('./routes/communication'), { prefix: '/api/communication' });
+fastify.register(require('./routes/backup'), { prefix: '/api/backup' });
+
+// Backup service setup
+const BackupService = require('./services/BackupService');
+const backupService = new BackupService();
 
 // Health check endpoint
 fastify.get('/api/health', async (request, reply) => {
@@ -57,6 +62,12 @@ const start = async () => {
     await fastify.listen({ port, host });
     console.log(`🚀 Premium Gift Box Server running on http://${host}:${port}`);
     console.log(`📱 Mobile app can connect to: http://192.168.1.x:${port}`);
+
+    // Start automatic backup if enabled
+    if (process.env.AUTO_BACKUP === 'true') {
+      const backupFrequency = parseInt(process.env.BACKUP_FREQUENCY || '4');
+      backupService.startAutoBackup(backupFrequency);
+    }
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
