@@ -257,6 +257,39 @@ CREATE TABLE IF NOT EXISTS budgets (
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
+-- Production tasks table
+CREATE TABLE IF NOT EXISTS production_tasks (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    assigned_to TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+    priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+    due_date DATE,
+    completed_at DATETIME,
+    notes TEXT,
+    created_by TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (assigned_to) REFERENCES users(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Quality control checks table
+CREATE TABLE IF NOT EXISTS quality_checks (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    checklist_items TEXT NOT NULL, -- JSON array of checklist items
+    overall_status TEXT DEFAULT 'pending' CHECK (overall_status IN ('pending', 'passed', 'failed', 'needs_review')),
+    notes TEXT,
+    checked_by TEXT NOT NULL,
+    checked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (checked_by) REFERENCES users(id)
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
@@ -275,6 +308,10 @@ CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 CREATE INDEX IF NOT EXISTS idx_invoices_issue_date ON invoices(issue_date);
 CREATE INDEX IF NOT EXISTS idx_budgets_category ON budgets(category);
 CREATE INDEX IF NOT EXISTS idx_budgets_period ON budgets(start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_production_tasks_order_id ON production_tasks(order_id);
+CREATE INDEX IF NOT EXISTS idx_production_tasks_assigned_to ON production_tasks(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_production_tasks_status ON production_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_quality_checks_order_id ON quality_checks(order_id);
 
 -- Insert default settings
 INSERT OR IGNORE INTO settings (key, value, description) VALUES
