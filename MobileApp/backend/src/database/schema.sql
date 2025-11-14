@@ -217,6 +217,46 @@ CREATE TABLE IF NOT EXISTS order_files (
     FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
 );
 
+-- Invoices table
+CREATE TABLE IF NOT EXISTS invoices (
+    id TEXT PRIMARY KEY,
+    invoice_number TEXT UNIQUE NOT NULL,
+    order_id TEXT,
+    customer_id TEXT NOT NULL,
+    subtotal REAL NOT NULL,
+    discount REAL DEFAULT 0,
+    ppn_rate REAL NOT NULL,
+    ppn_amount REAL NOT NULL,
+    total_amount REAL NOT NULL,
+    status TEXT DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'paid', 'overdue', 'cancelled')),
+    issue_date DATE NOT NULL,
+    due_date DATE,
+    paid_date DATE,
+    payment_method TEXT,
+    notes TEXT,
+    created_by TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Budgets table
+CREATE TABLE IF NOT EXISTS budgets (
+    id TEXT PRIMARY KEY,
+    category TEXT NOT NULL,
+    amount REAL NOT NULL,
+    period TEXT NOT NULL CHECK (period IN ('monthly', 'quarterly', 'yearly')),
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    notes TEXT,
+    created_by TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
@@ -229,6 +269,12 @@ CREATE INDEX IF NOT EXISTS idx_communications_order_id ON communications(order_i
 CREATE INDEX IF NOT EXISTS idx_files_uploaded_by ON files(uploaded_by);
 CREATE INDEX IF NOT EXISTS idx_order_files_order_id ON order_files(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_files_file_id ON order_files(file_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_order_id ON invoices(order_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_customer_id ON invoices(customer_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_issue_date ON invoices(issue_date);
+CREATE INDEX IF NOT EXISTS idx_budgets_category ON budgets(category);
+CREATE INDEX IF NOT EXISTS idx_budgets_period ON budgets(start_date, end_date);
 
 -- Insert default settings
 INSERT OR IGNORE INTO settings (key, value, description) VALUES
