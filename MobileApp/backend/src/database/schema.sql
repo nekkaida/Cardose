@@ -333,6 +333,26 @@ CREATE INDEX IF NOT EXISTS idx_quality_checks_order_id ON quality_checks(order_i
 CREATE INDEX IF NOT EXISTS idx_purchase_orders_status ON purchase_orders(status);
 CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier ON purchase_orders(supplier);
 
+-- Communication logs table (WhatsApp, Email, SMS)
+CREATE TABLE IF NOT EXISTS communication_logs (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    type TEXT NOT NULL CHECK (type IN ('whatsapp', 'email', 'sms')),
+    recipient TEXT NOT NULL,
+    message TEXT,
+    status TEXT NOT NULL CHECK (status IN ('sent', 'delivered', 'failed', 'received')),
+    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    reference_type TEXT CHECK (reference_type IN ('order', 'invoice', 'customer', 'general')),
+    reference_id TEXT,
+    error_message TEXT,
+    metadata TEXT, -- JSON data
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_communication_logs_type ON communication_logs(type);
+CREATE INDEX IF NOT EXISTS idx_communication_logs_status ON communication_logs(status);
+CREATE INDEX IF NOT EXISTS idx_communication_logs_reference ON communication_logs(reference_type, reference_id);
+CREATE INDEX IF NOT EXISTS idx_communication_logs_sent_at ON communication_logs(sent_at);
+
 -- Insert default settings
 INSERT OR IGNORE INTO settings (key, value, description) VALUES
 ('business_name', 'Premium Gift Box', 'Business name'),
