@@ -30,6 +30,7 @@ fastify.register(require('./routes/orders'), { prefix: '/api/orders' });
 fastify.register(require('./routes/customers'), { prefix: '/api/customers' });
 fastify.register(require('./routes/inventory'), { prefix: '/api/inventory' });
 fastify.register(require('./routes/financial'), { prefix: '/api/financial' });
+fastify.register(require('./routes/production'), { prefix: '/api/production' });
 fastify.register(require('./routes/analytics'), { prefix: '/api/analytics' });
 
 // Health check endpoint
