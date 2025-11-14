@@ -343,37 +343,37 @@ export default function FinancialScreen() {
       <Card.Content>
         <Title style={styles.sectionTitle}>Quick Actions</Title>
         <View style={styles.actionButtons}>
-          <Button 
-            mode="contained" 
+          <Button
+            mode="contained"
             style={styles.actionButton}
-            onPress={() => navigation.navigate('AddTransaction')}
-            icon="plus"
+            onPress={() => navigation.navigate('InvoiceList')}
+            icon="file-document-outline"
           >
-            Add Transaction
+            Invoices
           </Button>
-          <Button 
-            mode="outlined" 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('GenerateInvoice')}
-            icon="file-document"
-          >
-            Generate Invoice
-          </Button>
-          <Button 
-            mode="outlined" 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('FinancialReports')}
-            icon="chart-line"
-          >
-            Reports
-          </Button>
-          <Button 
-            mode="outlined" 
+          <Button
+            mode="outlined"
             style={styles.actionButton}
             onPress={() => navigation.navigate('PricingCalculator')}
             icon="calculator"
           >
             Pricing Calculator
+          </Button>
+          <Button
+            mode="outlined"
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('BudgetTracker')}
+            icon="wallet"
+          >
+            Budget Tracker
+          </Button>
+          <Button
+            mode="outlined"
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('AddTransaction')}
+            icon="plus"
+          >
+            Add Transaction
           </Button>
         </View>
       </Card.Content>
