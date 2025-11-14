@@ -12,6 +12,12 @@ fastify.register(require('@fastify/jwt'), {
 
 fastify.register(require('@fastify/multipart'));
 
+// Register static file serving
+fastify.register(require('@fastify/static'), {
+  root: path.join(__dirname, '../uploads'),
+  prefix: '/uploads/',
+});
+
 // Database setup
 const Database = require('./services/DatabaseService');
 const db = new Database();
