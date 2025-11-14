@@ -395,6 +395,25 @@ CREATE INDEX IF NOT EXISTS idx_sync_logs_synced_at ON sync_logs(synced_at);
 CREATE INDEX IF NOT EXISTS idx_sync_conflicts_status ON sync_conflicts(status);
 CREATE INDEX IF NOT EXISTS idx_sync_conflicts_table_record ON sync_conflicts(table_name, record_id);
 
+-- Message templates table
+CREATE TABLE IF NOT EXISTS message_templates (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('whatsapp', 'email', 'sms')),
+    subject TEXT,
+    body TEXT NOT NULL,
+    variables TEXT, -- JSON array of variable names
+    category TEXT CHECK (category IN ('order', 'invoice', 'payment', 'production', 'marketing', 'general')),
+    created_by TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_message_templates_type ON message_templates(type);
+CREATE INDEX IF NOT EXISTS idx_message_templates_category ON message_templates(category);
+CREATE INDEX IF NOT EXISTS idx_message_templates_created_by ON message_templates(created_by);
+
 -- Insert default settings
 INSERT OR IGNORE INTO settings (key, value, description) VALUES
 ('business_name', 'Premium Gift Box', 'Business name'),
