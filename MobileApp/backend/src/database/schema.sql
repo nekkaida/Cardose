@@ -353,6 +353,48 @@ CREATE INDEX IF NOT EXISTS idx_communication_logs_status ON communication_logs(s
 CREATE INDEX IF NOT EXISTS idx_communication_logs_reference ON communication_logs(reference_type, reference_id);
 CREATE INDEX IF NOT EXISTS idx_communication_logs_sent_at ON communication_logs(sent_at);
 
+-- Sync devices table
+CREATE TABLE IF NOT EXISTS sync_devices (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT CHECK (type IN ('mobile', 'desktop', 'tablet', 'web')),
+    user_id TEXT NOT NULL,
+    last_sync DATETIME,
+    registered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Sync logs table
+CREATE TABLE IF NOT EXISTS sync_logs (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    device_id TEXT NOT NULL,
+    applied_count INTEGER DEFAULT 0,
+    conflict_count INTEGER DEFAULT 0,
+    error_count INTEGER DEFAULT 0,
+    details TEXT,
+    synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (device_id) REFERENCES sync_devices(id)
+);
+
+-- Sync conflicts table
+CREATE TABLE IF NOT EXISTS sync_conflicts (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    table_name TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    existing_data TEXT NOT NULL,
+    incoming_data TEXT NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'resolved')),
+    chosen_version TEXT CHECK (chosen_version IN ('existing', 'incoming')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_devices_user_id ON sync_devices(user_id);
+CREATE INDEX IF NOT EXISTS idx_sync_logs_device_id ON sync_logs(device_id);
+CREATE INDEX IF NOT EXISTS idx_sync_logs_synced_at ON sync_logs(synced_at);
+CREATE INDEX IF NOT EXISTS idx_sync_conflicts_status ON sync_conflicts(status);
+CREATE INDEX IF NOT EXISTS idx_sync_conflicts_table_record ON sync_conflicts(table_name, record_id);
+
 -- Insert default settings
 INSERT OR IGNORE INTO settings (key, value, description) VALUES
 ('business_name', 'Premium Gift Box', 'Business name'),
