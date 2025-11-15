@@ -46,6 +46,7 @@ fastify.register(require('./routes/notifications'), { prefix: '/api/notification
 fastify.register(require('./routes/reports'), { prefix: '/api/reports' });
 fastify.register(require('./routes/settings'), { prefix: '/api/settings' });
 fastify.register(require('./routes/audit'), { prefix: '/api/audit' });
+fastify.register(require('./routes/dashboard'), { prefix: '/api/dashboard' });
 
 // Backup service setup
 const BackupService = require('./services/BackupService');
