@@ -432,6 +432,39 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 
+-- Webhooks table
+CREATE TABLE IF NOT EXISTS webhooks (
+    id TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    events TEXT NOT NULL,
+    secret TEXT,
+    created_by TEXT NOT NULL,
+    is_active INTEGER DEFAULT 1,
+    last_success DATETIME,
+    last_failure DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Webhook logs table
+CREATE TABLE IF NOT EXISTS webhook_logs (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    webhook_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    success INTEGER NOT NULL,
+    status_code INTEGER,
+    duration_ms INTEGER,
+    error_message TEXT,
+    delivered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (webhook_id) REFERENCES webhooks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhooks_created_by ON webhooks(created_by);
+CREATE INDEX IF NOT EXISTS idx_webhooks_is_active ON webhooks(is_active);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_webhook_id ON webhook_logs(webhook_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_delivered_at ON webhook_logs(delivered_at);
+
 -- Insert default settings
 INSERT OR IGNORE INTO settings (key, value, description) VALUES
 ('business_name', 'Premium Gift Box', 'Business name'),
