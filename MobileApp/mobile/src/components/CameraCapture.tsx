@@ -9,7 +9,7 @@ import {
   Modal,
   Image,
 } from 'react-native';
-import { Camera } from 'expo-camera';
+import { Camera, CameraType } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../theme/theme';
 
@@ -27,7 +27,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   allowGallery = true,
 }) => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [type, setType] = useState(Camera.Constants.Type.back);
+  const [type, setType] = useState<CameraType>(CameraType.back);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const cameraRef = useRef<Camera>(null);
@@ -158,11 +158,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
                 <TouchableOpacity
                   style={styles.flipButton}
                   onPress={() => {
-                    setType(
-                      type === Camera.Constants.Type.back
-                        ? Camera.Constants.Type.front
-                        : Camera.Constants.Type.back
-                    );
+                    setType(type === CameraType.back ? CameraType.front : CameraType.back);
                   }}
                 >
                   <Text style={styles.flipText}>🔄</Text>
