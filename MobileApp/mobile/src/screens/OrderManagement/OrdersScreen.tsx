@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
-import { 
-  Card, 
-  Title, 
-  Paragraph, 
-  Button, 
-  Chip, 
+import {
+  Card,
+  Title,
+  Paragraph,
+  Button,
+  Chip,
   Searchbar,
   FAB,
   List,
@@ -13,7 +13,14 @@ import {
   IconButton
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { OrderService } from '../../services/OrderService';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import {
+  fetchOrders,
+  selectOrders,
+  selectOrdersLoading,
+  setFilters,
+  selectOrdersFilters
+} from '../../store/slices/ordersSlice';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
 interface Order {
@@ -41,9 +48,14 @@ const ORDER_STATUSES = [
 
 export default function OrdersScreen() {
   const navigation = useNavigation();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+
+  // Redux state
+  const orders = useAppSelector(selectOrders);
+  const loading = useAppSelector(selectOrdersLoading);
+  const filters = useAppSelector(selectOrdersFilters);
+
+  // Local state
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -53,18 +65,19 @@ export default function OrdersScreen() {
   }, []);
 
   useEffect(() => {
-    filterOrders();
-  }, [orders, searchQuery, selectedStatus]);
+    // Update Redux filters when local state changes
+    const statusFilter = selectedStatus !== 'all' ? selectedStatus : undefined;
+    dispatch(setFilters({
+      status: statusFilter as any,
+      search: searchQuery || undefined
+    }));
+  }, [searchQuery, selectedStatus]);
 
   const loadOrders = async () => {
     try {
-      setLoading(true);
-      const ordersData = await OrderService.getAllOrders();
-      setOrders(ordersData);
+      await dispatch(fetchOrders()).unwrap();
     } catch (error) {
       console.error('Failed to load orders:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -74,26 +87,25 @@ export default function OrdersScreen() {
     setRefreshing(false);
   };
 
-  const filterOrders = () => {
-    let filtered = orders;
+  // Use filtered orders from Redux selector
+  const filteredOrders = useAppSelector(state => {
+    let filtered = [...orders];
 
-    // Filter by status
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(order => order.status === selectedStatus);
     }
 
-    // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(order => 
+      filtered = filtered.filter(order =>
         order.order_number.toLowerCase().includes(query) ||
-        order.customer_name.toLowerCase().includes(query) ||
-        order.box_type.toLowerCase().includes(query)
+        order.customer_name?.toLowerCase().includes(query) ||
+        order.box_type?.toLowerCase().includes(query)
       );
     }
 
-    setFilteredOrders(filtered);
-  };
+    return filtered;
+  });
 
   const getStatusColor = (status: string) => {
     const statusConfig = ORDER_STATUSES.find(s => s.key === status);
