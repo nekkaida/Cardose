@@ -34,19 +34,21 @@ export interface CustomerMetrics {
 
 export interface Customer {
   id: string;
-  
+
   // Personal Information
   name: string;
   email?: string;
   whatsapp?: string;
   phone?: string;
   address?: CustomerAddress;
-  
+
   // Business Information
+  type?: 'individual' | 'company'; // Alias for business_type for backward compatibility
   business_type: BusinessType;
   company_name?: string;
   industry?: string;
   tax_id?: string;
+  contact_person?: string; // For company customers
   
   // Preferences
   preferences: CustomerPreferences;
@@ -88,10 +90,13 @@ export interface CreateCustomerData {
   email?: string;
   whatsapp?: string;
   phone?: string;
-  address?: CustomerAddress;
+  address?: CustomerAddress | string; // Allow string for simple address input
+  type?: 'individual' | 'company'; // Backward compatibility
   business_type: BusinessType;
   company_name?: string;
   industry?: string;
+  tax_id?: string;
+  contact_person?: string;
   preferences?: Partial<CustomerPreferences>;
   preferred_contact?: PreferredContact;
   notes?: string;
