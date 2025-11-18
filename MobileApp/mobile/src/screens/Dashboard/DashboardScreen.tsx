@@ -1,154 +1,288 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
-import { Card, Title, Paragraph, Button, Surface } from 'react-native-paper';
-import { LineChart } from 'react-native-chart-kit';
+/**
+ * Dashboard Screen
+ *
+ * Main dashboard with KPIs and analytics including:
+ * - Order statistics
+ * - Revenue summary
+ * - Inventory alerts
+ * - Recent activity
+ * - Quick actions
+ */
 
-interface DashboardStats {
-  totalOrders: number;
-  pendingOrders: number;
-  completedOrders: number;
-  totalRevenue: number;
-  monthlyRevenue: number[];
-}
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import {
+  fetchOrders,
+  fetchOrderAnalytics,
+  selectOrders,
+  selectOrderAnalytics,
+} from '../../store/slices/ordersSlice';
+import { fetchCustomers, selectCustomers } from '../../store/slices/customersSlice';
+import {
+  fetchMaterials,
+  fetchLowStockItems,
+  selectLowStockItems,
+} from '../../store/slices/inventorySlice';
+import {
+  fetchInvoices,
+  fetchFinancialAnalytics,
+  selectFinancialAnalytics,
+} from '../../store/slices/financialSlice';
+import { fetchTasks, selectTasks } from '../../store/slices/productionSlice';
+import { COLORS, SPACING, BORDER_RADIUS, BUSINESS_CONFIG } from '../../config';
 
 export default function DashboardScreen() {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalOrders: 0,
-    pendingOrders: 0,
-    completedOrders: 0,
-    totalRevenue: 0,
-    monthlyRevenue: [0, 0, 0, 0, 0, 0]
-  });
+  const navigation = useNavigation();
+  const dispatch = useAppDispatch();
+
+  const orders = useAppSelector(selectOrders);
+  const orderAnalytics = useAppSelector(selectOrderAnalytics);
+  const customers = useAppSelector(selectCustomers);
+  const lowStockItems = useAppSelector(selectLowStockItems);
+  const financialAnalytics = useAppSelector(selectFinancialAnalytics);
+  const tasks = useAppSelector(selectTasks);
+
+  const [refreshing, setRefreshing] = React.useState(false);
 
   useEffect(() => {
-    // Load dashboard data from local SQLite
     loadDashboardData();
   }, []);
 
   const loadDashboardData = async () => {
-    // TODO: Implement SQLite data loading
-    // Sample data for now
-    setStats({
-      totalOrders: 156,
-      pendingOrders: 12,
-      completedOrders: 144,
-      totalRevenue: 45000000, // IDR
-      monthlyRevenue: [5000000, 6500000, 8200000, 7100000, 9800000, 8500000]
-    });
+    try {
+      await Promise.all([
+        dispatch(fetchOrders()).unwrap(),
+        dispatch(fetchOrderAnalytics({ period: 'month' })).unwrap(),
+        dispatch(fetchCustomers()).unwrap(),
+        dispatch(fetchMaterials()).unwrap(),
+        dispatch(fetchLowStockItems()).unwrap(),
+        dispatch(fetchInvoices()).unwrap(),
+        dispatch(fetchFinancialAnalytics({ period: 'month' })).unwrap(),
+        dispatch(fetchTasks()).unwrap(),
+      ]);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadDashboardData();
+    setRefreshing(false);
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
-      currency: 'IDR',
+      currency: BUSINESS_CONFIG.CURRENCY,
       minimumFractionDigits: 0,
     }).format(amount);
   };
 
+  // Calculate statistics
+  const pendingOrders = orders.filter(o => o.status === 'pending').length;
+  const inProductionOrders = orders.filter(o => o.status === 'pending').length; // Adjust based on actual status values
+  const completedOrders = orders.filter(o => o.status === 'completed').length;
+  const activeTasks = tasks.filter(t => t.status === 'pending').length; // Adjust based on actual status values
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Quick Stats */}
-      <View style={styles.statsRow}>
-        <Card style={styles.statCard}>
-          <Card.Content>
-            <Title style={styles.statNumber}>{stats.totalOrders}</Title>
-            <Paragraph>Total Orders</Paragraph>
-          </Card.Content>
-        </Card>
-        
-        <Card style={styles.statCard}>
-          <Card.Content>
-            <Title style={styles.statNumber}>{stats.pendingOrders}</Title>
-            <Paragraph>Pending</Paragraph>
-          </Card.Content>
-        </Card>
+    <ScrollView
+      style={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Dashboard</Text>
+        <Text style={styles.headerSubtitle}>Cardose - Premium Gift Box</Text>
       </View>
 
-      <View style={styles.statsRow}>
-        <Card style={styles.statCard}>
-          <Card.Content>
-            <Title style={styles.statNumber}>{stats.completedOrders}</Title>
-            <Paragraph>Completed</Paragraph>
-          </Card.Content>
-        </Card>
-        
-        <Card style={styles.statCard}>
-          <Card.Content>
-            <Title style={styles.statNumber}>
-              {formatCurrency(stats.totalRevenue)}
-            </Title>
-            <Paragraph>Total Revenue</Paragraph>
-          </Card.Content>
-        </Card>
+      {/* Quick Stats Grid */}
+      <View style={styles.statsGrid}>
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: COLORS.primary }]}
+          onPress={() => navigation.navigate('Orders' as never)}
+        >
+          <Text style={styles.statValue}>{orders.length}</Text>
+          <Text style={styles.statLabel}>Total Pesanan</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: COLORS.warning }]}
+          onPress={() => navigation.navigate('Orders' as never)}
+        >
+          <Text style={styles.statValue}>{pendingOrders}</Text>
+          <Text style={styles.statLabel}>Pending</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: COLORS.success }]}
+          onPress={() => navigation.navigate('Customers' as never)}
+        >
+          <Text style={styles.statValue}>{customers.length}</Text>
+          <Text style={styles.statLabel}>Pelanggan</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.statCard, { backgroundColor: COLORS.info }]}
+          onPress={() => navigation.navigate('Production' as never)}
+        >
+          <Text style={styles.statValue}>{activeTasks}</Text>
+          <Text style={styles.statLabel}>Tugas Aktif</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Revenue Chart */}
-      <Card style={styles.chartCard}>
-        <Card.Content>
-          <Title>Monthly Revenue Trend</Title>
-          <LineChart
-            data={{
-              labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-              datasets: [{
-                data: stats.monthlyRevenue
-              }]
-            }}
-            width={320}
-            height={200}
-            chartConfig={{
-              backgroundColor: '#2C5530',
-              backgroundGradientFrom: '#2C5530',
-              backgroundGradientTo: '#4A7C59',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-              style: {
-                borderRadius: 16
-              }
-            }}
-            style={styles.chart}
-          />
-        </Card.Content>
-      </Card>
+      {/* Financial Summary */}
+      {financialAnalytics && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ringkasan Keuangan</Text>
+
+          <View style={styles.financialCard}>
+            <View style={styles.financialRow}>
+              <Text style={styles.financialLabel}>Total Pendapatan:</Text>
+              <Text style={styles.financialValue}>
+                {formatCurrency(financialAnalytics.totalRevenue)}
+              </Text>
+            </View>
+
+            <View style={styles.financialRow}>
+              <Text style={styles.financialLabel}>Piutang:</Text>
+              <Text style={[styles.financialValue, styles.outstandingText]}>
+                {formatCurrency(financialAnalytics.outstandingBalance)}
+              </Text>
+            </View>
+
+            <View style={styles.financialRow}>
+              <Text style={styles.financialLabel}>Invoice Lunas:</Text>
+              <Text style={styles.financialValue}>{financialAnalytics.paidInvoices}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.viewMoreButton}
+            onPress={() => navigation.navigate('Financial' as never)}
+          >
+            <Text style={styles.viewMoreText}>Lihat Detail →</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Production Status */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Status Produksi</Text>
+
+        <View style={styles.productionGrid}>
+          <View style={styles.productionCard}>
+            <Text style={styles.productionValue}>{inProductionOrders}</Text>
+            <Text style={styles.productionLabel}>Dalam Produksi</Text>
+          </View>
+
+          <View style={styles.productionCard}>
+            <Text style={styles.productionValue}>{completedOrders}</Text>
+            <Text style={styles.productionLabel}>Selesai</Text>
+          </View>
+
+          <View style={styles.productionCard}>
+            <Text style={styles.productionValue}>{tasks.length}</Text>
+            <Text style={styles.productionLabel}>Total Tugas</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Low Stock Alert */}
+      {lowStockItems.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.alertHeader}>
+            <Text style={styles.sectionTitle}>⚠️ Stok Rendah</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Inventory' as never)}>
+              <Text style={styles.viewAllText}>Lihat Semua →</Text>
+            </TouchableOpacity>
+          </View>
+
+          {lowStockItems.slice(0, 3).map((item) => (
+            <View key={item.id} style={styles.lowStockItem}>
+              <View style={styles.lowStockInfo}>
+                <Text style={styles.lowStockName}>{item.name}</Text>
+                <Text style={styles.lowStockLevel}>
+                  Stok: {item.current_stock} {item.unit} (Min: {item.minimum_stock})
+                </Text>
+              </View>
+              <View style={styles.lowStockBadge}>
+                <Text style={styles.lowStockBadgeText}>!</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Quick Actions */}
-      <Card style={styles.actionsCard}>
-        <Card.Content>
-          <Title>Quick Actions</Title>
-          <View style={styles.actionButtons}>
-            <Button mode="contained" style={styles.actionButton}>
-              New Order
-            </Button>
-            <Button mode="outlined" style={styles.actionButton}>
-              Add Customer
-            </Button>
-            <Button mode="outlined" style={styles.actionButton}>
-              Update Inventory
-            </Button>
-            <Button mode="outlined" style={styles.actionButton}>
-              Generate Report
-            </Button>
-          </View>
-        </Card.Content>
-      </Card>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Aksi Cepat</Text>
 
-      {/* Recent Activity */}
-      <Card style={styles.activityCard}>
-        <Card.Content>
-          <Title>Recent Activity</Title>
-          <Surface style={styles.activityItem}>
-            <Paragraph>New order #PGB-2024-001 from PT. Berkah Jaya</Paragraph>
-            <Paragraph style={styles.activityTime}>2 hours ago</Paragraph>
-          </Surface>
-          <Surface style={styles.activityItem}>
-            <Paragraph>Order #PGB-2023-156 completed</Paragraph>
-            <Paragraph style={styles.activityTime}>5 hours ago</Paragraph>
-          </Surface>
-          <Surface style={styles.activityItem}>
-            <Paragraph>Low stock alert: Premium Cardboard</Paragraph>
-            <Paragraph style={styles.activityTime}>1 day ago</Paragraph>
-          </Surface>
-        </Card.Content>
-      </Card>
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Orders', { screen: 'CreateOrder' } as never)}
+          >
+            <Text style={styles.actionIcon}>📦</Text>
+            <Text style={styles.actionText}>Pesanan Baru</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Customers', { screen: 'CreateCustomer' } as never)}
+          >
+            <Text style={styles.actionIcon}>👤</Text>
+            <Text style={styles.actionText}>Tambah Pelanggan</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Inventory', { screen: 'CreateMaterial' } as never)}
+          >
+            <Text style={styles.actionIcon}>📋</Text>
+            <Text style={styles.actionText}>Tambah Material</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Production', { screen: 'CreateTask' } as never)}
+          >
+            <Text style={styles.actionIcon}>🏭</Text>
+            <Text style={styles.actionText}>Tugas Baru</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Recent Orders */}
+      <View style={styles.section}>
+        <View style={styles.alertHeader}>
+          <Text style={styles.sectionTitle}>Pesanan Terbaru</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Orders' as never)}>
+            <Text style={styles.viewAllText}>Lihat Semua →</Text>
+          </TouchableOpacity>
+        </View>
+
+        {orders.slice(0, 5).map((order) => (
+          <TouchableOpacity
+            key={order.id}
+            style={styles.recentOrderItem}
+            onPress={() =>
+              navigation.navigate('Orders', { screen: 'OrderDetails', params: { orderId: order.id } } as never)
+            }
+          >
+            <View style={styles.recentOrderInfo}>
+              <Text style={styles.recentOrderNumber}>{order.order_number}</Text>
+              <Text style={styles.recentOrderCustomer}>{order.customer_name}</Text>
+            </View>
+            <View style={styles.recentOrderAmount}>
+              <Text style={styles.recentOrderPrice}>{formatCurrency(order.total_price)}</Text>
+              <Text style={styles.recentOrderStatus}>{order.status}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
     </ScrollView>
   );
 }
@@ -156,57 +290,211 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: COLORS.background,
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+  header: {
+    backgroundColor: COLORS.primary,
+    padding: SPACING.xl,
+    paddingTop: SPACING.lg,
   },
-  statCard: {
-    flex: 0.48,
-    elevation: 4,
-  },
-  statNumber: {
-    fontSize: 24,
+  headerTitle: {
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#2C5530',
+    color: COLORS.white,
+    marginBottom: SPACING.xs,
   },
-  chartCard: {
-    marginBottom: 16,
-    elevation: 4,
+  headerSubtitle: {
+    fontSize: 14,
+    color: COLORS.white,
+    opacity: 0.9,
   },
-  chart: {
-    marginTop: 16,
-    borderRadius: 16,
-  },
-  actionsCard: {
-    marginBottom: 16,
-    elevation: 4,
-  },
-  actionButtons: {
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 16,
+    padding: SPACING.md,
+    gap: SPACING.md,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '45%',
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: COLORS.white,
+    marginBottom: SPACING.xs,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: COLORS.white,
+    opacity: 0.9,
+  },
+  section: {
+    backgroundColor: COLORS.white,
+    marginTop: SPACING.md,
+    padding: SPACING.lg,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+  },
+  financialCard: {
+    backgroundColor: COLORS.gray[50],
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  financialRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.sm,
+  },
+  financialLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  financialValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  outstandingText: {
+    color: COLORS.warning,
+  },
+  viewMoreButton: {
+    marginTop: SPACING.md,
+    padding: SPACING.sm,
+    alignItems: 'center',
+  },
+  viewMoreText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  productionGrid: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  productionCard: {
+    flex: 1,
+    backgroundColor: COLORS.gray[50],
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: 'center',
+  },
+  productionValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginBottom: SPACING.xs,
+  },
+  productionLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  alertHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  viewAllText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  lowStockItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
+  },
+  lowStockInfo: {
+    flex: 1,
+  },
+  lowStockName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  lowStockLevel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  lowStockBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.warning,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lowStockBadgeText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
   },
   actionButton: {
-    marginRight: 8,
-    marginBottom: 8,
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: COLORS.gray[50],
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: 'center',
   },
-  activityCard: {
-    marginBottom: 16,
-    elevation: 4,
+  actionIcon: {
+    fontSize: 32,
+    marginBottom: SPACING.sm,
   },
-  activityItem: {
-    padding: 12,
-    marginTop: 8,
-    borderRadius: 8,
-    elevation: 1,
-  },
-  activityTime: {
+  actionText: {
     fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+  },
+  recentOrderItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
+  },
+  recentOrderInfo: {
+    flex: 1,
+  },
+  recentOrderNumber: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  recentOrderCustomer: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  recentOrderAmount: {
+    alignItems: 'flex-end',
+  },
+  recentOrderPrice: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginBottom: 4,
+  },
+  recentOrderStatus: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
   },
 });
