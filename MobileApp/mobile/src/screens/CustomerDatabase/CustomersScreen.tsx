@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, RefreshControl, Alert } from 'react-native';
-import { 
-  Card, 
-  Title, 
-  Paragraph, 
-  Button, 
-  Chip, 
+import {
+  Card,
+  Title,
+  Paragraph,
+  Button,
+  Chip,
   Searchbar,
   FAB,
   List,
@@ -15,9 +15,18 @@ import {
   Divider
 } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import { CustomerService } from '../../services/CustomerService';
+import type { NavigationProp } from '@react-navigation/native';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import {
+  fetchCustomers,
+  selectCustomers,
+  selectCustomersLoading,
+  setFilters,
+  selectCustomersFilters
+} from '../../store/slices/customersSlice';
 import { Customer, BusinessType } from '../../types/Customer';
 import { formatCurrency, formatDate, formatPhoneNumber, titleCase } from '../../utils/formatters';
+import { CustomersStackParamList } from '../../navigation/CustomersNavigator';
 
 const BUSINESS_TYPES = [
   { key: 'all', label: 'All Types', color: '#666', icon: 'account-group' },
@@ -34,10 +43,15 @@ const LOYALTY_LEVELS = {
 };
 
 export default function CustomersScreen() {
-  const navigation = useNavigation();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const navigation = useNavigation<NavigationProp<CustomersStackParamList>>();
+  const dispatch = useAppDispatch();
+
+  // Redux state
+  const customers = useAppSelector(selectCustomers);
+  const loading = useAppSelector(selectCustomersLoading);
+  const filters = useAppSelector(selectCustomersFilters);
+
+  // Local state
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBusinessType, setSelectedBusinessType] = useState('all');
@@ -47,19 +61,19 @@ export default function CustomersScreen() {
   }, []);
 
   useEffect(() => {
-    filterCustomers();
-  }, [customers, searchQuery, selectedBusinessType]);
+    // Update Redux filters when local state changes
+    dispatch(setFilters({
+      type: selectedBusinessType !== 'all' ? selectedBusinessType as any : undefined,
+      search: searchQuery || undefined
+    }));
+  }, [searchQuery, selectedBusinessType]);
 
   const loadCustomers = async () => {
     try {
-      setLoading(true);
-      const customersData = await CustomerService.getAllCustomers();
-      setCustomers(customersData);
+      await dispatch(fetchCustomers()).unwrap();
     } catch (error) {
       console.error('Failed to load customers:', error);
       Alert.alert('Error', 'Failed to load customers. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -69,35 +83,33 @@ export default function CustomersScreen() {
     setRefreshing(false);
   };
 
-  const filterCustomers = () => {
-    let filtered = customers;
+  // Use filtered customers from Redux selector
+  const filteredCustomers = useAppSelector(state => {
+    let filtered = [...customers];
 
-    // Filter by business type
     if (selectedBusinessType !== 'all') {
-      filtered = filtered.filter(customer => customer.business_type === selectedBusinessType);
+      filtered = filtered.filter(customer => customer.type === selectedBusinessType);
     }
 
-    // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(customer => 
+      filtered = filtered.filter(customer =>
         customer.name.toLowerCase().includes(query) ||
         customer.email?.toLowerCase().includes(query) ||
-        customer.whatsapp?.includes(query) ||
-        customer.company_name?.toLowerCase().includes(query) ||
-        customer.phone?.includes(query)
+        customer.phone?.includes(query) ||
+        customer.company_name?.toLowerCase().includes(query)
       );
     }
 
-    // Sort by last order date and total orders
+    // Sort by created date (most recent first)
     filtered.sort((a, b) => {
-      const aLastOrder = new Date(a.last_order_date || 0);
-      const bLastOrder = new Date(b.last_order_date || 0);
-      return bLastOrder.getTime() - aLastOrder.getTime();
+      const aDate = new Date(a.created_at || 0);
+      const bDate = new Date(b.created_at || 0);
+      return bDate.getTime() - aDate.getTime();
     });
 
-    setFilteredCustomers(filtered);
-  };
+    return filtered;
+  });
 
   const getBusinessTypeConfig = (type: BusinessType) => {
     return BUSINESS_TYPES.find(bt => bt.key === type) || BUSINESS_TYPES[0];
