@@ -12,6 +12,7 @@ import {
 } from 'react-native-paper';
 import { LineChart, BarChart, PieChart, ProgressChart } from 'react-native-chart-kit';
 import { useNavigation } from '@react-navigation/native';
+import { useAppSelector } from '../../store/hooks';
 import { AnalyticsService } from '../../services/AnalyticsService';
 import { BusinessAnalytics, PeriodType } from '../../types/Analytics';
 import { formatCurrency, formatPercentage, formatDate } from '../../utils/formatters';
@@ -44,6 +45,11 @@ const CHART_CONFIG = {
 
 export default function AnalyticsScreen() {
   const navigation = useNavigation();
+  const orders = useAppSelector((state) => state.orders.orders);
+  const customers = useAppSelector((state) => state.customers.customers);
+  const materials = useAppSelector((state) => state.inventory.materials);
+  const tasks = useAppSelector((state) => state.production.tasks);
+
   const [analytics, setAnalytics] = useState<BusinessAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,12 +57,19 @@ export default function AnalyticsScreen() {
 
   useEffect(() => {
     loadAnalytics();
-  }, [selectedPeriod]);
+  }, [selectedPeriod, orders, customers, materials, tasks]);
 
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-      const analyticsData = await AnalyticsService.getBusinessAnalytics(selectedPeriod);
+      const transactions: any[] = []; // Would come from financial slice when implemented
+      const analyticsData = await AnalyticsService.generateBusinessAnalytics(
+        orders,
+        customers,
+        materials,
+        tasks,
+        transactions
+      );
       setAnalytics(analyticsData);
     } catch (error) {
       console.error('Failed to load analytics:', error);
@@ -162,10 +175,10 @@ export default function AnalyticsScreen() {
         <Card.Content>
           <View style={styles.chartHeader}>
             <Title style={styles.chartTitle}>Revenue Trend</Title>
-            <Button 
-              mode="outlined" 
+            <Button
+              mode="outlined"
               compact
-              onPress={() => navigation.navigate('FinancialReports')}
+              onPress={() => {/* navigation.navigate('FinancialReports') */}}
             >
               Details
             </Button>
@@ -226,10 +239,10 @@ export default function AnalyticsScreen() {
         <Card.Content>
           <View style={styles.chartHeader}>
             <Title style={styles.chartTitle}>Order Status Distribution</Title>
-            <Button 
-              mode="outlined" 
+            <Button
+              mode="outlined"
               compact
-              onPress={() => navigation.navigate('OrderReports')}
+              onPress={() => {/* navigation.navigate('OrderReports') */}}
             >
               Details
             </Button>
@@ -319,10 +332,10 @@ export default function AnalyticsScreen() {
         <Card.Content>
           <View style={styles.chartHeader}>
             <Title style={styles.chartTitle}>Production Performance</Title>
-            <Button 
-              mode="outlined" 
+            <Button
+              mode="outlined"
               compact
-              onPress={() => navigation.navigate('ProductionReports')}
+              onPress={() => {/* navigation.navigate('ProductionReports') */}}
             >
               Details
             </Button>
@@ -379,10 +392,10 @@ export default function AnalyticsScreen() {
         <Card.Content>
           <View style={styles.alertsHeader}>
             <Title style={styles.sectionTitle}>Inventory Alerts</Title>
-            <Button 
-              mode="outlined" 
+            <Button
+              mode="outlined"
               compact
-              onPress={() => navigation.navigate('InventoryReports')}
+              onPress={() => {/* navigation.navigate('InventoryReports') */}}
             >
               View All
             </Button>
@@ -441,34 +454,34 @@ export default function AnalyticsScreen() {
       <Card.Content>
         <Title style={styles.sectionTitle}>Quick Reports</Title>
         <View style={styles.actionButtons}>
-          <Button 
-            mode="contained" 
+          <Button
+            mode="contained"
             style={styles.actionButton}
-            onPress={() => navigation.navigate('SalesReport')}
+            onPress={() => {/* navigation.navigate('SalesReport') */}}
             icon="chart-bar"
           >
             Sales Report
           </Button>
-          <Button 
-            mode="outlined" 
+          <Button
+            mode="outlined"
             style={styles.actionButton}
-            onPress={() => navigation.navigate('CustomerReport')}
+            onPress={() => {/* navigation.navigate('CustomerReport') */}}
             icon="account-group"
           >
             Customer Report
           </Button>
-          <Button 
-            mode="outlined" 
+          <Button
+            mode="outlined"
             style={styles.actionButton}
-            onPress={() => navigation.navigate('InventoryReport')}
+            onPress={() => {/* navigation.navigate('InventoryReport') */}}
             icon="package-variant"
           >
             Inventory Report
           </Button>
-          <Button 
-            mode="outlined" 
+          <Button
+            mode="outlined"
             style={styles.actionButton}
-            onPress={() => navigation.navigate('FinancialReport')}
+            onPress={() => {/* navigation.navigate('FinancialReport') */}}
             icon="currency-usd"
           >
             Financial Report
