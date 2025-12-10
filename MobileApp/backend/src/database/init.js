@@ -1,5 +1,5 @@
 // Database initialization script
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
@@ -7,20 +7,15 @@ const DB_PATH = path.join(__dirname, 'premium_gift_box.db');
 
 function initializeDatabase() {
   console.log('Initializing database...');
-  
+
   // Create database directory if it doesn't exist
   const dbDir = path.dirname(DB_PATH);
   if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
   }
 
-  const db = new sqlite3.Database(DB_PATH, (err) => {
-    if (err) {
-      console.error('Error opening database:', err.message);
-      return;
-    }
-    console.log('Connected to SQLite database.');
-  });
+  const db = new Database(DB_PATH);
+  console.log('Connected to SQLite database.');
 
   // Create tables
   const createTables = [
@@ -29,11 +24,14 @@ function initializeDatabase() {
       username TEXT UNIQUE NOT NULL,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      role TEXT DEFAULT 'user',
+      role TEXT DEFAULT 'employee',
+      full_name TEXT,
+      phone TEXT,
+      is_active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     `CREATE TABLE IF NOT EXISTS customers (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -46,7 +44,7 @@ function initializeDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     `CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
       order_number TEXT UNIQUE NOT NULL,
@@ -59,7 +57,7 @@ function initializeDatabase() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (customer_id) REFERENCES customers (id)
     )`,
-    
+
     `CREATE TABLE IF NOT EXISTS inventory (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -71,7 +69,7 @@ function initializeDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     `CREATE TABLE IF NOT EXISTS transactions (
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
@@ -84,23 +82,16 @@ function initializeDatabase() {
     )`
   ];
 
-  db.serialize(() => {
+  try {
     createTables.forEach(sql => {
-      db.run(sql, (err) => {
-        if (err) {
-          console.error('Error creating table:', err.message);
-        }
-      });
+      db.exec(sql);
     });
-  });
-
-  db.close((err) => {
-    if (err) {
-      console.error('Error closing database:', err.message);
-    } else {
-      console.log('Database initialized successfully.');
-    }
-  });
+    console.log('Database initialized successfully.');
+  } catch (err) {
+    console.error('Error creating tables:', err.message);
+  } finally {
+    db.close();
+  }
 }
 
 // Run initialization if called directly
