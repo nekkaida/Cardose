@@ -47,10 +47,23 @@ class WebhookService {
 
       const webhooks = await this.db.all(query, params);
 
-      return webhooks.map(webhook => ({
-        ...webhook,
-        events: JSON.parse(webhook.events)
-      }));
+      return webhooks.map(webhook => {
+        let events = webhook.events || '';
+        // Handle both JSON array and comma-separated string formats
+        if (events.startsWith('[')) {
+          try {
+            events = JSON.parse(events);
+          } catch (e) {
+            events = events.split(',').map(e => e.trim()).filter(e => e);
+          }
+        } else {
+          events = events.split(',').map(e => e.trim()).filter(e => e);
+        }
+        return {
+          ...webhook,
+          events
+        };
+      });
     } catch (error) {
       throw new Error(`Failed to get webhooks: ${error.message}`);
     }

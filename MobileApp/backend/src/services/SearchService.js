@@ -56,9 +56,9 @@ class SearchService {
     const searchPattern = `%${query}%`;
 
     return await this.db.all(`
-      SELECT id, name, email, phone, company_name, business_type
+      SELECT id, name, email, phone, business_type
       FROM customers
-      WHERE name LIKE ? OR email LIKE ? OR phone LIKE ? OR company_name LIKE ?
+      WHERE name LIKE ? OR email LIKE ? OR phone LIKE ? OR business_type LIKE ?
       ORDER BY name ASC LIMIT ?
     `, [searchPattern, searchPattern, searchPattern, searchPattern, limit]);
   }
@@ -100,10 +100,10 @@ class SearchService {
     const searchPattern = `%${query}%`;
 
     return await this.db.all(`
-      SELECT id, material_name, category, current_stock, unit, unit_cost
+      SELECT id, name, category, current_stock, unit, unit_cost
       FROM inventory_materials
-      WHERE material_name LIKE ? OR category LIKE ?
-      ORDER BY material_name ASC LIMIT ?
+      WHERE name LIKE ? OR category LIKE ?
+      ORDER BY name ASC LIMIT ?
     `, [searchPattern, searchPattern, limit]);
   }
 

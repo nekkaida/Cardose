@@ -140,11 +140,11 @@ class DashboardService {
       SELECT
         c.id,
         c.name,
-        c.company_name,
+        c.business_type as company_name,
         COUNT(o.id) as order_count,
-        SUM(o.final_price) as total_spent
+        COALESCE(SUM(o.final_price), 0) as total_spent
       FROM customers c
-      JOIN orders o ON c.id = o.customer_id
+      LEFT JOIN orders o ON c.id = o.customer_id
       WHERE DATE(o.created_at) BETWEEN DATE(?) AND DATE(?)
       GROUP BY c.id
       ORDER BY total_spent DESC
@@ -173,7 +173,7 @@ class DashboardService {
     `);
 
     const criticalItems = await this.db.all(`
-      SELECT material_name, current_stock, unit, reorder_level
+      SELECT name as material_name, current_stock, unit, reorder_level
       FROM inventory_materials
       WHERE current_stock <= reorder_level
       ORDER BY current_stock ASC

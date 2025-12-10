@@ -49,10 +49,23 @@ class TemplateService {
 
       const templates = await this.db.all(query, params);
 
-      return templates.map(template => ({
-        ...template,
-        variables: JSON.parse(template.variables || '[]')
-      }));
+      return templates.map(template => {
+        let vars = template.variables || '';
+        // Handle both JSON array and comma-separated string formats
+        if (vars.startsWith('[')) {
+          try {
+            vars = JSON.parse(vars);
+          } catch (e) {
+            vars = vars.split(',').map(v => v.trim()).filter(v => v);
+          }
+        } else {
+          vars = vars.split(',').map(v => v.trim()).filter(v => v);
+        }
+        return {
+          ...template,
+          variables: vars
+        };
+      });
     } catch (error) {
       throw new Error(`Failed to get templates: ${error.message}`);
     }
@@ -72,9 +85,20 @@ class TemplateService {
         throw new Error('Template not found');
       }
 
+      let vars = template.variables || '';
+      if (vars.startsWith('[')) {
+        try {
+          vars = JSON.parse(vars);
+        } catch (e) {
+          vars = vars.split(',').map(v => v.trim()).filter(v => v);
+        }
+      } else {
+        vars = vars.split(',').map(v => v.trim()).filter(v => v);
+      }
+
       return {
         ...template,
-        variables: JSON.parse(template.variables || '[]')
+        variables: vars
       };
     } catch (error) {
       throw new Error(`Failed to get template: ${error.message}`);
