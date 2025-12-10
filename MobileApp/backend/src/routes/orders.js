@@ -1,109 +1,163 @@
+// Order management routes - Using DatabaseService
 const { v4: uuidv4 } = require('uuid');
-const { sampleOrders } = require('../data/sampleData');
+const DatabaseService = require('../services/DatabaseService');
 
 async function ordersRoutes(fastify, options) {
+  const db = new DatabaseService();
+  db.initialize();
+
   // Get all orders
   fastify.get('/', async (request, reply) => {
     try {
-      const { status, customer_id, limit } = request.query;
-      
-      // Use sample data for now, but keep database functionality for future
-      let orders = sampleOrders;
-      
-      // Apply filters
+      const { status, priority, customer_id, limit = 100, page = 1 } = request.query;
+
+      let query = 'SELECT o.*, c.name as customer_name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id WHERE 1=1';
+      const params = [];
+
       if (status) {
-        orders = orders.filter(order => order.status === status);
+        query += ' AND o.status = ?';
+        params.push(status);
+      }
+      if (priority) {
+        query += ' AND o.priority = ?';
+        params.push(priority);
       }
       if (customer_id) {
-        orders = orders.filter(order => order.customerId === customer_id);
-      }
-      if (limit) {
-        orders = orders.slice(0, parseInt(limit));
+        query += ' AND o.customer_id = ?';
+        params.push(customer_id);
       }
 
+      query += ' ORDER BY o.created_at DESC';
+
+      // Get total count
+      const countQuery = query.replace('SELECT o.*, c.name as customer_name', 'SELECT COUNT(*) as total');
+      const countResult = db.db.prepare(countQuery).get(...params);
+      const total = countResult ? countResult.total : 0;
+
+      // Add pagination
+      const offset = (page - 1) * limit;
+      query += ' LIMIT ? OFFSET ?';
+      params.push(parseInt(limit), offset);
+
+      const orders = db.db.prepare(query).all(...params);
+
+      // Calculate stats
+      const allOrders = db.db.prepare('SELECT status, total_amount FROM orders').all();
       const stats = {
-        total: sampleOrders.length,
-        pending: sampleOrders.filter(o => o.status === 'pending').length,
-        in_progress: sampleOrders.filter(o => o.status === 'in_progress').length,
-        completed: sampleOrders.filter(o => o.status === 'completed').length,
-        cancelled: sampleOrders.filter(o => o.status === 'cancelled').length,
-        totalValue: sampleOrders.reduce((sum, o) => sum + o.pricing.finalPrice, 0),
-        averageValue: sampleOrders.length > 0 ? sampleOrders.reduce((sum, o) => sum + o.pricing.finalPrice, 0) / sampleOrders.length : 0
+        total: allOrders.length,
+        pending: allOrders.filter(o => o.status === 'pending').length,
+        designing: allOrders.filter(o => o.status === 'designing').length,
+        approved: allOrders.filter(o => o.status === 'approved').length,
+        production: allOrders.filter(o => o.status === 'production').length,
+        quality_control: allOrders.filter(o => o.status === 'quality_control').length,
+        completed: allOrders.filter(o => o.status === 'completed').length,
+        cancelled: allOrders.filter(o => o.status === 'cancelled').length,
+        totalValue: allOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0)
       };
 
-      return { success: true, orders, stats };
+      return {
+        success: true,
+        orders,
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit),
+        stats
+      };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ 
-        success: false, 
-        error: 'Failed to fetch orders' 
-      });
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get order stats
+  fastify.get('/stats', async (request, reply) => {
+    try {
+      const orders = db.db.prepare('SELECT status, priority, total_amount, due_date FROM orders').all();
+
+      const today = new Date();
+      const stats = {
+        total: orders.length,
+        byStatus: {
+          pending: orders.filter(o => o.status === 'pending').length,
+          designing: orders.filter(o => o.status === 'designing').length,
+          approved: orders.filter(o => o.status === 'approved').length,
+          production: orders.filter(o => o.status === 'production').length,
+          quality_control: orders.filter(o => o.status === 'quality_control').length,
+          completed: orders.filter(o => o.status === 'completed').length,
+          cancelled: orders.filter(o => o.status === 'cancelled').length
+        },
+        byPriority: {
+          low: orders.filter(o => o.priority === 'low').length,
+          normal: orders.filter(o => o.priority === 'normal').length,
+          high: orders.filter(o => o.priority === 'high').length,
+          urgent: orders.filter(o => o.priority === 'urgent').length
+        },
+        totalValue: orders.reduce((sum, o) => sum + (o.total_amount || 0), 0),
+        overdue: orders.filter(o => o.due_date && new Date(o.due_date) < today && o.status !== 'completed' && o.status !== 'cancelled').length
+      };
+
+      return { success: true, stats };
+    } catch (error) {
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
   // Get single order
   fastify.get('/:id', async (request, reply) => {
     try {
-      const order = await fastify.db.get(
-        'SELECT * FROM orders WHERE id = ?',
-        [request.params.id]
-      );
+      const { id } = request.params;
+      const order = db.db.prepare('SELECT o.*, c.name as customer_name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id WHERE o.id = ?').get(id);
 
       if (!order) {
-        return reply.status(404).send({
-          success: false,
-          error: 'Order not found'
-        });
+        reply.code(404);
+        return { success: false, error: 'Order not found' };
       }
 
       // Get order stages
-      const stages = await fastify.db.all(
-        'SELECT * FROM order_stages WHERE order_id = ? ORDER BY start_date',
-        [request.params.id]
-      );
+      const stages = db.db.prepare('SELECT * FROM order_stages WHERE order_id = ? ORDER BY created_at').all(id);
 
-      return { 
-        success: true, 
-        data: { ...order, stages } 
+      return {
+        success: true,
+        order: { ...order, stages }
       };
     } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({ 
-        success: false, 
-        error: 'Failed to fetch order' 
-      });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
   // Create new order
   fastify.post('/', async (request, reply) => {
     try {
-      const orderData = {
-        id: uuidv4(),
-        order_number: await generateOrderNumber(),
-        ...request.body
-      };
+      const { customer_id, total_amount, priority = 'normal', due_date, box_type } = request.body;
 
-      // Validate required fields
-      if (!orderData.customer_id || !orderData.total_price) {
-        return reply.status(400).send({
-          success: false,
-          error: 'Missing required fields: customer_id, total_price'
-        });
+      if (!customer_id) {
+        reply.code(400);
+        return { success: false, error: 'customer_id is required' };
       }
 
-      await fastify.db.createOrder(orderData);
+      const id = uuidv4();
+      const orderNumber = await generateOrderNumber(db);
 
-      return reply.status(201).send({ 
-        success: true, 
-        data: orderData 
-      });
+      db.db.prepare(`
+        INSERT INTO orders (id, order_number, customer_id, status, priority, total_amount, due_date, box_type)
+        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
+      `).run(id, orderNumber, customer_id, priority, total_amount || 0, due_date, box_type);
+
+      const order = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+
+      return {
+        success: true,
+        message: 'Order created successfully',
+        orderId: id,
+        order
+      };
     } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({ 
-        success: false, 
-        error: 'Failed to create order' 
-      });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
@@ -111,38 +165,38 @@ async function ordersRoutes(fastify, options) {
   fastify.put('/:id', async (request, reply) => {
     try {
       const { id } = request.params;
-      const updateData = request.body;
+      const updates = request.body;
 
-      // Build dynamic UPDATE query
-      const fields = Object.keys(updateData).filter(key => key !== 'id');
-      const setClause = fields.map(field => `${field} = ?`).join(', ');
-      const values = fields.map(field => {
-        // Handle JSON fields
-        if (field === 'materials' || field === 'colors') {
-          return JSON.stringify(updateData[field]);
-        }
-        return updateData[field];
-      });
-
-      const sql = `UPDATE orders SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-      values.push(id);
-
-      const result = await fastify.db.run(sql, values);
-
-      if (result.changes === 0) {
-        return reply.status(404).send({
-          success: false,
-          error: 'Order not found'
-        });
+      const existing = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+      if (!existing) {
+        reply.code(404);
+        return { success: false, error: 'Order not found' };
       }
 
-      return { success: true, message: 'Order updated successfully' };
+      const fields = [];
+      const values = [];
+
+      if (updates.status !== undefined) { fields.push('status = ?'); values.push(updates.status); }
+      if (updates.priority !== undefined) { fields.push('priority = ?'); values.push(updates.priority); }
+      if (updates.total_amount !== undefined) { fields.push('total_amount = ?'); values.push(updates.total_amount); }
+      if (updates.due_date !== undefined) { fields.push('due_date = ?'); values.push(updates.due_date); }
+      if (updates.box_type !== undefined) { fields.push('box_type = ?'); values.push(updates.box_type); }
+
+      if (fields.length === 0) {
+        return { success: true, message: 'No changes made' };
+      }
+
+      fields.push('updated_at = CURRENT_TIMESTAMP');
+      values.push(id);
+
+      db.db.prepare(`UPDATE orders SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+
+      const order = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+
+      return { success: true, message: 'Order updated successfully', order };
     } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({ 
-        success: false, 
-        error: 'Failed to update order' 
-      });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
@@ -153,79 +207,75 @@ async function ordersRoutes(fastify, options) {
       const { status, notes } = request.body;
 
       if (!status) {
-        return reply.status(400).send({
-          success: false,
-          error: 'Status is required'
-        });
+        reply.code(400);
+        return { success: false, error: 'Status is required' };
       }
 
       const validStatuses = ['pending', 'designing', 'approved', 'production', 'quality_control', 'completed', 'cancelled'];
       if (!validStatuses.includes(status)) {
-        return reply.status(400).send({
-          success: false,
-          error: 'Invalid status value'
-        });
+        reply.code(400);
+        return { success: false, error: 'Invalid status value' };
       }
 
-      await fastify.db.updateOrderStatus(id, status, notes || '');
+      const existing = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+      if (!existing) {
+        reply.code(404);
+        return { success: false, error: 'Order not found' };
+      }
 
-      return { 
-        success: true, 
-        message: 'Order status updated successfully' 
-      };
+      db.db.prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, id);
+
+      // Add to order stages
+      db.db.prepare(`
+        INSERT INTO order_stages (id, order_id, stage, notes, created_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `).run(uuidv4(), id, status, notes || '');
+
+      return { success: true, message: 'Order status updated successfully' };
     } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({ 
-        success: false, 
-        error: 'Failed to update order status' 
-      });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
   // Delete order
   fastify.delete('/:id', async (request, reply) => {
     try {
-      const result = await fastify.db.run(
-        'DELETE FROM orders WHERE id = ?',
-        [request.params.id]
-      );
+      const { id } = request.params;
 
-      if (result.changes === 0) {
-        return reply.status(404).send({
-          success: false,
-          error: 'Order not found'
-        });
+      const existing = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+      if (!existing) {
+        reply.code(404);
+        return { success: false, error: 'Order not found' };
       }
+
+      db.db.prepare('DELETE FROM order_stages WHERE order_id = ?').run(id);
+      db.db.prepare('DELETE FROM orders WHERE id = ?').run(id);
 
       return { success: true, message: 'Order deleted successfully' };
     } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({ 
-        success: false, 
-        error: 'Failed to delete order' 
-      });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
+}
 
-  // Generate unique order number
-  async function generateOrderNumber() {
-    const year = new Date().getFullYear();
-    const prefix = `PGB-${year}-`;
-    
-    // Get the latest order number for this year
-    const latestOrder = await fastify.db.get(
-      "SELECT order_number FROM orders WHERE order_number LIKE ? ORDER BY order_number DESC LIMIT 1",
-      [`${prefix}%`]
-    );
+// Generate unique order number
+async function generateOrderNumber(db) {
+  const year = new Date().getFullYear();
+  const prefix = `PGB-${year}-`;
 
-    let nextNumber = 1;
-    if (latestOrder) {
-      const currentNumber = parseInt(latestOrder.order_number.split('-').pop());
-      nextNumber = currentNumber + 1;
-    }
+  const latestOrder = db.db.prepare(
+    "SELECT order_number FROM orders WHERE order_number LIKE ? ORDER BY order_number DESC LIMIT 1"
+  ).get(`${prefix}%`);
 
-    return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+  let nextNumber = 1;
+  if (latestOrder) {
+    const currentNumber = parseInt(latestOrder.order_number.split('-').pop());
+    nextNumber = currentNumber + 1;
   }
+
+  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
 }
 
 module.exports = ordersRoutes;
