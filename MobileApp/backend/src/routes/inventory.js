@@ -1,494 +1,347 @@
-// Inventory management routes for Premium Gift Box backend
+// Inventory management routes - Using DatabaseService
 const { v4: uuidv4 } = require('uuid');
+const DatabaseService = require('../services/DatabaseService');
 
 async function inventoryRoutes(fastify, options) {
-  const db = fastify.db;
+  const db = new DatabaseService();
+  db.initialize();
 
-  // Get all materials
-  fastify.get('/materials', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
+  // Get all inventory items
+  fastify.get('/', async (request, reply) => {
     try {
-      const { category, lowStock } = request.query;
+      const { category, lowStock, search, limit = 100, page = 1 } = request.query;
 
-      let sql = 'SELECT * FROM inventory_materials WHERE 1=1';
+      let query = 'SELECT * FROM inventory_materials WHERE 1=1';
       const params = [];
 
       if (category) {
-        sql += ' AND category = ?';
+        query += ' AND category = ?';
         params.push(category);
       }
 
       if (lowStock === 'true') {
-        sql += ' AND current_stock <= reorder_level';
+        query += ' AND current_stock <= reorder_level';
       }
 
-      sql += ' ORDER BY name ASC';
-
-      const materials = await db.all(sql, params);
-
-      return { materials };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch materials' });
-    }
-  });
-
-  // Get material by ID
-  fastify.get('/materials/:materialId', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const { materialId } = request.params;
-
-      const material = await db.get(
-        'SELECT * FROM inventory_materials WHERE id = ?',
-        [materialId]
-      );
-
-      if (!material) {
-        return reply.status(404).send({ error: 'Material not found' });
+      if (search) {
+        query += ' AND (name LIKE ? OR sku LIKE ? OR supplier LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
       }
 
-      return { material };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch material' });
-    }
-  });
+      query += ' ORDER BY name ASC';
 
-  // Create material
-  fastify.post('/materials', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const { name, category, supplier, unitCost, currentStock, reorderLevel, unit, notes } = request.body;
+      // Get total count
+      const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total');
+      const countResult = db.db.prepare(countQuery).get(...params);
+      const total = countResult ? countResult.total : 0;
 
-      if (!name || !category || !supplier || !unitCost || !unit) {
-        return reply.status(400).send({
-          error: 'Name, category, supplier, unit cost, and unit are required'
-        });
-      }
+      // Add pagination
+      const offset = (page - 1) * limit;
+      query += ' LIMIT ? OFFSET ?';
+      params.push(parseInt(limit), offset);
 
-      const materialId = uuidv4();
+      const inventory = db.db.prepare(query).all(...params);
 
-      await db.run(
-        `INSERT INTO inventory_materials (id, name, category, supplier, unit_cost,
-         current_stock, reorder_level, unit, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [materialId, name, category, supplier, unitCost, currentStock || 0,
-         reorderLevel || 0, unit, notes || null]
-      );
+      // Calculate stats
+      const allItems = db.db.prepare('SELECT category, current_stock, reorder_level, unit_cost FROM inventory_materials').all();
+      const stats = {
+        total: allItems.length,
+        paper: allItems.filter(i => i.category === 'paper').length,
+        ribbon: allItems.filter(i => i.category === 'ribbon').length,
+        accessories: allItems.filter(i => i.category === 'accessories').length,
+        packaging: allItems.filter(i => i.category === 'packaging').length,
+        printing: allItems.filter(i => i.category === 'printing').length,
+        lowStock: allItems.filter(i => i.current_stock <= i.reorder_level).length,
+        outOfStock: allItems.filter(i => i.current_stock <= 0).length,
+        totalValue: allItems.reduce((sum, i) => sum + (i.current_stock * (i.unit_cost || 0)), 0)
+      };
 
       return {
         success: true,
-        materialId,
-        message: 'Material created successfully'
+        inventory,
+        items: inventory,
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit),
+        stats
       };
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to create material' });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
-  // Update material
-  fastify.put('/materials/:materialId', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
+  // Get low stock items
+  fastify.get('/low-stock', async (request, reply) => {
     try {
-      const { materialId } = request.params;
-      const { name, category, supplier, unitCost, currentStock, reorderLevel, unit, notes } = request.body;
-
-      await db.run(
-        `UPDATE inventory_materials
-         SET name = ?, category = ?, supplier = ?, unit_cost = ?,
-             current_stock = ?, reorder_level = ?, unit = ?, notes = ?,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        [name, category, supplier, unitCost, currentStock, reorderLevel, unit, notes, materialId]
-      );
+      const items = db.db.prepare(`
+        SELECT * FROM inventory_materials
+        WHERE current_stock <= reorder_level
+        ORDER BY
+          CASE
+            WHEN current_stock <= 0 THEN 1
+            WHEN current_stock <= reorder_level * 0.5 THEN 2
+            ELSE 3
+          END,
+          current_stock ASC
+      `).all();
 
       return {
         success: true,
-        message: 'Material updated successfully'
+        items,
+        count: items.length
       };
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to update material' });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
-  // Delete material
-  fastify.delete('/materials/:materialId', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
+  // Get inventory stats
+  fastify.get('/stats', async (request, reply) => {
     try {
-      const { materialId } = request.params;
+      const materialsCount = db.db.prepare('SELECT COUNT(*) as count FROM inventory_materials').get();
+      const lowStockCount = db.db.prepare('SELECT COUNT(*) as count FROM inventory_materials WHERE current_stock <= reorder_level').get();
+      const outOfStockCount = db.db.prepare('SELECT COUNT(*) as count FROM inventory_materials WHERE current_stock <= 0').get();
+      const totalValue = db.db.prepare('SELECT SUM(current_stock * unit_cost) as value FROM inventory_materials').get();
 
-      await db.run('DELETE FROM inventory_materials WHERE id = ?', [materialId]);
+      // Get category breakdown
+      const categoryBreakdown = db.db.prepare(`
+        SELECT category, COUNT(*) as count, SUM(current_stock * unit_cost) as value
+        FROM inventory_materials
+        GROUP BY category
+      `).all();
 
       return {
         success: true,
-        message: 'Material deleted successfully'
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to delete material' });
-    }
-  });
-
-  // Record inventory movement
-  fastify.post('/movements', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const { type, itemId, itemType, quantity, unitCost, reason, orderId, notes } = request.body;
-
-      if (!type || !itemId || !itemType || !quantity) {
-        return reply.status(400).send({
-          error: 'Type, item ID, item type, and quantity are required'
-        });
-      }
-
-      const movementId = uuidv4();
-      const totalCost = unitCost ? unitCost * quantity : null;
-
-      // Record movement
-      await db.run(
-        `INSERT INTO inventory_movements (id, type, item_id, item_type, quantity,
-         unit_cost, total_cost, reason, order_id, notes, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [movementId, type, itemId, itemType, quantity, unitCost || null,
-         totalCost, reason || null, orderId || null, notes || null, request.user.id]
-      );
-
-      // Update stock levels
-      if (itemType === 'material') {
-        const material = await db.get(
-          'SELECT current_stock FROM inventory_materials WHERE id = ?',
-          [itemId]
-        );
-
-        if (!material) {
-          return reply.status(404).send({ error: 'Material not found' });
-        }
-
-        let newStock = material.current_stock;
-
-        if (type === 'purchase') {
-          newStock += quantity;
-          // Update last_restocked date
-          await db.run(
-            `UPDATE inventory_materials
-             SET current_stock = ?, last_restocked = DATE('now'), updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?`,
-            [newStock, itemId]
-          );
-        } else if (type === 'usage' || type === 'sale' || type === 'waste') {
-          newStock -= quantity;
-          await db.run(
-            'UPDATE inventory_materials SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [newStock, itemId]
-          );
-        } else if (type === 'adjustment') {
-          newStock = quantity; // For adjustments, set to exact quantity
-          await db.run(
-            'UPDATE inventory_materials SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [newStock, itemId]
-          );
-        }
-      } else if (itemType === 'product') {
-        const product = await db.get(
-          'SELECT in_stock FROM inventory_products WHERE id = ?',
-          [itemId]
-        );
-
-        if (!product) {
-          return reply.status(404).send({ error: 'Product not found' });
-        }
-
-        let newStock = product.in_stock;
-
-        if (type === 'purchase') {
-          newStock += quantity;
-        } else if (type === 'usage' || type === 'sale' || type === 'waste') {
-          newStock -= quantity;
-        } else if (type === 'adjustment') {
-          newStock = quantity;
-        }
-
-        await db.run(
-          'UPDATE inventory_products SET in_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-          [newStock, itemId]
-        );
-      }
-
-      return {
-        success: true,
-        movementId,
-        message: 'Inventory movement recorded successfully'
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to record inventory movement' });
-    }
-  });
-
-  // Get inventory movements
-  fastify.get('/movements', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const { itemId, type, startDate, endDate } = request.query;
-
-      let sql = `
-        SELECT
-          im.*,
-          u.full_name as created_by_name
-        FROM inventory_movements im
-        LEFT JOIN users u ON im.created_by = u.id
-        WHERE 1=1
-      `;
-      const params = [];
-
-      if (itemId) {
-        sql += ' AND im.item_id = ?';
-        params.push(itemId);
-      }
-
-      if (type) {
-        sql += ' AND im.type = ?';
-        params.push(type);
-      }
-
-      if (startDate) {
-        sql += ' AND DATE(im.created_at) >= ?';
-        params.push(startDate);
-      }
-
-      if (endDate) {
-        sql += ' AND DATE(im.created_at) <= ?';
-        params.push(endDate);
-      }
-
-      sql += ' ORDER BY im.created_at DESC LIMIT 100';
-
-      const movements = await db.all(sql, params);
-
-      return { movements };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch inventory movements' });
-    }
-  });
-
-  // Get inventory statistics
-  fastify.get('/stats', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      // Total materials count
-      const materialsCount = await db.get(
-        'SELECT COUNT(*) as count FROM inventory_materials'
-      );
-
-      // Low stock materials count
-      const lowStockCount = await db.get(
-        'SELECT COUNT(*) as count FROM inventory_materials WHERE current_stock <= reorder_level'
-      );
-
-      // Out of stock materials count
-      const outOfStockCount = await db.get(
-        'SELECT COUNT(*) as count FROM inventory_materials WHERE current_stock <= 0'
-      );
-
-      // Total inventory value
-      const totalValue = await db.get(
-        'SELECT SUM(current_stock * unit_cost) as value FROM inventory_materials'
-      );
-
-      // Recent movements count (last 7 days)
-      const recentMovements = await db.get(
-        `SELECT COUNT(*) as count FROM inventory_movements
-         WHERE DATE(created_at) >= DATE('now', '-7 days')`
-      );
-
-      return {
         stats: {
           total_materials: materialsCount.count,
           low_stock_items: lowStockCount.count,
           out_of_stock_items: outOfStockCount.count,
           total_inventory_value: totalValue.value || 0,
-          recent_movements: recentMovements.count
+          by_category: categoryBreakdown
         }
       };
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch inventory stats' });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
-  // Get low stock alerts
-  fastify.get('/alerts', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
+  // Get single inventory item
+  fastify.get('/:id', async (request, reply) => {
     try {
-      const materials = await db.all(
-        `SELECT * FROM inventory_materials
-         WHERE current_stock <= reorder_level
-         ORDER BY
-           CASE
-             WHEN current_stock <= 0 THEN 1
-             WHEN current_stock <= reorder_level * 0.5 THEN 2
-             ELSE 3
-           END,
-           current_stock ASC`
-      );
+      const { id } = request.params;
+      const item = db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(id);
 
-      return { alerts: materials };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch inventory alerts' });
-    }
-  });
-
-  // Create purchase order
-  fastify.post('/purchase-orders', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const { supplier, items, expectedDelivery, notes } = request.body;
-
-      if (!supplier || !items || !Array.isArray(items) || items.length === 0) {
-        return reply.status(400).send({
-          error: 'Supplier and items are required'
-        });
+      if (!item) {
+        reply.code(404);
+        return { success: false, error: 'Inventory item not found' };
       }
 
-      const poId = uuidv4();
-      const poNumber = `PO-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
-
-      // Calculate total amount
-      const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0);
-
-      await db.run(
-        `INSERT INTO purchase_orders (id, po_number, supplier, items, total_amount,
-         status, expected_delivery, notes, created_by)
-         VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
-        [poId, poNumber, supplier, JSON.stringify(items), totalAmount,
-         expectedDelivery || null, notes || null, request.user.id]
-      );
+      // Get movements for this item
+      const movements = db.db.prepare(`
+        SELECT * FROM inventory_movements
+        WHERE item_id = ?
+        ORDER BY created_at DESC
+        LIMIT 20
+      `).all(id);
 
       return {
         success: true,
-        poId,
-        poNumber,
-        message: 'Purchase order created successfully'
+        item: { ...item, movements }
       };
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to create purchase order' });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
-  // Get purchase orders
-  fastify.get('/purchase-orders', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
+  // Create inventory item
+  fastify.post('/', async (request, reply) => {
     try {
-      const { status } = request.query;
+      const { name, sku, category, supplier, unit_cost, current_stock = 0, reorder_level = 10, unit, notes } = request.body;
 
-      let sql = `
-        SELECT
-          po.*,
-          u.full_name as created_by_name
-        FROM purchase_orders po
-        LEFT JOIN users u ON po.created_by = u.id
+      if (!name || !category) {
+        reply.code(400);
+        return { success: false, error: 'Name and category are required' };
+      }
+
+      const id = uuidv4();
+
+      db.db.prepare(`
+        INSERT INTO inventory_materials (id, name, sku, category, supplier, unit_cost, current_stock, reorder_level, unit, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, name, sku, category, supplier, unit_cost || 0, current_stock, reorder_level, unit, notes);
+
+      const item = db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(id);
+
+      return {
+        success: true,
+        message: 'Inventory item created successfully',
+        itemId: id,
+        item
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Update inventory item
+  fastify.put('/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const updates = request.body;
+
+      const existing = db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(id);
+      if (!existing) {
+        reply.code(404);
+        return { success: false, error: 'Inventory item not found' };
+      }
+
+      const fields = [];
+      const values = [];
+
+      if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
+      if (updates.sku !== undefined) { fields.push('sku = ?'); values.push(updates.sku); }
+      if (updates.category !== undefined) { fields.push('category = ?'); values.push(updates.category); }
+      if (updates.supplier !== undefined) { fields.push('supplier = ?'); values.push(updates.supplier); }
+      if (updates.unit_cost !== undefined) { fields.push('unit_cost = ?'); values.push(updates.unit_cost); }
+      if (updates.current_stock !== undefined) { fields.push('current_stock = ?'); values.push(updates.current_stock); }
+      if (updates.reorder_level !== undefined) { fields.push('reorder_level = ?'); values.push(updates.reorder_level); }
+      if (updates.unit !== undefined) { fields.push('unit = ?'); values.push(updates.unit); }
+      if (updates.notes !== undefined) { fields.push('notes = ?'); values.push(updates.notes); }
+
+      if (fields.length === 0) {
+        return { success: true, message: 'No changes made' };
+      }
+
+      fields.push('updated_at = CURRENT_TIMESTAMP');
+      values.push(id);
+
+      db.db.prepare(`UPDATE inventory_materials SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+
+      const item = db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(id);
+
+      return { success: true, message: 'Inventory item updated successfully', item };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Delete inventory item
+  fastify.delete('/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+
+      const existing = db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(id);
+      if (!existing) {
+        reply.code(404);
+        return { success: false, error: 'Inventory item not found' };
+      }
+
+      db.db.prepare('DELETE FROM inventory_movements WHERE item_id = ?').run(id);
+      db.db.prepare('DELETE FROM inventory_materials WHERE id = ?').run(id);
+
+      return { success: true, message: 'Inventory item deleted successfully' };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Record inventory movement
+  fastify.post('/movements', async (request, reply) => {
+    try {
+      const { type, item_id, quantity, unit_cost, reason, order_id, notes } = request.body;
+
+      if (!type || !item_id || !quantity) {
+        reply.code(400);
+        return { success: false, error: 'Type, item_id, and quantity are required' };
+      }
+
+      const item = db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(item_id);
+      if (!item) {
+        reply.code(404);
+        return { success: false, error: 'Inventory item not found' };
+      }
+
+      const id = uuidv4();
+      const totalCost = unit_cost ? unit_cost * quantity : (item.unit_cost || 0) * quantity;
+
+      db.db.prepare(`
+        INSERT INTO inventory_movements (id, type, item_id, item_type, quantity, unit_cost, total_cost, reason, order_id, notes)
+        VALUES (?, ?, ?, 'material', ?, ?, ?, ?, ?, ?)
+      `).run(id, type, item_id, quantity, unit_cost || item.unit_cost, totalCost, reason, order_id, notes);
+
+      // Update stock level
+      let newStock = item.current_stock;
+      if (type === 'purchase' || type === 'return') {
+        newStock += quantity;
+      } else if (type === 'usage' || type === 'sale' || type === 'waste') {
+        newStock -= quantity;
+      } else if (type === 'adjustment') {
+        newStock = quantity;
+      }
+
+      db.db.prepare('UPDATE inventory_materials SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newStock, item_id);
+
+      return {
+        success: true,
+        message: 'Inventory movement recorded successfully',
+        movementId: id,
+        newStock
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get inventory movements
+  fastify.get('/movements', async (request, reply) => {
+    try {
+      const { item_id, type, limit = 100 } = request.query;
+
+      let query = `
+        SELECT im.*, m.name as item_name
+        FROM inventory_movements im
+        LEFT JOIN inventory_materials m ON im.item_id = m.id
         WHERE 1=1
       `;
       const params = [];
 
-      if (status) {
-        sql += ' AND po.status = ?';
-        params.push(status);
+      if (item_id) {
+        query += ' AND im.item_id = ?';
+        params.push(item_id);
       }
 
-      sql += ' ORDER BY po.created_at DESC';
+      if (type) {
+        query += ' AND im.type = ?';
+        params.push(type);
+      }
 
-      const orders = await db.all(sql, params);
+      query += ` ORDER BY im.created_at DESC LIMIT ?`;
+      params.push(parseInt(limit));
 
-      // Parse items JSON
-      const ordersWithParsedItems = orders.map(order => ({
-        ...order,
-        items: JSON.parse(order.items)
-      }));
+      const movements = db.db.prepare(query).all(...params);
 
-      return { purchase_orders: ordersWithParsedItems };
+      return { success: true, movements };
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch purchase orders' });
-    }
-  });
-
-  // Update purchase order status
-  fastify.put('/purchase-orders/:poId/status', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const { poId } = request.params;
-      const { status, receivedDate } = request.body;
-
-      const validStatuses = ['pending', 'ordered', 'received', 'cancelled'];
-      if (!validStatuses.includes(status)) {
-        return reply.status(400).send({ error: 'Invalid status' });
-      }
-
-      await db.run(
-        `UPDATE purchase_orders
-         SET status = ?, received_date = ?, updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        [status, receivedDate || null, poId]
-      );
-
-      // If received, create inventory movements
-      if (status === 'received') {
-        const po = await db.get(
-          'SELECT items FROM purchase_orders WHERE id = ?',
-          [poId]
-        );
-
-        if (po && po.items) {
-          const items = JSON.parse(po.items);
-
-          for (const item of items) {
-            const movementId = uuidv4();
-            await db.run(
-              `INSERT INTO inventory_movements (id, type, item_id, item_type, quantity,
-               unit_cost, total_cost, reason, notes, created_by)
-               VALUES (?, 'purchase', ?, 'material', ?, ?, ?, 'Purchase Order', ?, ?)`,
-              [movementId, item.materialId, item.quantity, item.unitCost,
-               item.quantity * item.unitCost, `PO: ${po.po_number}`, request.user.id]
-            );
-
-            // Update material stock
-            await db.run(
-              `UPDATE inventory_materials
-               SET current_stock = current_stock + ?, last_restocked = DATE('now'),
-                   updated_at = CURRENT_TIMESTAMP
-               WHERE id = ?`,
-              [item.quantity, item.materialId]
-            );
-          }
-        }
-      }
-
-      return {
-        success: true,
-        message: 'Purchase order status updated successfully'
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to update purchase order status' });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 }
