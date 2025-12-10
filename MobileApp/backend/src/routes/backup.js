@@ -1,197 +1,235 @@
-// Backup and restore routes
-const BackupService = require('../services/BackupService');
+// Backup and restore routes - Using DatabaseService
+const { v4: uuidv4 } = require('uuid');
+const DatabaseService = require('../services/DatabaseService');
+const fs = require('fs');
 const path = require('path');
 
 async function backupRoutes(fastify, options) {
-  const backupService = new BackupService();
+  const db = new DatabaseService();
+  db.initialize();
+  const backupDir = path.join(__dirname, '../../backups');
 
-  /**
-   * Create manual backup
-   */
-  fastify.post('/create', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
+  // Ensure backup directory exists
+  if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+  }
+
+  // List all backups
+  fastify.get('/', async (request, reply) => {
+    try {
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.endsWith('.db') || f.endsWith('.sql'))
+        .map(filename => {
+          const filepath = path.join(backupDir, filename);
+          const stats = fs.statSync(filepath);
+          return {
+            filename,
+            size: stats.size,
+            sizeMB: (stats.size / (1024 * 1024)).toFixed(2),
+            created: stats.birthtime,
+            modified: stats.mtime
+          };
+        })
+        .sort((a, b) => new Date(b.created) - new Date(a.created));
+
+      return {
+        success: true,
+        backups: files,
+        count: files.length
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Create backup
+  fastify.post('/create', async (request, reply) => {
     try {
       const { description } = request.body;
 
-      const result = await backupService.createBackup(description || 'Manual backup');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `backup_${timestamp}.db`;
+      const filepath = path.join(backupDir, filename);
+
+      // Get the source database path
+      const sourceDbPath = db.db.name;
+
+      // Copy the database file
+      fs.copyFileSync(sourceDbPath, filepath);
+
+      // Log the backup
+      const backupId = uuidv4();
+      db.db.prepare(`
+        INSERT INTO backups (id, filename, filepath, description, size_bytes, created_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `).run(backupId, filename, filepath, description || 'Manual backup', fs.statSync(filepath).size);
 
       return {
         success: true,
         message: 'Backup created successfully',
-        backup: result.backup
+        backup: {
+          id: backupId,
+          filename,
+          filepath,
+          sizeMB: (fs.statSync(filepath).size / (1024 * 1024)).toFixed(2)
+        }
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to create backup', details: error.message });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
-  /**
-   * List all backups
-   */
-  fastify.get('/list', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
+  // Get backup stats
+  fastify.get('/stats', async (request, reply) => {
     try {
-      const backups = await backupService.listBackups();
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.endsWith('.db') || f.endsWith('.sql'));
+
+      let totalSize = 0;
+      files.forEach(f => {
+        totalSize += fs.statSync(path.join(backupDir, f)).size;
+      });
+
+      // Get latest backup from database
+      const latestBackup = db.db.prepare(`
+        SELECT * FROM backups ORDER BY created_at DESC LIMIT 1
+      `).get();
 
       return {
         success: true,
-        backups
+        stats: {
+          totalBackups: files.length,
+          totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
+          backupDirectory: backupDir,
+          latestBackup: latestBackup ? {
+            filename: latestBackup.filename,
+            created: latestBackup.created_at
+          } : null
+        }
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to list backups', details: error.message });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
-  /**
-   * Get backup statistics
-   */
-  fastify.get('/stats', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const stats = await backupService.getBackupStats();
-
-      return {
-        success: true,
-        stats
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get backup stats', details: error.message });
-    }
-  });
-
-  /**
-   * Download backup file
-   */
-  fastify.get('/download/:filename', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
+  // Delete backup
+  fastify.delete('/:filename', async (request, reply) => {
     try {
       const { filename } = request.params;
+      const filepath = path.join(backupDir, filename);
 
-      const backupPath = backupService.getBackupPath(filename);
-
-      reply.header('Content-Type', 'application/octet-stream');
-      reply.header('Content-Disposition', `attachment; filename="${filename}"`);
-
-      return reply.sendFile(filename, path.dirname(backupPath));
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to download backup', details: error.message });
-    }
-  });
-
-  /**
-   * Restore from backup
-   */
-  fastify.post('/restore', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const { filename } = request.body;
-
-      if (!filename) {
-        return reply.status(400).send({ error: 'Backup filename is required' });
+      if (!fs.existsSync(filepath)) {
+        reply.code(404);
+        return { success: false, error: 'Backup file not found' };
       }
 
-      const result = await backupService.restoreBackup(filename);
+      fs.unlinkSync(filepath);
+
+      // Remove from database
+      db.db.prepare('DELETE FROM backups WHERE filename = ?').run(filename);
 
       return {
         success: true,
-        message: result.message,
-        restoredFrom: result.restoredFrom
+        message: 'Backup deleted successfully'
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to restore backup', details: error.message });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
-  /**
-   * Delete backup
-   */
-  fastify.delete('/:filename', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
+  // Export to SQL
+  fastify.post('/export-sql', async (request, reply) => {
     try {
-      const { filename } = request.params;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `export_${timestamp}.sql`;
+      const filepath = path.join(backupDir, filename);
 
-      const result = await backupService.deleteBackup(filename);
+      // Get all tables
+      const tables = db.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'
+      `).all();
 
-      return {
-        success: true,
-        message: result.message
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to delete backup', details: error.message });
-    }
-  });
+      let sql = '-- Database export\n';
+      sql += `-- Created: ${new Date().toISOString()}\n\n`;
 
-  /**
-   * Verify backup integrity
-   */
-  fastify.post('/verify/:filename', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const { filename } = request.params;
+      for (const table of tables) {
+        // Get table schema
+        const schema = db.db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`).get(table.name);
+        sql += `-- Table: ${table.name}\n`;
+        sql += `${schema.sql};\n\n`;
 
-      const result = await backupService.verifyBackup(filename);
+        // Get table data
+        const rows = db.db.prepare(`SELECT * FROM ${table.name}`).all();
+        for (const row of rows) {
+          const columns = Object.keys(row);
+          const values = Object.values(row).map(v => {
+            if (v === null) return 'NULL';
+            if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
+            return v;
+          });
+          sql += `INSERT INTO ${table.name} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`;
+        }
+        sql += '\n';
+      }
 
-      return result;
-    } catch (error) {
-      fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to verify backup', details: error.message });
-    }
-  });
-
-  /**
-   * Export database to SQL
-   */
-  fastify.post('/export-sql', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const result = await backupService.exportToSQL();
+      fs.writeFileSync(filepath, sql);
 
       return {
         success: true,
         message: 'Database exported to SQL',
         export: {
-          filepath: result.filepath,
-          filename: result.filename,
-          sizeMB: result.sizeMB
+          filename,
+          filepath,
+          sizeMB: (fs.statSync(filepath).size / (1024 * 1024)).toFixed(2)
         }
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to export to SQL', details: error.message });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 
-  /**
-   * Clean up old backups
-   */
-  fastify.post('/cleanup', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
+  // Cleanup old backups (keep last N)
+  fastify.post('/cleanup', async (request, reply) => {
     try {
-      const result = await backupService.cleanupOldBackups();
+      const { keep = 5 } = request.body;
+
+      const files = fs.readdirSync(backupDir)
+        .filter(f => f.endsWith('.db'))
+        .map(filename => ({
+          filename,
+          created: fs.statSync(path.join(backupDir, filename)).birthtime
+        }))
+        .sort((a, b) => new Date(b.created) - new Date(a.created));
+
+      const toDelete = files.slice(parseInt(keep));
+      let deletedCount = 0;
+
+      for (const file of toDelete) {
+        fs.unlinkSync(path.join(backupDir, file.filename));
+        db.db.prepare('DELETE FROM backups WHERE filename = ?').run(file.filename);
+        deletedCount++;
+      }
 
       return {
         success: true,
-        message: 'Old backups cleaned up',
-        deletedCount: result.deletedCount
+        message: `Cleaned up ${deletedCount} old backups`,
+        deletedCount,
+        remaining: files.length - deletedCount
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to cleanup backups', details: error.message });
+      reply.code(500);
+      return { success: false, error: error.message };
     }
   });
 }
