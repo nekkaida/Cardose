@@ -40,7 +40,9 @@
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to capture product photos."
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font"
     ]
   }
 }
