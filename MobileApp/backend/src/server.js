@@ -25,9 +25,8 @@ const db = new Database();
 // Make database available in all routes
 fastify.decorate('db', db);
 
-// Register authentication decorators globally
-const { authenticateDecorator } = require('./routes/auth');
-fastify.register(authenticateDecorator);
+// Register authentication middleware globally
+fastify.register(require('./middleware/auth'));
 
 // Register routes
 fastify.register(require('./routes/auth'), { prefix: '/api/auth' });
@@ -36,6 +35,7 @@ fastify.register(require('./routes/orders'), { prefix: '/api/orders' });
 fastify.register(require('./routes/customers'), { prefix: '/api/customers' });
 fastify.register(require('./routes/inventory'), { prefix: '/api/inventory' });
 fastify.register(require('./routes/financial'), { prefix: '/api/financial' });
+fastify.register(require('./routes/financial'), { prefix: '/api/finance' }); // alias
 fastify.register(require('./routes/production'), { prefix: '/api/production' });
 fastify.register(require('./routes/analytics'), { prefix: '/api/analytics' });
 fastify.register(require('./routes/communication'), { prefix: '/api/communication' });
@@ -49,6 +49,12 @@ fastify.register(require('./routes/audit'), { prefix: '/api/audit' });
 fastify.register(require('./routes/dashboard'), { prefix: '/api/dashboard' });
 fastify.register(require('./routes/search'), { prefix: '/api/search' });
 fastify.register(require('./routes/webhooks'), { prefix: '/api/webhooks' });
+fastify.register(require('./routes/invoices'), { prefix: '/api/invoices' });
+fastify.register(require('./routes/users'), { prefix: '/api/users' });
+fastify.register(require('./routes/quality-checks'), { prefix: '/api/quality-checks' });
+fastify.register(require('./routes/purchase-orders'), { prefix: '/api/purchase-orders' });
+fastify.register(require('./routes/audit-logs'), { prefix: '/api/audit-logs' });
+fastify.register(require('./routes/backup'), { prefix: '/api/backups' }); // alias for /api/backup
 
 // Backup service setup
 const BackupService = require('./services/BackupService');
