@@ -1,9 +1,20 @@
-// Authentication routes for Premium Gift Box backend
+// Authentication routes for Premium Gift Box backend - Using DatabaseService
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const DatabaseService = require('../services/DatabaseService');
 
 async function authRoutes(fastify, options) {
-  const db = fastify.db;
+  const db = new DatabaseService();
+  db.initialize();
+
+  // Define authenticate function for this scope
+  const authenticate = async function (request, reply) {
+    try {
+      await request.jwtVerify();
+    } catch (err) {
+      reply.status(401).send({ error: 'Authentication required' });
+    }
+  };
 
   // Register route
   fastify.post('/register', async (request, reply) => {
@@ -24,7 +35,7 @@ async function authRoutes(fastify, options) {
       }
 
       // Check if user already exists
-      const existingUser = await db.getUser(username, email);
+      const existingUser = db.db.prepare('SELECT id FROM users WHERE username = ? OR email = ?').get(username, email);
       if (existingUser) {
         return reply.status(409).send({
           error: 'Username or email already exists'
@@ -37,25 +48,19 @@ async function authRoutes(fastify, options) {
 
       // Create user
       const userId = uuidv4();
-      const user = {
-        id: userId,
-        username,
-        email,
-        password_hash: passwordHash,
-        role: role === 'owner' || role === 'manager' ? role : 'employee',
-        full_name: fullName,
-        phone: phone || null,
-        is_active: 1
-      };
+      const userRole = role === 'owner' || role === 'manager' ? role : 'employee';
 
-      await db.createUser(user);
+      db.db.prepare(`
+        INSERT INTO users (id, username, email, password_hash, role, full_name, phone, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+      `).run(userId, username, email, passwordHash, userRole, fullName, phone || null);
 
       // Generate JWT token
       const token = fastify.jwt.sign({
         id: userId,
         username,
         email,
-        role: user.role
+        role: userRole
       });
 
       return {
@@ -67,7 +72,7 @@ async function authRoutes(fastify, options) {
           username,
           email,
           fullName,
-          role: user.role
+          role: userRole
         }
       };
     } catch (error) {
@@ -83,26 +88,27 @@ async function authRoutes(fastify, options) {
 
       if (!username || !password) {
         return reply.status(400).send({
+          success: false,
           error: 'Username and password are required'
         });
       }
 
       // Get user from database
-      const user = await db.getUserByUsername(username);
+      const user = db.db.prepare('SELECT * FROM users WHERE username = ?').get(username);
 
       if (!user) {
-        return reply.status(401).send({ error: 'Invalid username or password' });
+        return reply.status(401).send({ success: false, error: 'Invalid username or password' });
       }
 
       if (!user.is_active) {
-        return reply.status(403).send({ error: 'Account is deactivated' });
+        return reply.status(403).send({ success: false, error: 'Account is deactivated' });
       }
 
       // Verify password
       const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
       if (!passwordMatch) {
-        return reply.status(401).send({ error: 'Invalid username or password' });
+        return reply.status(401).send({ success: false, error: 'Invalid username or password' });
       }
 
       // Generate JWT token
@@ -127,13 +133,13 @@ async function authRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'Login failed: ' + error.message });
+      reply.status(500).send({ success: false, error: 'Login failed: ' + error.message });
     }
   });
 
   // Logout route (client-side token removal, optional server-side tracking)
   fastify.post('/logout', {
-    preHandler: [fastify.authenticate]
+    preHandler: [authenticate]
   }, async (request, reply) => {
     return {
       success: true,
@@ -141,12 +147,42 @@ async function authRoutes(fastify, options) {
     };
   });
 
-  // Get current user profile
-  fastify.get('/profile', {
-    preHandler: [fastify.authenticate]
+  // Get current user profile (/me endpoint for test compatibility)
+  fastify.get('/me', {
+    preHandler: [authenticate]
   }, async (request, reply) => {
     try {
-      const user = await db.getUserById(request.user.id);
+      const user = db.db.prepare('SELECT * FROM users WHERE id = ?').get(request.user.id);
+
+      if (!user) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+
+      return {
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          fullName: user.full_name,
+          phone: user.phone,
+          role: user.role,
+          isActive: user.is_active === 1,
+          createdAt: user.created_at
+        }
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to fetch profile' });
+    }
+  });
+
+  // Get current user profile
+  fastify.get('/profile', {
+    preHandler: [authenticate]
+  }, async (request, reply) => {
+    try {
+      const user = db.db.prepare('SELECT * FROM users WHERE id = ?').get(request.user.id);
 
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
@@ -172,22 +208,27 @@ async function authRoutes(fastify, options) {
 
   // Update user profile
   fastify.put('/profile', {
-    preHandler: [fastify.authenticate]
+    preHandler: [authenticate]
   }, async (request, reply) => {
     try {
       const { fullName, email, phone } = request.body;
       const userId = request.user.id;
 
-      const updates = {};
-      if (fullName) updates.full_name = fullName;
-      if (email) updates.email = email;
-      if (phone !== undefined) updates.phone = phone;
+      const fields = [];
+      const values = [];
 
-      if (Object.keys(updates).length === 0) {
+      if (fullName) { fields.push('full_name = ?'); values.push(fullName); }
+      if (email) { fields.push('email = ?'); values.push(email); }
+      if (phone !== undefined) { fields.push('phone = ?'); values.push(phone); }
+
+      if (fields.length === 0) {
         return reply.status(400).send({ error: 'No updates provided' });
       }
 
-      await db.updateUser(userId, updates);
+      fields.push('updated_at = CURRENT_TIMESTAMP');
+      values.push(userId);
+
+      db.db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...values);
 
       return {
         success: true,
@@ -201,7 +242,7 @@ async function authRoutes(fastify, options) {
 
   // Change password
   fastify.post('/change-password', {
-    preHandler: [fastify.authenticate]
+    preHandler: [authenticate]
   }, async (request, reply) => {
     try {
       const { currentPassword, newPassword } = request.body;
@@ -218,7 +259,7 @@ async function authRoutes(fastify, options) {
         });
       }
 
-      const user = await db.getUserById(request.user.id);
+      const user = db.db.prepare('SELECT * FROM users WHERE id = ?').get(request.user.id);
 
       // Verify current password
       const passwordMatch = await bcrypt.compare(currentPassword, user.password_hash);
@@ -231,7 +272,7 @@ async function authRoutes(fastify, options) {
       const saltRounds = 10;
       const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
-      await db.updateUser(user.id, { password_hash: newPasswordHash });
+      db.db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newPasswordHash, user.id);
 
       return {
         success: true,
@@ -252,7 +293,7 @@ async function authRoutes(fastify, options) {
         return reply.status(400).send({ error: 'Email is required' });
       }
 
-      const user = await db.getUserByEmail(email);
+      const user = db.db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 
       if (!user) {
         // Don't reveal if email exists for security
@@ -309,7 +350,7 @@ async function authRoutes(fastify, options) {
       const saltRounds = 10;
       const passwordHash = await bcrypt.hash(newPassword, saltRounds);
 
-      await db.updateUser(decoded.id, { password_hash: passwordHash });
+      db.db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(passwordHash, decoded.id);
 
       return {
         success: true,
@@ -326,7 +367,7 @@ async function authRoutes(fastify, options) {
 
   // Verify JWT token (for debugging/testing)
   fastify.get('/verify', {
-    preHandler: [fastify.authenticate]
+    preHandler: [authenticate]
   }, async (request, reply) => {
     return {
       valid: true,
