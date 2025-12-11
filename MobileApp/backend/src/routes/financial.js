@@ -7,8 +7,8 @@ async function financialRoutes(fastify, options) {
   db.initialize();
   const PPN_RATE = 0.11; // 11% Indonesian VAT
 
-  // Get all transactions
-  fastify.get('/transactions', async (request, reply) => {
+  // Get all transactions (requires authentication)
+  fastify.get('/transactions', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { type, category, startDate, endDate, limit = 100, page = 1 } = request.query;
 
@@ -73,8 +73,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Create transaction
-  fastify.post('/transactions', async (request, reply) => {
+  // Create transaction (requires authentication)
+  fastify.post('/transactions', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { type, category, amount, description, order_id, payment_method, payment_date, ppn_amount, base_amount, invoice_number } = request.body;
 
@@ -105,8 +105,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Get financial summary
-  fastify.get('/summary', async (request, reply) => {
+  // Get financial summary (requires authentication)
+  fastify.get('/summary', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       // Get transactions summary
       const transactions = db.db.prepare('SELECT type, amount, ppn_amount FROM financial_transactions').all();
@@ -152,8 +152,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Get all budgets
-  fastify.get('/budgets', async (request, reply) => {
+  // Get all budgets (requires authentication)
+  fastify.get('/budgets', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { period, category } = request.query;
 
@@ -212,8 +212,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Create budget
-  fastify.post('/budgets', async (request, reply) => {
+  // Create budget (requires authentication)
+  fastify.post('/budgets', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { category, amount, period, start_date, end_date, notes } = request.body;
 
@@ -244,8 +244,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Get budget by ID
-  fastify.get('/budgets/:id', async (request, reply) => {
+  // Get budget by ID (requires authentication)
+  fastify.get('/budgets/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -289,8 +289,8 @@ async function financialRoutes(fastify, options) {
 
   // ==================== INVOICES ====================
 
-  // Get all invoices
-  fastify.get('/invoices', async (request, reply) => {
+  // Get all invoices (requires authentication)
+  fastify.get('/invoices', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { status, customer_id, startDate, endDate, limit = 100, page = 1 } = request.query;
 
@@ -363,8 +363,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Create invoice
-  fastify.post('/invoices', async (request, reply) => {
+  // Create invoice (requires authentication)
+  fastify.post('/invoices', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { order_id, customer_id, subtotal, discount = 0, due_date, notes, items } = request.body;
 
@@ -400,8 +400,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Get invoice by ID
-  fastify.get('/invoices/:id', async (request, reply) => {
+  // Get invoice by ID (requires authentication)
+  fastify.get('/invoices/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -439,8 +439,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Update invoice status
-  fastify.patch('/invoices/:id/status', async (request, reply) => {
+  // Update invoice status (requires authentication)
+  fastify.patch('/invoices/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { status, paid_date, payment_method } = request.body;
@@ -506,8 +506,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Calculate pricing
-  fastify.post('/calculate-pricing', async (request, reply) => {
+  // Calculate pricing (requires authentication)
+  fastify.post('/calculate-pricing', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const {
         materials = [],
@@ -570,8 +570,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Get tax report
-  fastify.get('/tax-report', async (request, reply) => {
+  // Get tax report (requires authentication)
+  fastify.get('/tax-report', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { month, year, startDate, endDate } = request.query;
 
@@ -644,8 +644,8 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Get analytics
-  fastify.get('/analytics', async (request, reply) => {
+  // Get analytics (requires authentication)
+  fastify.get('/analytics', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const monthlyRevenue = [];
       const currentDate = new Date();
