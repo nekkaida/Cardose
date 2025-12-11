@@ -6,8 +6,8 @@ async function purchaseOrdersRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Get all purchase orders
-  fastify.get('/', async (request, reply) => {
+  // Get all purchase orders (requires authentication)
+  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { status, supplier, limit = 100, page = 1 } = request.query;
 
@@ -59,8 +59,8 @@ async function purchaseOrdersRoutes(fastify, options) {
     }
   });
 
-  // Get purchase order by ID
-  fastify.get('/:id', async (request, reply) => {
+  // Get purchase order by ID (requires authentication)
+  fastify.get('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -85,8 +85,8 @@ async function purchaseOrdersRoutes(fastify, options) {
     }
   });
 
-  // Create purchase order
-  fastify.post('/', async (request, reply) => {
+  // Create purchase order (requires authentication)
+  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { supplier, items, total_amount, expected_date, notes } = request.body;
 
@@ -121,8 +121,8 @@ async function purchaseOrdersRoutes(fastify, options) {
     }
   });
 
-  // Update purchase order status
-  fastify.patch('/:id/status', async (request, reply) => {
+  // Update purchase order status (requires authentication)
+  fastify.patch('/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { status, received_date } = request.body;
@@ -177,8 +177,8 @@ async function purchaseOrdersRoutes(fastify, options) {
     }
   });
 
-  // Delete purchase order
-  fastify.delete('/:id', async (request, reply) => {
+  // Delete purchase order (requires authentication)
+  fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
