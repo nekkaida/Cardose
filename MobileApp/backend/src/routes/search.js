@@ -5,8 +5,8 @@ async function searchRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Global search
-  fastify.get('/', async (request, reply) => {
+  // Global search (requires authentication)
+  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { q, query, type, limit = 20 } = request.query;
 
@@ -95,8 +95,8 @@ async function searchRoutes(fastify, options) {
     }
   });
 
-  // Advanced order search
-  fastify.post('/orders', async (request, reply) => {
+  // Advanced order search (requires authentication)
+  fastify.post('/orders', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const {
         customer_id,
@@ -168,8 +168,8 @@ async function searchRoutes(fastify, options) {
     }
   });
 
-  // Search customers
-  fastify.get('/customers', async (request, reply) => {
+  // Search customers (requires authentication)
+  fastify.get('/customers', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { q, business_type, loyalty_status, limit = 20 } = request.query;
 
