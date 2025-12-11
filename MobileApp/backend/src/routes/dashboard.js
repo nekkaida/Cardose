@@ -5,8 +5,8 @@ async function dashboardRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Get dashboard stats
-  fastify.get('/stats', async (request, reply) => {
+  // Get dashboard stats (requires authentication)
+  fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       // Orders stats
       const orderStats = db.db.prepare(`
@@ -104,8 +104,8 @@ async function dashboardRoutes(fastify, options) {
     }
   });
 
-  // Get recent orders
-  fastify.get('/recent-orders', async (request, reply) => {
+  // Get recent orders (requires authentication)
+  fastify.get('/recent-orders', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { limit = 10 } = request.query;
 
@@ -128,8 +128,8 @@ async function dashboardRoutes(fastify, options) {
     }
   });
 
-  // Get dashboard overview
-  fastify.get('/overview', async (request, reply) => {
+  // Get dashboard overview (requires authentication)
+  fastify.get('/overview', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       // Revenue this month
       const now = new Date();
@@ -221,8 +221,8 @@ async function dashboardRoutes(fastify, options) {
     }
   });
 
-  // Get sales trend
-  fastify.get('/sales-trend', async (request, reply) => {
+  // Get sales trend (requires authentication)
+  fastify.get('/sales-trend', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { days = 30 } = request.query;
 
@@ -261,8 +261,8 @@ async function dashboardRoutes(fastify, options) {
     }
   });
 
-  // Get product mix
-  fastify.get('/product-mix', async (request, reply) => {
+  // Get product mix (requires authentication)
+  fastify.get('/product-mix', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const productMix = db.db.prepare(`
         SELECT
@@ -286,8 +286,8 @@ async function dashboardRoutes(fastify, options) {
     }
   });
 
-  // Get top customers
-  fastify.get('/top-customers', async (request, reply) => {
+  // Get top customers (requires authentication)
+  fastify.get('/top-customers', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { limit = 10 } = request.query;
 
