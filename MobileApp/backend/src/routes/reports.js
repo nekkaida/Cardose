@@ -5,8 +5,8 @@ async function reportRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Sales report
-  fastify.get('/sales', async (request, reply) => {
+  // Sales report (requires authentication)
+  fastify.get('/sales', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { startDate, endDate, groupBy = 'day' } = request.query;
 
@@ -77,8 +77,8 @@ async function reportRoutes(fastify, options) {
     }
   });
 
-  // Inventory report
-  fastify.get('/inventory', async (request, reply) => {
+  // Inventory report (requires authentication)
+  fastify.get('/inventory', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       // Get inventory summary
       const summary = db.db.prepare(`
@@ -141,8 +141,8 @@ async function reportRoutes(fastify, options) {
     }
   });
 
-  // Production report
-  fastify.get('/production', async (request, reply) => {
+  // Production report (requires authentication)
+  fastify.get('/production', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { startDate, endDate } = request.query;
 
@@ -216,8 +216,8 @@ async function reportRoutes(fastify, options) {
     }
   });
 
-  // Customer report
-  fastify.get('/customers', async (request, reply) => {
+  // Customer report (requires authentication)
+  fastify.get('/customers', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { startDate, endDate } = request.query;
 
@@ -290,8 +290,8 @@ async function reportRoutes(fastify, options) {
     }
   });
 
-  // Financial report
-  fastify.get('/financial', async (request, reply) => {
+  // Financial report (requires authentication)
+  fastify.get('/financial', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { startDate, endDate } = request.query;
 
