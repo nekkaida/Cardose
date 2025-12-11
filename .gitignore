@@ -92,3 +92,4 @@ _BACKUP_*/
 # Keep MobileApp database schema
 !MobileApp/backend/src/database/schema.sql
 !MobileApp/backend/src/database/init.js
+nul
