@@ -6,8 +6,8 @@ async function ordersRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Get all orders
-  fastify.get('/', async (request, reply) => {
+  // Get all orders (requires authentication)
+  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { status, priority, customer_id, limit = 100, page = 1 } = request.query;
 
@@ -71,8 +71,8 @@ async function ordersRoutes(fastify, options) {
     }
   });
 
-  // Get order stats
-  fastify.get('/stats', async (request, reply) => {
+  // Get order stats (requires authentication)
+  fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const orders = db.db.prepare('SELECT status, priority, total_amount, due_date FROM orders').all();
 
@@ -105,8 +105,8 @@ async function ordersRoutes(fastify, options) {
     }
   });
 
-  // Get single order
-  fastify.get('/:id', async (request, reply) => {
+  // Get single order (requires authentication)
+  fastify.get('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const order = db.db.prepare('SELECT o.*, c.name as customer_name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id WHERE o.id = ?').get(id);
@@ -129,8 +129,8 @@ async function ordersRoutes(fastify, options) {
     }
   });
 
-  // Create new order
-  fastify.post('/', async (request, reply) => {
+  // Create new order (requires authentication)
+  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { customer_id, total_amount, priority = 'normal', due_date, box_type } = request.body;
 
@@ -161,8 +161,8 @@ async function ordersRoutes(fastify, options) {
     }
   });
 
-  // Update order
-  fastify.put('/:id', async (request, reply) => {
+  // Update order (requires authentication)
+  fastify.put('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const updates = request.body;
@@ -200,8 +200,8 @@ async function ordersRoutes(fastify, options) {
     }
   });
 
-  // Update order status
-  fastify.patch('/:id/status', async (request, reply) => {
+  // Update order status (requires authentication)
+  fastify.patch('/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { status, notes } = request.body;
@@ -238,8 +238,8 @@ async function ordersRoutes(fastify, options) {
     }
   });
 
-  // Delete order
-  fastify.delete('/:id', async (request, reply) => {
+  // Delete order (requires authentication)
+  fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
