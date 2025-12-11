@@ -14,8 +14,8 @@ async function backupRoutes(fastify, options) {
     fs.mkdirSync(backupDir, { recursive: true });
   }
 
-  // List all backups
-  fastify.get('/', async (request, reply) => {
+  // List all backups (requires authentication)
+  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const files = fs.readdirSync(backupDir)
         .filter(f => f.endsWith('.db') || f.endsWith('.sql'))
@@ -44,8 +44,8 @@ async function backupRoutes(fastify, options) {
     }
   });
 
-  // Create backup
-  fastify.post('/create', async (request, reply) => {
+  // Create backup (requires authentication)
+  fastify.post('/create', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { description } = request.body;
 
@@ -83,8 +83,8 @@ async function backupRoutes(fastify, options) {
     }
   });
 
-  // Get backup stats
-  fastify.get('/stats', async (request, reply) => {
+  // Get backup stats (requires authentication)
+  fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const files = fs.readdirSync(backupDir)
         .filter(f => f.endsWith('.db') || f.endsWith('.sql'));
@@ -118,8 +118,8 @@ async function backupRoutes(fastify, options) {
     }
   });
 
-  // Delete backup
-  fastify.delete('/:filename', async (request, reply) => {
+  // Delete backup (requires authentication)
+  fastify.delete('/:filename', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { filename } = request.params;
       const filepath = path.join(backupDir, filename);
@@ -145,8 +145,8 @@ async function backupRoutes(fastify, options) {
     }
   });
 
-  // Export to SQL
-  fastify.post('/export-sql', async (request, reply) => {
+  // Export to SQL (requires authentication)
+  fastify.post('/export-sql', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `export_${timestamp}.sql`;
@@ -198,8 +198,8 @@ async function backupRoutes(fastify, options) {
     }
   });
 
-  // Cleanup old backups (keep last N)
-  fastify.post('/cleanup', async (request, reply) => {
+  // Cleanup old backups (keep last N) (requires authentication)
+  fastify.post('/cleanup', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { keep = 5 } = request.body;
 
