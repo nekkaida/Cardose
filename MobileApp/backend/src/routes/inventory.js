@@ -6,8 +6,8 @@ async function inventoryRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Get all inventory items
-  fastify.get('/', async (request, reply) => {
+  // Get all inventory items (requires authentication)
+  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { category, lowStock, search, limit = 100, page = 1 } = request.query;
 
@@ -73,8 +73,8 @@ async function inventoryRoutes(fastify, options) {
     }
   });
 
-  // Get low stock items
-  fastify.get('/low-stock', async (request, reply) => {
+  // Get low stock items (requires authentication)
+  fastify.get('/low-stock', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const items = db.db.prepare(`
         SELECT * FROM inventory_materials
@@ -100,8 +100,8 @@ async function inventoryRoutes(fastify, options) {
     }
   });
 
-  // Get inventory stats
-  fastify.get('/stats', async (request, reply) => {
+  // Get inventory stats (requires authentication)
+  fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const materialsCount = db.db.prepare('SELECT COUNT(*) as count FROM inventory_materials').get();
       const lowStockCount = db.db.prepare('SELECT COUNT(*) as count FROM inventory_materials WHERE current_stock <= reorder_level').get();
@@ -132,8 +132,8 @@ async function inventoryRoutes(fastify, options) {
     }
   });
 
-  // Get single inventory item
-  fastify.get('/:id', async (request, reply) => {
+  // Get single inventory item (requires authentication)
+  fastify.get('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const item = db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(id);
@@ -162,8 +162,8 @@ async function inventoryRoutes(fastify, options) {
     }
   });
 
-  // Create inventory item
-  fastify.post('/', async (request, reply) => {
+  // Create inventory item (requires authentication)
+  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { name, sku, category, supplier, unit_cost, current_stock = 0, reorder_level = 10, unit, notes } = request.body;
 
@@ -194,8 +194,8 @@ async function inventoryRoutes(fastify, options) {
     }
   });
 
-  // Update inventory item
-  fastify.put('/:id', async (request, reply) => {
+  // Update inventory item (requires authentication)
+  fastify.put('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const updates = request.body;
@@ -238,8 +238,8 @@ async function inventoryRoutes(fastify, options) {
     }
   });
 
-  // Delete inventory item
-  fastify.delete('/:id', async (request, reply) => {
+  // Delete inventory item (requires authentication)
+  fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -260,8 +260,8 @@ async function inventoryRoutes(fastify, options) {
     }
   });
 
-  // Record inventory movement
-  fastify.post('/movements', async (request, reply) => {
+  // Record inventory movement (requires authentication)
+  fastify.post('/movements', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { type, item_id, quantity, unit_cost, reason, order_id, notes } = request.body;
 
@@ -309,8 +309,8 @@ async function inventoryRoutes(fastify, options) {
     }
   });
 
-  // Get inventory movements
-  fastify.get('/movements', async (request, reply) => {
+  // Get inventory movements (requires authentication)
+  fastify.get('/movements', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { item_id, type, limit = 100 } = request.query;
 
