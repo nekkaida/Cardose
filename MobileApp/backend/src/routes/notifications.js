@@ -6,8 +6,8 @@ async function notificationRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Get all notifications
-  fastify.get('/', async (request, reply) => {
+  // Get all notifications (requires authentication)
+  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { type, read, limit = 50, page = 1 } = request.query;
 
@@ -52,8 +52,8 @@ async function notificationRoutes(fastify, options) {
     }
   });
 
-  // Get unread notifications
-  fastify.get('/unread', async (request, reply) => {
+  // Get unread notifications (requires authentication)
+  fastify.get('/unread', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const notifications = db.db.prepare(`
         SELECT * FROM notifications
@@ -76,8 +76,8 @@ async function notificationRoutes(fastify, options) {
     }
   });
 
-  // Create notification
-  fastify.post('/', async (request, reply) => {
+  // Create notification (requires authentication)
+  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { type, title, message, user_id, entity_type, entity_id, priority = 'normal' } = request.body;
 
@@ -108,8 +108,8 @@ async function notificationRoutes(fastify, options) {
     }
   });
 
-  // Mark notification as read
-  fastify.patch('/:id/read', async (request, reply) => {
+  // Mark notification as read (requires authentication)
+  fastify.patch('/:id/read', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -129,8 +129,8 @@ async function notificationRoutes(fastify, options) {
     }
   });
 
-  // Mark all notifications as read
-  fastify.patch('/read-all', async (request, reply) => {
+  // Mark all notifications as read (requires authentication)
+  fastify.patch('/read-all', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const result = db.db.prepare('UPDATE notifications SET is_read = 1 WHERE is_read = 0').run();
 
@@ -146,8 +146,8 @@ async function notificationRoutes(fastify, options) {
     }
   });
 
-  // Delete notification
-  fastify.delete('/:id', async (request, reply) => {
+  // Delete notification (requires authentication)
+  fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -167,8 +167,8 @@ async function notificationRoutes(fastify, options) {
     }
   });
 
-  // Check for overdue invoices
-  fastify.post('/check/overdue-invoices', async (request, reply) => {
+  // Check for overdue invoices (requires authentication)
+  fastify.post('/check/overdue-invoices', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       // Update overdue status
       const result = db.db.prepare(`
@@ -212,8 +212,8 @@ async function notificationRoutes(fastify, options) {
     }
   });
 
-  // Check for low stock
-  fastify.post('/check/low-stock', async (request, reply) => {
+  // Check for low stock (requires authentication)
+  fastify.post('/check/low-stock', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const lowStockItems = db.db.prepare(`
         SELECT * FROM inventory_materials
@@ -247,8 +247,8 @@ async function notificationRoutes(fastify, options) {
     }
   });
 
-  // Check for order deadlines
-  fastify.post('/check/order-deadlines', async (request, reply) => {
+  // Check for order deadlines (requires authentication)
+  fastify.post('/check/order-deadlines', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       // Get orders due within 3 days
       const upcomingOrders = db.db.prepare(`
