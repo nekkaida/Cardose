@@ -7,8 +7,8 @@ async function invoicesRoutes(fastify, options) {
   db.initialize();
   const PPN_RATE = 0.11; // 11% Indonesian VAT
 
-  // Get all invoices
-  fastify.get('/', async (request, reply) => {
+  // Get all invoices (requires authentication)
+  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { status, customer_id, startDate, endDate, limit = 100, page = 1 } = request.query;
 
@@ -81,8 +81,8 @@ async function invoicesRoutes(fastify, options) {
     }
   });
 
-  // Get invoice by ID
-  fastify.get('/:id', async (request, reply) => {
+  // Get invoice by ID (requires authentication)
+  fastify.get('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -120,8 +120,8 @@ async function invoicesRoutes(fastify, options) {
     }
   });
 
-  // Create invoice
-  fastify.post('/', async (request, reply) => {
+  // Create invoice (requires authentication)
+  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { order_id, customer_id, subtotal, discount = 0, due_date, notes, items } = request.body;
 
@@ -157,8 +157,8 @@ async function invoicesRoutes(fastify, options) {
     }
   });
 
-  // Update invoice status
-  fastify.patch('/:id/status', async (request, reply) => {
+  // Update invoice status (requires authentication)
+  fastify.patch('/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { status, paid_date, payment_method } = request.body;
@@ -205,8 +205,8 @@ async function invoicesRoutes(fastify, options) {
     }
   });
 
-  // Delete invoice
-  fastify.delete('/:id', async (request, reply) => {
+  // Delete invoice (requires authentication)
+  fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
