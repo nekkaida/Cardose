@@ -6,8 +6,8 @@ async function auditRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Get audit logs
-  fastify.get('/logs', async (request, reply) => {
+  // Get audit logs (requires authentication)
+  fastify.get('/logs', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { user_id, action, entity_type, entity_id, startDate, endDate, limit = 100, page = 1 } = request.query;
 
@@ -79,8 +79,8 @@ async function auditRoutes(fastify, options) {
     }
   });
 
-  // Get audit stats
-  fastify.get('/stats', async (request, reply) => {
+  // Get audit stats (requires authentication)
+  fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { startDate, endDate } = request.query;
 
@@ -151,8 +151,8 @@ async function auditRoutes(fastify, options) {
     }
   });
 
-  // Log action
-  fastify.post('/log', async (request, reply) => {
+  // Log action (requires authentication)
+  fastify.post('/log', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { user_id, action, entity_type, entity_id, details, ip_address } = request.body;
 
@@ -180,8 +180,8 @@ async function auditRoutes(fastify, options) {
     }
   });
 
-  // Export audit logs
-  fastify.get('/export', async (request, reply) => {
+  // Export audit logs (requires authentication)
+  fastify.get('/export', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { format = 'json', startDate, endDate, action, entity_type } = request.query;
 
@@ -249,8 +249,8 @@ async function auditRoutes(fastify, options) {
     }
   });
 
-  // Cleanup old audit logs
-  fastify.delete('/cleanup', async (request, reply) => {
+  // Cleanup old audit logs (requires authentication)
+  fastify.delete('/cleanup', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { days_to_keep = 90 } = request.query;
 
