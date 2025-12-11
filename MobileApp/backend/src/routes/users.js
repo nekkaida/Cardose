@@ -7,8 +7,8 @@ async function usersRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Get all users
-  fastify.get('/', async (request, reply) => {
+  // Get all users (requires authentication)
+  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { role, is_active, search, limit = 100, page = 1 } = request.query;
 
@@ -75,8 +75,8 @@ async function usersRoutes(fastify, options) {
     }
   });
 
-  // Get user by ID
-  fastify.get('/:id', async (request, reply) => {
+  // Get user by ID (requires authentication)
+  fastify.get('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -98,8 +98,8 @@ async function usersRoutes(fastify, options) {
     }
   });
 
-  // Create user
-  fastify.post('/', async (request, reply) => {
+  // Create user (requires authentication)
+  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { username, email, password, full_name, phone, role = 'employee' } = request.body;
 
@@ -141,8 +141,8 @@ async function usersRoutes(fastify, options) {
     }
   });
 
-  // Update user
-  fastify.put('/:id', async (request, reply) => {
+  // Update user (requires authentication)
+  fastify.put('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const updates = request.body;
@@ -190,8 +190,8 @@ async function usersRoutes(fastify, options) {
     }
   });
 
-  // Activate/Deactivate user
-  fastify.patch('/:id/status', async (request, reply) => {
+  // Activate/Deactivate user (requires authentication)
+  fastify.patch('/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { is_active } = request.body;
@@ -212,8 +212,8 @@ async function usersRoutes(fastify, options) {
     }
   });
 
-  // Delete user
-  fastify.delete('/:id', async (request, reply) => {
+  // Delete user (requires authentication)
+  fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
