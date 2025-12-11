@@ -68,8 +68,8 @@ async function customerRoutes(fastify, options) {
     }
   });
 
-  // Create customer
-  fastify.post('/', async (request, reply) => {
+  // Create customer (requires authentication)
+  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { name, email, phone, business_type, loyalty_status = 'new' } = request.body;
 
@@ -99,8 +99,8 @@ async function customerRoutes(fastify, options) {
     }
   });
 
-  // Get customer by ID
-  fastify.get('/:id', async (request, reply) => {
+  // Get customer by ID (requires authentication)
+  fastify.get('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const customer = db.db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
@@ -126,8 +126,8 @@ async function customerRoutes(fastify, options) {
     }
   });
 
-  // Update customer
-  fastify.put('/:id', async (request, reply) => {
+  // Update customer (requires authentication)
+  fastify.put('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const updates = request.body;
@@ -170,8 +170,8 @@ async function customerRoutes(fastify, options) {
     }
   });
 
-  // Delete customer
-  fastify.delete('/:id', async (request, reply) => {
+  // Delete customer (requires authentication)
+  fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
