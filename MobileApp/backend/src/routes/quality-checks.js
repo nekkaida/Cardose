@@ -6,8 +6,8 @@ async function qualityChecksRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Get all quality checks
-  fastify.get('/', async (request, reply) => {
+  // Get all quality checks (requires authentication)
+  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { order_id, status, limit = 100, page = 1 } = request.query;
 
@@ -64,8 +64,8 @@ async function qualityChecksRoutes(fastify, options) {
     }
   });
 
-  // Get quality check by ID
-  fastify.get('/:id', async (request, reply) => {
+  // Get quality check by ID (requires authentication)
+  fastify.get('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -96,8 +96,8 @@ async function qualityChecksRoutes(fastify, options) {
     }
   });
 
-  // Create quality check
-  fastify.post('/', async (request, reply) => {
+  // Create quality check (requires authentication)
+  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { order_id, checklist_items, overall_status, notes, checked_by } = request.body;
 
@@ -136,8 +136,8 @@ async function qualityChecksRoutes(fastify, options) {
     }
   });
 
-  // Update quality check
-  fastify.put('/:id', async (request, reply) => {
+  // Update quality check (requires authentication)
+  fastify.put('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { checklist_items, overall_status, notes } = request.body;
