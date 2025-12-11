@@ -6,8 +6,8 @@ async function productionRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Get production board (Kanban view)
-  fastify.get('/board', async (request, reply) => {
+  // Get production board (Kanban view) (requires authentication)
+  fastify.get('/board', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const orders = db.db.prepare(`
         SELECT o.*, c.name as customer_name
@@ -44,8 +44,8 @@ async function productionRoutes(fastify, options) {
     }
   });
 
-  // Get production statistics
-  fastify.get('/stats', async (request, reply) => {
+  // Get production statistics (requires authentication)
+  fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       // Get active orders count
       const activeOrders = db.db.prepare(`
@@ -117,8 +117,8 @@ async function productionRoutes(fastify, options) {
     }
   });
 
-  // Get all production tasks
-  fastify.get('/tasks', async (request, reply) => {
+  // Get all production tasks (requires authentication)
+  fastify.get('/tasks', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { status, assigned_to, order_id, priority, limit = 100, page = 1 } = request.query;
 
@@ -194,8 +194,8 @@ async function productionRoutes(fastify, options) {
     }
   });
 
-  // Create production task
-  fastify.post('/tasks', async (request, reply) => {
+  // Create production task (requires authentication)
+  fastify.post('/tasks', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { order_id, title, description, assigned_to, due_date, priority = 'normal' } = request.body;
 
@@ -233,8 +233,8 @@ async function productionRoutes(fastify, options) {
     }
   });
 
-  // Get task by ID
-  fastify.get('/tasks/:id', async (request, reply) => {
+  // Get task by ID (requires authentication)
+  fastify.get('/tasks/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -259,8 +259,8 @@ async function productionRoutes(fastify, options) {
     }
   });
 
-  // Update task
-  fastify.put('/tasks/:id', async (request, reply) => {
+  // Update task (requires authentication)
+  fastify.put('/tasks/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const updates = request.body;
@@ -306,8 +306,8 @@ async function productionRoutes(fastify, options) {
     }
   });
 
-  // Update task status
-  fastify.patch('/tasks/:id/status', async (request, reply) => {
+  // Update task status (requires authentication)
+  fastify.patch('/tasks/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { status } = request.body;
@@ -345,8 +345,8 @@ async function productionRoutes(fastify, options) {
     }
   });
 
-  // Delete task
-  fastify.delete('/tasks/:id', async (request, reply) => {
+  // Delete task (requires authentication)
+  fastify.delete('/tasks/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
@@ -366,8 +366,8 @@ async function productionRoutes(fastify, options) {
     }
   });
 
-  // Update order stage (production workflow)
-  fastify.patch('/orders/:id/stage', async (request, reply) => {
+  // Update order stage (production workflow) (requires authentication)
+  fastify.patch('/orders/:id/stage', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { stage, notes } = request.body;
@@ -406,8 +406,8 @@ async function productionRoutes(fastify, options) {
     }
   });
 
-  // Get quality checks
-  fastify.get('/quality-checks', async (request, reply) => {
+  // Get quality checks (requires authentication)
+  fastify.get('/quality-checks', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { order_id, status, limit = 100, page = 1 } = request.query;
 
@@ -464,8 +464,8 @@ async function productionRoutes(fastify, options) {
     }
   });
 
-  // Create quality check
-  fastify.post('/quality-checks', async (request, reply) => {
+  // Create quality check (requires authentication)
+  fastify.post('/quality-checks', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { order_id, checklist_items, overall_status, notes } = request.body;
 
