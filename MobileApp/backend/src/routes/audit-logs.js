@@ -6,8 +6,8 @@ async function auditLogsRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Get audit logs
-  fastify.get('/', async (request, reply) => {
+  // Get audit logs (requires authentication)
+  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { user_id, action, entity_type, entity_id, startDate, endDate, limit = 100, page = 1 } = request.query;
 
