@@ -60,7 +60,7 @@ const InventoryPage: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const categories = [...new Set(inventory.map(i => i.category).filter(Boolean))];
+  const categories = Array.from(new Set(inventory.map(i => i.category).filter(Boolean)));
   const lowStockCount = inventory.filter(isLowStock).length;
 
   if (loading) {
