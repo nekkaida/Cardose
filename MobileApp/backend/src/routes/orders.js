@@ -6,7 +6,15 @@ async function ordersRoutes(fastify, options) {
   // Get all orders (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { status, priority, customer_id, limit = 100, page = 1 } = request.query;
+      function parsePagination(query) {
+        const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+        const page = Math.max(parseInt(query.page) || 1, 1);
+        const offset = (page - 1) * limit;
+        return { limit, page, offset };
+      }
+
+      const { status, priority, customer_id } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = 'SELECT o.*, c.name as customer_name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id WHERE 1=1';
       const params = [];
@@ -32,9 +40,8 @@ async function ordersRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const orders = db.db.prepare(query).all(...params);
 
@@ -56,8 +63,8 @@ async function ordersRoutes(fastify, options) {
         success: true,
         orders,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit),
         stats
       };
