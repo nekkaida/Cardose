@@ -7,7 +7,7 @@ async function authPlugin(fastify, options) {
     try {
       await request.jwtVerify();
     } catch (err) {
-      reply.status(401).send({ error: 'Authentication required' });
+      return reply.status(401).send({ error: 'Authentication required' });
     }
   });
 
@@ -18,10 +18,10 @@ async function authPlugin(fastify, options) {
         await request.jwtVerify();
 
         if (!roles.includes(request.user.role)) {
-          reply.status(403).send({ error: 'Insufficient permissions' });
+          return reply.status(403).send({ error: 'Insufficient permissions' });
         }
       } catch (err) {
-        reply.status(401).send({ error: 'Authentication required' });
+        return reply.status(401).send({ error: 'Authentication required' });
       }
     };
   });
