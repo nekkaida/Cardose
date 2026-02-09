@@ -154,7 +154,7 @@ async function fileRoutes(fastify, options) {
   });
 
   // Get file by ID
-  fastify.get('/:fileId', async (request, reply) => {
+  fastify.get('/:fileId', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { fileId } = request.params;
 
@@ -184,7 +184,7 @@ async function fileRoutes(fastify, options) {
   });
 
   // Get thumbnail by ID
-  fastify.get('/:fileId/thumbnail', async (request, reply) => {
+  fastify.get('/:fileId/thumbnail', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { fileId } = request.params;
 
