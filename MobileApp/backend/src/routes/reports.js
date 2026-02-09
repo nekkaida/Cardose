@@ -1,9 +1,7 @@
-// Advanced reporting routes - Using DatabaseService
-const DatabaseService = require('../services/DatabaseService');
+// Advanced reporting routes
 
 async function reportRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Sales report (requires authentication)
   fastify.get('/sales', { preHandler: [fastify.authenticate] }, async (request, reply) => {
