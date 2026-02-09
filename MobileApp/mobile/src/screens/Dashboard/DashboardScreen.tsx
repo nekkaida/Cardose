@@ -51,19 +51,20 @@ export default function DashboardScreen() {
   }, []);
 
   const loadDashboardData = async () => {
-    try {
-      await Promise.all([
-        dispatch(fetchOrders()).unwrap(),
-        dispatch(fetchOrderAnalytics({ period: 'month' })).unwrap(),
-        dispatch(fetchCustomers()).unwrap(),
-        dispatch(fetchMaterials()).unwrap(),
-        dispatch(fetchLowStockItems()).unwrap(),
-        dispatch(fetchInvoices()).unwrap(),
-        dispatch(fetchFinancialAnalytics({ period: 'month' })).unwrap(),
-        dispatch(fetchTasks()).unwrap(),
-      ]);
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+    const results = await Promise.allSettled([
+      dispatch(fetchOrders()).unwrap(),
+      dispatch(fetchOrderAnalytics({ period: 'month' })).unwrap(),
+      dispatch(fetchCustomers()).unwrap(),
+      dispatch(fetchMaterials()).unwrap(),
+      dispatch(fetchLowStockItems()).unwrap(),
+      dispatch(fetchInvoices()).unwrap(),
+      dispatch(fetchFinancialAnalytics({ period: 'month' })).unwrap(),
+      dispatch(fetchTasks()).unwrap(),
+    ]);
+
+    const failures = results.filter(r => r.status === 'rejected');
+    if (failures.length > 0) {
+      console.warn(`Dashboard: ${failures.length} of ${results.length} requests failed`);
     }
   };
 
@@ -83,9 +84,9 @@ export default function DashboardScreen() {
 
   // Calculate statistics
   const pendingOrders = orders.filter(o => o.status === 'pending').length;
-  const inProductionOrders = orders.filter(o => o.status === 'pending').length; // Adjust based on actual status values
+  const inProductionOrders = orders.filter(o => o.status === 'in_production').length;
   const completedOrders = orders.filter(o => o.status === 'completed').length;
-  const activeTasks = tasks.filter(t => t.status === 'pending').length; // Adjust based on actual status values
+  const activeTasks = tasks.filter(t => t.status === 'in_progress' || t.status === 'assigned').length;
 
   return (
     <ScrollView
