@@ -21,7 +21,8 @@ export interface User {
   username: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'manager' | 'sales' | 'production' | 'finance';
+  fullName?: string;
+  role: 'owner' | 'manager' | 'employee';
   avatar_url?: string;
   phone?: string;
   created_at: string;
@@ -408,6 +409,7 @@ export default authSlice.reducer;
 
 // Selectors
 export const selectUser = (state: { auth: AuthState }) => state.auth.user;
+export const selectToken = (state: { auth: AuthState }) => state.auth.token;
 export const selectIsAuthenticated = (state: { auth: AuthState }) => state.auth.isAuthenticated;
 export const selectAuthLoading = (state: { auth: AuthState }) => state.auth.isLoading;
 export const selectAuthError = (state: { auth: AuthState }) => state.auth.error;
