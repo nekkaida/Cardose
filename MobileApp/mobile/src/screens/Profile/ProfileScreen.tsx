@@ -9,16 +9,19 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { useAuth, useAuthenticatedFetch } from '../../contexts/AuthContext';
+import { useAuthenticatedFetch } from '../../hooks/useAuthenticatedFetch';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { selectUser, logout, updateProfile } from '../../store/slices/authSlice';
 import { theme } from '../../theme/theme';
 
 export default function ProfileScreen() {
-  const { user, logout, updateUser } = useAuth();
+  const user = useAppSelector(selectUser);
+  const dispatch = useAppDispatch();
   const authenticatedFetch = useAuthenticatedFetch();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [fullName, setFullName] = useState(user?.fullName || '');
+  const [fullName, setFullName] = useState(user?.fullName || user?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
 
@@ -35,7 +38,7 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await logout();
+            await dispatch(logout());
           } catch (error) {
             Alert.alert('Error', 'Failed to logout');
           }
@@ -60,12 +63,12 @@ export default function ProfileScreen() {
       const data = await response.json();
 
       if (response.ok) {
-        await updateUser({
+        await dispatch(updateProfile({
           ...user!,
           fullName,
           email,
           phone,
-        });
+        }));
         setIsEditing(false);
         Alert.alert('Success', 'Profile updated successfully');
       } else {
@@ -124,10 +127,10 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>
-            {user?.fullName?.charAt(0).toUpperCase() || '?'}
+            {(user?.fullName || user?.full_name)?.charAt(0).toUpperCase() || '?'}
           </Text>
         </View>
-        <Text style={styles.name}>{user?.fullName}</Text>
+        <Text style={styles.name}>{user?.fullName || user?.full_name}</Text>
         <Text style={styles.username}>@{user?.username}</Text>
         <View style={styles.roleBadge}>
           <Text style={styles.roleText}>{user?.role?.toUpperCase()}</Text>
@@ -154,7 +157,7 @@ export default function ProfileScreen() {
               placeholder="Enter full name"
             />
           ) : (
-            <Text style={styles.value}>{user?.fullName}</Text>
+            <Text style={styles.value}>{user?.fullName || user?.full_name}</Text>
           )}
         </View>
 
@@ -195,7 +198,7 @@ export default function ProfileScreen() {
               style={[styles.button, styles.cancelButton]}
               onPress={() => {
                 setIsEditing(false);
-                setFullName(user?.fullName || '');
+                setFullName(user?.fullName || user?.full_name || '');
                 setEmail(user?.email || '');
                 setPhone(user?.phone || '');
               }}
