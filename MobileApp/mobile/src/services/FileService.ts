@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system';
+import { API_CONFIG } from '../config';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = API_CONFIG.API_URL;
 
 export interface UploadedFile {
   id: string;
