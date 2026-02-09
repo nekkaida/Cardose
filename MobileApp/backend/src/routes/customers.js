@@ -61,8 +61,9 @@ async function customerRoutes(fastify, options) {
         stats
       };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -92,8 +93,9 @@ async function customerRoutes(fastify, options) {
         customer
       };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -119,8 +121,9 @@ async function customerRoutes(fastify, options) {
         }
       };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -163,8 +166,9 @@ async function customerRoutes(fastify, options) {
         customer
       };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -186,8 +190,9 @@ async function customerRoutes(fastify, options) {
         message: 'Customer deleted successfully'
       };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -222,8 +227,9 @@ async function customerRoutes(fastify, options) {
         communications
       };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -266,8 +272,9 @@ async function customerRoutes(fastify, options) {
         communication
       };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 }
