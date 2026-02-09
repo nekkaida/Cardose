@@ -1,12 +1,10 @@
-// Backup and restore routes - Using DatabaseService
+// Backup and restore routes
 const { v4: uuidv4 } = require('uuid');
-const DatabaseService = require('../services/DatabaseService');
 const fs = require('fs');
 const path = require('path');
 
 async function backupRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
   const backupDir = path.join(__dirname, '../../backups');
 
   // Ensure backup directory exists
