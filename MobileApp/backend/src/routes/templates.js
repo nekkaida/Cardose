@@ -13,7 +13,7 @@ async function templateRoutes(fastify, options) {
   }, async (request, reply) => {
     try {
       const { name, type, subject, body, variables, category } = request.body;
-      const userId = request.user.userId;
+      const userId = request.user.id;
 
       if (!name || !type || !body) {
         return reply.status(400).send({ error: 'Name, type, and body are required' });
@@ -137,7 +137,7 @@ async function templateRoutes(fastify, options) {
     try {
       const { templateId } = request.params;
       const { newName } = request.body;
-      const userId = request.user.userId;
+      const userId = request.user.id;
 
       const result = await templateService.duplicateTemplate(templateId, newName, userId);
 
@@ -155,7 +155,7 @@ async function templateRoutes(fastify, options) {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
-      const userId = request.user.userId;
+      const userId = request.user.id;
 
       const result = await templateService.initializeDefaultTemplates(userId);
 
