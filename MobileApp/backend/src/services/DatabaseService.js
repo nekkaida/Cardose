@@ -28,6 +28,9 @@ class DatabaseService {
       // Run migrations to add missing columns
       this.runMigrations();
 
+      // Create indexes for performance
+      this.addIndexes();
+
       console.log('✅ Database initialized successfully');
     } catch (error) {
       console.error('❌ Database initialization failed:', error);
@@ -842,6 +845,45 @@ class DatabaseService {
   getCustomerById(customerId) {
     const sql = 'SELECT * FROM customers WHERE id = ?';
     return this.get(sql, [customerId]);
+  }
+
+  addIndexes() {
+    const indexes = [
+      'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
+      'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
+      'CREATE INDEX IF NOT EXISTS idx_users_role_active ON users(role, is_active)',
+      'CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id)',
+      'CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)',
+      'CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_orders_order_number ON orders(order_number)',
+      'CREATE INDEX IF NOT EXISTS idx_customers_loyalty_status ON customers(loyalty_status)',
+      'CREATE INDEX IF NOT EXISTS idx_customers_business_type ON customers(business_type)',
+      'CREATE INDEX IF NOT EXISTS idx_customers_created_at ON customers(created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_inventory_category ON inventory_materials(category)',
+      'CREATE INDEX IF NOT EXISTS idx_inventory_stock_level ON inventory_materials(current_stock, reorder_level)',
+      'CREATE INDEX IF NOT EXISTS idx_inv_movements_item_id ON inventory_movements(item_id)',
+      'CREATE INDEX IF NOT EXISTS idx_inv_movements_created_at ON inventory_movements(created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_transactions_type ON financial_transactions(type)',
+      'CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON financial_transactions(created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_invoices_customer_id ON invoices(customer_id)',
+      'CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status)',
+      'CREATE INDEX IF NOT EXISTS idx_invoices_order_id ON invoices(order_id)',
+      'CREATE INDEX IF NOT EXISTS idx_prod_tasks_order_id ON production_tasks(order_id)',
+      'CREATE INDEX IF NOT EXISTS idx_prod_tasks_status ON production_tasks(status)',
+      'CREATE INDEX IF NOT EXISTS idx_prod_tasks_assigned_to ON production_tasks(assigned_to)',
+      'CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id)',
+      'CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)',
+      'CREATE INDEX IF NOT EXISTS idx_comm_msgs_customer_id ON communication_messages(customer_id)',
+      'CREATE INDEX IF NOT EXISTS idx_files_uploaded_by ON files(uploaded_by)',
+      'CREATE INDEX IF NOT EXISTS idx_quality_checks_order_id ON quality_checks(order_id)',
+    ];
+
+    for (const sql of indexes) {
+      this.db.prepare(sql).run();
+    }
   }
 }
 
