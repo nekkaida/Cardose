@@ -1,0 +1,73 @@
+# Logout Flow Tests
+# Tests logout functionality
+
+appId: com.cardose.premiumgiftbox
+name: Authentication - Logout Flow
+---
+
+# Launch and login first
+- launchApp
+- tapOn:
+    text: "Username"
+- inputText: "manager"
+- tapOn:
+    text: "Password"
+- inputText: "manager123"
+- tapOn:
+    text: "Masuk"
+- waitForAnimationToEnd
+
+# Verify logged in
+- assertVisible:
+    text: "Dashboard"
+
+# Navigate to Profile or Settings
+- tapOn:
+    text: "Profile"
+    optional: true
+- tapOn:
+    text: "Profil"
+    optional: true
+- tapOn:
+    text: "Settings"
+    optional: true
+- tapOn:
+    text: "Pengaturan"
+    optional: true
+- tapOn:
+    id: "profile-avatar"
+    optional: true
+
+# Wait for profile screen
+- waitForAnimationToEnd
+
+# Tap logout button
+- scroll:
+    direction: DOWN
+- tapOn:
+    text: "Logout"
+    optional: true
+- tapOn:
+    text: "Keluar"
+    optional: true
+- tapOn:
+    text: "Sign Out"
+    optional: true
+
+# Confirm logout if dialog appears
+- tapOn:
+    text: "Ya"
+    optional: true
+- tapOn:
+    text: "OK"
+    optional: true
+- tapOn:
+    text: "Confirm"
+    optional: true
+
+# Wait for navigation
+- waitForAnimationToEnd
+
+# Should be back on login screen
+- assertVisible:
+    text: "Login"

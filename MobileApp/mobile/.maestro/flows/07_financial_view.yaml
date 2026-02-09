@@ -1,0 +1,44 @@
+# Financial Flow Tests
+# Tests financial dashboard view
+
+appId: com.cardose.premiumgiftbox
+name: Financial - View Dashboard Flow
+---
+
+# Launch and login first
+- launchApp
+- tapOn:
+    text: "Username"
+- inputText: "manager"
+- tapOn:
+    text: "Password"
+- inputText: "manager123"
+- tapOn:
+    text: "Masuk"
+- waitForAnimationToEnd
+
+# Navigate to Financial
+- tapOn:
+    text: "Keuangan"
+    optional: true
+- tapOn:
+    text: "Financial"
+    optional: true
+
+# Wait for financial screen
+- waitForAnimationToEnd
+
+# Should see financial dashboard
+- assertVisible:
+    text: ".*Keuangan.*|.*Financial.*|.*Transaksi.*|.*Invoice.*"
+    regex: true
+
+# Should see financial data (amounts in Rupiah)
+- assertVisible:
+    text: ".*Rp.*|.*IDR.*"
+    regex: true
+    optional: true
+
+# Scroll to see more
+- scroll:
+    direction: DOWN

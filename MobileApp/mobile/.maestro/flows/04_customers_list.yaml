@@ -1,0 +1,40 @@
+# Customers Flow Tests
+# Tests customer listing and navigation
+
+appId: com.cardose.premiumgiftbox
+name: Customers - List and View Flow
+---
+
+# Launch and login first
+- launchApp
+- tapOn:
+    text: "Username"
+- inputText: "manager"
+- tapOn:
+    text: "Password"
+- inputText: "manager123"
+- tapOn:
+    text: "Masuk"
+- waitForAnimationToEnd
+
+# Navigate to Customers
+- tapOn:
+    text: "Customer"
+
+# Wait for customers screen
+- waitForAnimationToEnd
+
+# Should see customers list header
+- assertVisible:
+    text: ".*Customer.*|.*Pelanggan.*"
+    regex: true
+
+# Scroll to verify list loads
+- scroll:
+    direction: DOWN
+
+# Should see customer entries (names, phones, etc.)
+- assertVisible:
+    text: ".*@.*|.*08.*|.*62.*"
+    regex: true
+    optional: true

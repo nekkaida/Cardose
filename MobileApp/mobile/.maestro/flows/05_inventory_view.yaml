@@ -1,0 +1,47 @@
+# Inventory Flow Tests
+# Tests inventory listing
+
+appId: com.cardose.premiumgiftbox
+name: Inventory - View Materials Flow
+---
+
+# Launch and login first
+- launchApp
+- tapOn:
+    text: "Username"
+- inputText: "manager"
+- tapOn:
+    text: "Password"
+- inputText: "manager123"
+- tapOn:
+    text: "Masuk"
+- waitForAnimationToEnd
+
+# Navigate to Inventory
+- tapOn:
+    text: "Inventory"
+    optional: true
+- tapOn:
+    text: "Inventori"
+    optional: true
+- tapOn:
+    text: "Stok"
+    optional: true
+
+# Wait for inventory screen
+- waitForAnimationToEnd
+
+# Should see inventory list
+- assertVisible:
+    text: ".*Inventory.*|.*Inventori.*|.*Material.*|.*Stok.*"
+    regex: true
+
+# Scroll through inventory
+- scroll:
+    direction: DOWN
+
+# Should see item details (quantity, unit, etc.)
+- assertVisible:
+    text: ".*pcs.*|.*kg.*|.*lembar.*|.*unit.*"
+    regex: true
+    optional: true

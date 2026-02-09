@@ -1,0 +1,33 @@
+# Authentication Flow Tests - Invalid Login
+# Tests login error handling
+
+appId: com.cardose.premiumgiftbox
+name: Authentication - Invalid Login Flow
+---
+
+# Launch the app
+- launchApp
+
+# Test: Login with invalid credentials
+- assertVisible: "Login"
+
+# Enter invalid credentials
+- tapOn:
+    text: "Username"
+- inputText: "wronguser"
+
+- tapOn:
+    text: "Password"
+- inputText: "wrongpassword"
+
+# Submit login
+- tapOn:
+    text: "Masuk"
+
+# Wait for response
+- waitForAnimationToEnd
+
+# Should see error message
+- assertVisible:
+    text: ".*invalid.*|.*gagal.*|.*error.*"
+    regex: true

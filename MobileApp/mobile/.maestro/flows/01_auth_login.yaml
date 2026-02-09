@@ -1,0 +1,40 @@
+# Authentication Flow Tests
+# Tests login functionality
+
+appId: com.cardose.premiumgiftbox
+name: Authentication - Login Flow
+---
+
+# Launch the app
+- launchApp
+
+# Test: Login with valid credentials
+- assertVisible: "Login"
+- assertVisible:
+    text: "Username"
+- assertVisible:
+    text: "Password"
+
+# Enter credentials
+- tapOn:
+    text: "Username"
+- inputText: "manager"
+
+- tapOn:
+    text: "Password"
+- inputText: "manager123"
+
+# Submit login
+- tapOn:
+    text: "Masuk"
+
+# Wait for navigation
+- waitForAnimationToEnd
+
+# Verify successful login - should see Dashboard
+- assertVisible:
+    text: "Dashboard"
+
+# Should see user info in header/sidebar
+- assertVisible:
+    text: "manager"

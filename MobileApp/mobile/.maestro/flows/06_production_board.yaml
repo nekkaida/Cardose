@@ -1,0 +1,44 @@
+# Production Flow Tests
+# Tests production board/kanban view
+
+appId: com.cardose.premiumgiftbox
+name: Production - View Board Flow
+---
+
+# Launch and login first
+- launchApp
+- tapOn:
+    text: "Username"
+- inputText: "manager"
+- tapOn:
+    text: "Password"
+- inputText: "manager123"
+- tapOn:
+    text: "Masuk"
+- waitForAnimationToEnd
+
+# Navigate to Production
+- tapOn:
+    text: "Produksi"
+    optional: true
+- tapOn:
+    text: "Production"
+    optional: true
+
+# Wait for production screen
+- waitForAnimationToEnd
+
+# Should see production board/dashboard
+- assertVisible:
+    text: ".*Produksi.*|.*Production.*|.*Task.*|.*Kanban.*"
+    regex: true
+
+# Should see production stages
+- assertVisible:
+    text: ".*Pending.*|.*In Progress.*|.*Selesai.*|.*Completed.*"
+    regex: true
+    optional: true
+
+# Scroll to see more tasks
+- scroll:
+    direction: DOWN

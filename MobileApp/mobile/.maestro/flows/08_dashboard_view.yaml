@@ -1,0 +1,43 @@
+# Dashboard Flow Tests
+# Tests main dashboard view and widgets
+
+appId: com.cardose.premiumgiftbox
+name: Dashboard - View Overview Flow
+---
+
+# Launch and login first
+- launchApp
+- tapOn:
+    text: "Username"
+- inputText: "manager"
+- tapOn:
+    text: "Password"
+- inputText: "manager123"
+- tapOn:
+    text: "Masuk"
+- waitForAnimationToEnd
+
+# Should be on Dashboard by default after login
+- assertVisible:
+    text: "Dashboard"
+
+# Should see key metrics
+- assertVisible:
+    text: ".*Order.*|.*Pesanan.*"
+    regex: true
+    optional: true
+
+- assertVisible:
+    text: ".*Revenue.*|.*Pendapatan.*|.*Rp.*"
+    regex: true
+    optional: true
+
+# Should see recent activity or quick actions
+- scroll:
+    direction: DOWN
+
+# Should see charts or stats
+- assertVisible:
+    text: ".*Total.*|.*Bulan.*|.*Minggu.*"
+    regex: true
+    optional: true

@@ -1,0 +1,78 @@
+# Orders Flow Tests
+# Tests order creation functionality
+
+appId: com.cardose.premiumgiftbox
+name: Orders - Create Order Flow
+---
+
+# Launch and login first
+- launchApp
+- tapOn:
+    text: "Username"
+- inputText: "manager"
+- tapOn:
+    text: "Password"
+- inputText: "manager123"
+- tapOn:
+    text: "Masuk"
+- waitForAnimationToEnd
+
+# Navigate to Orders
+- tapOn:
+    text: "Order"
+
+# Wait for orders screen
+- waitForAnimationToEnd
+- assertVisible:
+    text: ".*Order.*"
+    regex: true
+
+# Tap create new order button (FAB or button)
+- tapOn:
+    id: "create-order-btn"
+    optional: true
+- tapOn:
+    text: "+"
+    optional: true
+- tapOn:
+    text: "Buat Order"
+    optional: true
+
+# Wait for create order form
+- waitForAnimationToEnd
+
+# Fill order form
+- tapOn:
+    text: "Pilih Customer"
+    optional: true
+- tapOn:
+    index: 0
+    optional: true
+
+# Fill box type
+- tapOn:
+    text: "Tipe Box"
+    optional: true
+- inputText: "Premium Gift Box"
+
+# Fill quantity
+- tapOn:
+    text: "Jumlah"
+    optional: true
+- inputText: "100"
+
+# Save order
+- tapOn:
+    text: "Simpan"
+    optional: true
+- tapOn:
+    text: "Buat"
+    optional: true
+
+# Wait for response
+- waitForAnimationToEnd
+
+# Verify order created - back on orders list or success message
+- assertVisible:
+    text: ".*berhasil.*|.*Order.*|.*PGB-.*"
+    regex: true

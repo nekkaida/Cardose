@@ -1,0 +1,16 @@
+# Maestro E2E Testing Configuration
+# Premium Gift Box Mobile App
+
+# Global settings
+appId: com.cardose.premiumgiftbox
+
+# Platform-specific settings
+android:
+  appPath: android/app/build/outputs/apk/debug/app-debug.apk
+
+ios:
+  appPath: ios/build/Build/Products/Debug-iphonesimulator/CardoseMobile.app
+
+# Flow directories
+flows:
+  - flows/
