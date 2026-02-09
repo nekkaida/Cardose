@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { CameraCapture } from '../../components/CameraCapture';
 import { ImageGallery } from '../../components/ImageGallery';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAppSelector } from '../../store/hooks';
+import { selectToken } from '../../store/slices/authSlice';
 import { FileService } from '../../services/FileService';
 import { theme } from '../../theme/theme';
 
@@ -24,7 +25,7 @@ interface OrderPhotosScreenProps {
 
 export default function OrderPhotosScreen({ route }: OrderPhotosScreenProps) {
   const { orderId, orderNumber } = route.params;
-  const { token } = useAuth();
+  const token = useAppSelector(selectToken);
   const [images, setImages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
