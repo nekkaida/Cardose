@@ -9,7 +9,8 @@ async function templateRoutes(fastify, options) {
    * Create template
    */
   fastify.post('/', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: { body: { type: 'object', required: ['name', 'type'], properties: { name: { type: 'string', minLength: 1 }, type: { type: 'string' }, content: { type: 'string' }, category: { type: 'string' }, variables: { type: 'array' } } } }
   }, async (request, reply) => {
     try {
       const { name, type, subject, body, variables, category } = request.body;
@@ -76,7 +77,8 @@ async function templateRoutes(fastify, options) {
    * Update template
    */
   fastify.put('/:templateId', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: { body: { type: 'object', properties: { name: { type: 'string' }, type: { type: 'string' }, content: { type: 'string' }, category: { type: 'string' }, variables: { type: 'array' }, is_active: { type: 'boolean' } } } }
   }, async (request, reply) => {
     try {
       const { templateId } = request.params;
@@ -113,7 +115,8 @@ async function templateRoutes(fastify, options) {
    * Render template with data
    */
   fastify.post('/:templateId/render', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: { body: { type: 'object', required: ['data'], properties: { data: { type: 'object' } } } }
   }, async (request, reply) => {
     try {
       const { templateId } = request.params;
@@ -132,7 +135,8 @@ async function templateRoutes(fastify, options) {
    * Duplicate template
    */
   fastify.post('/:templateId/duplicate', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: { body: { type: 'object', properties: { name: { type: 'string' } } } }
   }, async (request, reply) => {
     try {
       const { templateId } = request.params;
