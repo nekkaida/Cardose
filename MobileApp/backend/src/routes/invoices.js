@@ -1,16 +1,22 @@
-// Invoice routes (separate from financial) - Using DatabaseService
+// Invoice routes (separate from financial)
 const { v4: uuidv4 } = require('uuid');
-const DatabaseService = require('../services/DatabaseService');
+
+function parsePagination(query) {
+  const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+  const page = Math.max(parseInt(query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+  return { limit, page, offset };
+}
 
 async function invoicesRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
   const PPN_RATE = 0.11; // 11% Indonesian VAT
 
   // Get all invoices (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { status, customer_id, startDate, endDate, limit = 100, page = 1 } = request.query;
+      const { status, customer_id, startDate, endDate } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = `
         SELECT i.*, c.name as customer_name, o.order_number
@@ -46,9 +52,8 @@ async function invoicesRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const invoices = db.db.prepare(query).all(...params);
 
@@ -69,8 +74,8 @@ async function invoicesRoutes(fastify, options) {
         success: true,
         invoices,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit),
         stats
       };
