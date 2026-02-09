@@ -1,10 +1,7 @@
 // Inventory management routes - Using DatabaseService
 const { v4: uuidv4 } = require('uuid');
-const DatabaseService = require('../services/DatabaseService');
-
 async function inventoryRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Get all inventory items (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
@@ -24,8 +21,8 @@ async function inventoryRoutes(fastify, options) {
       }
 
       if (search) {
-        query += ' AND (name LIKE ? OR sku LIKE ? OR supplier LIKE ?)';
-        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+        query += ' AND (name LIKE ? OR supplier LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`);
       }
 
       query += ' ORDER BY name ASC';
@@ -165,7 +162,7 @@ async function inventoryRoutes(fastify, options) {
   // Create inventory item (requires authentication)
   fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { name, sku, category, supplier, unit_cost, current_stock = 0, reorder_level = 10, unit, notes } = request.body;
+      const { name, category, supplier, unit_cost, current_stock = 0, reorder_level = 10, unit, notes } = request.body;
 
       if (!name || !category) {
         reply.code(400);
@@ -175,9 +172,9 @@ async function inventoryRoutes(fastify, options) {
       const id = uuidv4();
 
       db.db.prepare(`
-        INSERT INTO inventory_materials (id, name, sku, category, supplier, unit_cost, current_stock, reorder_level, unit, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(id, name, sku, category, supplier, unit_cost || 0, current_stock, reorder_level, unit, notes);
+        INSERT INTO inventory_materials (id, name, category, supplier, unit_cost, current_stock, reorder_level, unit, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, name, category, supplier, unit_cost || 0, current_stock, reorder_level, unit, notes);
 
       const item = db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(id);
 
@@ -210,7 +207,6 @@ async function inventoryRoutes(fastify, options) {
       const values = [];
 
       if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
-      if (updates.sku !== undefined) { fields.push('sku = ?'); values.push(updates.sku); }
       if (updates.category !== undefined) { fields.push('category = ?'); values.push(updates.category); }
       if (updates.supplier !== undefined) { fields.push('supplier = ?'); values.push(updates.supplier); }
       if (updates.unit_cost !== undefined) { fields.push('unit_cost = ?'); values.push(updates.unit_cost); }
@@ -338,6 +334,136 @@ async function inventoryRoutes(fastify, options) {
       const movements = db.db.prepare(query).all(...params);
 
       return { success: true, movements };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get reorder alerts (requires authentication)
+  fastify.get('/reorder-alerts', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    try {
+      const { status } = request.query;
+
+      let query = 'SELECT * FROM reorder_alerts WHERE 1=1';
+      const params = [];
+
+      if (status) {
+        query += ' AND status = ?';
+        params.push(status);
+      }
+
+      query += ' ORDER BY created_at DESC';
+
+      const alerts = db.db.prepare(query).all(...params);
+
+      return {
+        success: true,
+        alerts
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Create reorder alert (requires authentication)
+  fastify.post('/reorder-alerts', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    try {
+      const { item_id, priority = 'normal', notes } = request.body;
+
+      if (!item_id) {
+        reply.code(400);
+        return { success: false, error: 'Item ID is required' };
+      }
+
+      // Get item details
+      const item = db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(item_id);
+      if (!item) {
+        reply.code(404);
+        return { success: false, error: 'Inventory item not found' };
+      }
+
+      // Check if alert already exists for this item
+      const existingAlert = db.db.prepare(
+        "SELECT * FROM reorder_alerts WHERE item_id = ? AND status IN ('pending', 'acknowledged')"
+      ).get(item_id);
+
+      if (existingAlert) {
+        reply.code(409);
+        return { success: false, error: 'An active reorder alert already exists for this item', existingAlert };
+      }
+
+      const id = uuidv4();
+      db.db.prepare(`
+        INSERT INTO reorder_alerts (id, item_id, item_name, current_stock, reorder_level, priority, notes, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, item_id, item.name, item.current_stock, item.reorder_level, priority, notes, request.user.id);
+
+      const alert = db.db.prepare('SELECT * FROM reorder_alerts WHERE id = ?').get(id);
+
+      return {
+        success: true,
+        message: 'Reorder alert created successfully',
+        alertId: id,
+        alert
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Update reorder alert status (requires authentication)
+  fastify.put('/reorder-alerts/:alertId', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    try {
+      const { alertId } = request.params;
+      const { status, notes } = request.body;
+
+      const existing = db.db.prepare('SELECT * FROM reorder_alerts WHERE id = ?').get(alertId);
+      if (!existing) {
+        reply.code(404);
+        return { success: false, error: 'Reorder alert not found' };
+      }
+
+      const updates = ['updated_at = CURRENT_TIMESTAMP'];
+      const values = [];
+
+      if (status) {
+        const validStatuses = ['pending', 'acknowledged', 'ordered', 'resolved'];
+        if (!validStatuses.includes(status)) {
+          reply.code(400);
+          return { success: false, error: 'Invalid status' };
+        }
+        updates.push('status = ?');
+        values.push(status);
+
+        if (status === 'acknowledged') {
+          updates.push('acknowledged_by = ?', 'acknowledged_at = CURRENT_TIMESTAMP');
+          values.push(request.user.id);
+        } else if (status === 'resolved') {
+          updates.push('resolved_at = CURRENT_TIMESTAMP');
+        }
+      }
+
+      if (notes !== undefined) {
+        updates.push('notes = ?');
+        values.push(notes);
+      }
+
+      values.push(alertId);
+      db.db.prepare(`UPDATE reorder_alerts SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+
+      const alert = db.db.prepare('SELECT * FROM reorder_alerts WHERE id = ?').get(alertId);
+
+      return {
+        success: true,
+        message: 'Reorder alert updated successfully',
+        alert
+      };
     } catch (error) {
       fastify.log.error(error);
       reply.code(500);
