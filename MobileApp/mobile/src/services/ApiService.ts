@@ -10,6 +10,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_CONFIG } from '../config';
 
 const TOKEN_KEY = '@cardose_token';
 
@@ -27,8 +28,8 @@ interface ApiResponse<T = any> {
 }
 
 export class ApiService {
-  private static readonly BASE_URL = 'http://localhost:3000/api';
-  private static readonly DEFAULT_TIMEOUT = 30000; // 30 seconds
+  private static readonly BASE_URL = API_CONFIG.API_URL;
+  private static readonly DEFAULT_TIMEOUT = API_CONFIG.TIMEOUT;
 
   /**
    * Get authentication token from storage
