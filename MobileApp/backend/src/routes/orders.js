@@ -64,7 +64,7 @@ async function ordersRoutes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -97,8 +97,9 @@ async function ordersRoutes(fastify, options) {
 
       return { success: true, stats };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -114,7 +115,7 @@ async function ordersRoutes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -137,8 +138,9 @@ async function ordersRoutes(fastify, options) {
         order: { ...order, stages }
       };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -169,8 +171,9 @@ async function ordersRoutes(fastify, options) {
         order
       };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -208,8 +211,9 @@ async function ordersRoutes(fastify, options) {
 
       return { success: true, message: 'Order updated successfully', order };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -246,8 +250,9 @@ async function ordersRoutes(fastify, options) {
 
       return { success: true, message: 'Order status updated successfully' };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 
@@ -267,8 +272,9 @@ async function ordersRoutes(fastify, options) {
 
       return { success: true, message: 'Order deleted successfully' };
     } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 }
