@@ -94,6 +94,27 @@ const translations = {
     'financial.expense': 'Expense',
     'financial.profit': 'Profit',
     'financial.tax': 'Tax (PPN)',
+
+    // Analytics
+    'analytics.title': 'Business Analytics',
+
+    // Production
+    'nav.production': 'Production',
+    'production.title': 'Production Management',
+    'production.board': 'Production Board',
+    'production.tasks': 'Tasks',
+
+    // Reports
+    'nav.reports': 'Reports',
+    'reports.title': 'Reports',
+
+    // Users
+    'nav.users': 'Users',
+    'users.title': 'User Management',
+
+    // Settings
+    'nav.settings': 'Settings',
+    'settings.title': 'Settings',
   },
   id: {
     // Navigation
@@ -166,6 +187,27 @@ const translations = {
     'financial.expense': 'Pengeluaran',
     'financial.profit': 'Keuntungan',
     'financial.tax': 'Pajak (PPN)',
+
+    // Analytics
+    'analytics.title': 'Analitik Bisnis',
+
+    // Production
+    'nav.production': 'Produksi',
+    'production.title': 'Manajemen Produksi',
+    'production.board': 'Papan Produksi',
+    'production.tasks': 'Tugas',
+
+    // Reports
+    'nav.reports': 'Laporan',
+    'reports.title': 'Laporan',
+
+    // Users
+    'nav.users': 'Pengguna',
+    'users.title': 'Manajemen Pengguna',
+
+    // Settings
+    'nav.settings': 'Pengaturan',
+    'settings.title': 'Pengaturan',
   },
 };
 
