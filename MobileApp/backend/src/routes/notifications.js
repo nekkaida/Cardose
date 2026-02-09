@@ -76,7 +76,7 @@ async function notificationRoutes(fastify, options) {
   });
 
   // Create notification (requires authentication)
-  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['title', 'message'], properties: { title: { type: 'string', minLength: 1 }, message: { type: 'string', minLength: 1 }, type: { type: 'string' }, priority: { type: 'string' }, user_id: { type: 'string' } } } } }, async (request, reply) => {
     try {
       const { type, title, message, user_id, entity_type, entity_id, priority = 'normal' } = request.body;
 
