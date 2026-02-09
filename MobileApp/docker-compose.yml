@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cardose-backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - backend-data:/app/data
+      - backend-uploads:/app/uploads
+      - backend-backups:/app/backups
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOST=0.0.0.0
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - CORS_ORIGIN=http://localhost,http://localhost:80
+    restart: unless-stopped
+
+  web-dashboard:
+    build:
+      context: ./web-dashboard
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: /api
+    container_name: cardose-web
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-data:
+  backend-uploads:
+  backend-backups:
