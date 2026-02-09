@@ -3,9 +3,11 @@ import { useApi } from '../contexts/ApiContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const FinancialPage: React.FC = () => {
-  const [financialData, setFinancialData] = useState(null);
+  const [summary, setSummary] = useState<any>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { getFinancialSummary } = useApi();
+
+  const { getFinancialSummary, getTransactions } = useApi();
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -14,13 +16,36 @@ const FinancialPage: React.FC = () => {
 
   const loadFinancialData = async () => {
     try {
-      const data = await getFinancialSummary();
-      setFinancialData(data.summary);
+      setLoading(true);
+      const [summaryData, transData] = await Promise.allSettled([
+        getFinancialSummary(),
+        getTransactions(),
+      ]);
+
+      if (summaryData.status === 'fulfilled') {
+        setSummary(summaryData.value.summary || summaryData.value);
+      }
+      if (transData.status === 'fulfilled') {
+        setTransactions(transData.value.transactions || []);
+      }
     } catch (error) {
       console.error('Error loading financial data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+    }).format(amount || 0);
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('id-ID');
   };
 
   if (loading) {
@@ -38,14 +63,67 @@ const FinancialPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">{t('financial.title')}</h1>
           <p className="text-gray-600">Monitor financial performance and transactions</p>
         </div>
-        <button className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors">
-          💰 New Transaction
-        </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-        <h2 className="text-lg font-semibold mb-4">Financial Overview</h2>
-        <p className="text-gray-600">Financial dashboard will be displayed here.</p>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+          <p className="text-2xl font-bold text-green-600">{formatCurrency(summary?.total_revenue || summary?.totalRevenue || 0)}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <p className="text-sm font-medium text-gray-600">Total Expenses</p>
+          <p className="text-2xl font-bold text-red-600">{formatCurrency(summary?.total_expenses || summary?.totalExpenses || 0)}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <p className="text-sm font-medium text-gray-600">Net Profit</p>
+          <p className="text-2xl font-bold text-gray-900">{formatCurrency((summary?.total_revenue || 0) - (summary?.total_expenses || 0))}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <p className="text-sm font-medium text-gray-600">Pending Invoices</p>
+          <p className="text-2xl font-bold text-yellow-600">{summary?.pending_invoices || summary?.pendingInvoices || 0}</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-900">Recent Transactions</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">No transactions found.</td>
+                </tr>
+              ) : transactions.slice(0, 20).map((tx: any) => (
+                <tr key={tx.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatDate(tx.created_at || tx.date)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{tx.description || '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${tx.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {tx.type || '-'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 capitalize">{tx.category || '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`text-sm font-medium ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                      {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
