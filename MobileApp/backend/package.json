@@ -7,7 +7,15 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "init-db": "node src/database/init.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --runInBand --detectOpenHandles",
+    "test:watch": "jest --watch --runInBand",
+    "test:coverage": "jest --coverage --runInBand --detectOpenHandles",
+    "test:auth": "jest --runInBand tests/auth.test.js",
+    "test:customers": "jest --runInBand tests/customers.test.js",
+    "test:orders": "jest --runInBand tests/orders.test.js",
+    "test:inventory": "jest --runInBand tests/inventory.test.js",
+    "test:production": "jest --runInBand tests/production.test.js",
+    "test:financial": "jest --runInBand tests/financial.test.js"
   },
   "keywords": [
     "gift-box",
@@ -23,8 +31,10 @@
   "license": "ISC",
   "dependencies": {
     "@fastify/cors": "^8.4.1",
+    "@fastify/helmet": "^13.0.2",
     "@fastify/jwt": "^7.2.3",
     "@fastify/multipart": "^8.0.0",
+    "@fastify/rate-limit": "^10.3.0",
     "@fastify/static": "^6.12.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^9.2.2",
@@ -37,6 +47,9 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^7.1.4"
   }
 }
