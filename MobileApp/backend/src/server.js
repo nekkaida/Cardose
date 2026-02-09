@@ -1,9 +1,17 @@
 const fastify = require('fastify')({ logger: true });
 const path = require('path');
 
-// Register plugins
+// Register security plugins
+fastify.register(require('@fastify/helmet'));
+
 fastify.register(require('@fastify/cors'), {
-  origin: true // Allow all origins for local development
+  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8081'],
+  credentials: true
+});
+
+fastify.register(require('@fastify/rate-limit'), {
+  max: 100,
+  timeWindow: '1 minute'
 });
 
 const jwtSecret = process.env.JWT_SECRET;
