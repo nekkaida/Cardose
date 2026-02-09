@@ -120,7 +120,7 @@ async function invoicesRoutes(fastify, options) {
   });
 
   // Create invoice (requires authentication)
-  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['customer_id'], properties: { customer_id: { type: 'string' }, order_id: { type: 'string' }, subtotal: { type: 'number' }, discount: { type: 'number' }, due_date: { type: 'string' }, notes: { type: 'string' }, items: { type: 'array' } } } } }, async (request, reply) => {
     try {
       const { order_id, customer_id, subtotal, discount = 0, due_date, notes, items } = request.body;
 
@@ -157,7 +157,7 @@ async function invoicesRoutes(fastify, options) {
   });
 
   // Update invoice status (requires authentication)
-  fastify.patch('/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.patch('/:id/status', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['draft', 'sent', 'paid', 'overdue', 'cancelled'] }, paid_date: { type: 'string' }, payment_method: { type: 'string' } } } } }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { status, paid_date, payment_method } = request.body;
