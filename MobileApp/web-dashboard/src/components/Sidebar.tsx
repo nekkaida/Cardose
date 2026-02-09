@@ -43,6 +43,30 @@ const Sidebar: React.FC = () => {
       icon: '📈',
       current: location.pathname === '/analytics',
     },
+    {
+      name: t('nav.production'),
+      href: '/production',
+      icon: '🏭',
+      current: location.pathname === '/production',
+    },
+    {
+      name: t('nav.reports'),
+      href: '/reports',
+      icon: '📄',
+      current: location.pathname === '/reports',
+    },
+    {
+      name: t('nav.users'),
+      href: '/users',
+      icon: '🔑',
+      current: location.pathname === '/users',
+    },
+    {
+      name: t('nav.settings'),
+      href: '/settings',
+      icon: '⚙️',
+      current: location.pathname === '/settings',
+    },
   ];
 
   return (
