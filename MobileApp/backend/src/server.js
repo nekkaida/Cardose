@@ -6,8 +6,13 @@ fastify.register(require('@fastify/cors'), {
   origin: true // Allow all origins for local development
 });
 
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  console.error('FATAL: JWT_SECRET environment variable is required. Server cannot start without it.');
+  process.exit(1);
+}
 fastify.register(require('@fastify/jwt'), {
-  secret: process.env.JWT_SECRET || 'premium-gift-box-secret-key-change-in-production'
+  secret: jwtSecret
 });
 
 fastify.register(require('@fastify/multipart'));
