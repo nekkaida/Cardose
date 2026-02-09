@@ -1,15 +1,21 @@
-// Quality checks routes - Using DatabaseService
+// Quality checks routes
 const { v4: uuidv4 } = require('uuid');
-const DatabaseService = require('../services/DatabaseService');
+
+function parsePagination(query) {
+  const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+  const page = Math.max(parseInt(query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+  return { limit, page, offset };
+}
 
 async function qualityChecksRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Get all quality checks (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { order_id, status, limit = 100, page = 1 } = request.query;
+      const { order_id, status } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = `
         SELECT qc.*, o.order_number, u.full_name as checked_by_name
@@ -37,9 +43,8 @@ async function qualityChecksRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const checks = db.db.prepare(query).all(...params);
 
@@ -53,8 +58,8 @@ async function qualityChecksRoutes(fastify, options) {
         success: true,
         checks: checksWithParsedItems,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit)
       };
     } catch (error) {
