@@ -48,14 +48,23 @@ async function customerRoutes(fastify, options) {
 
       const customers = db.db.prepare(query).all(...params);
 
-      // Calculate stats
-      const allCustomers = db.db.prepare('SELECT business_type, total_spent FROM customers').all();
+      // Calculate stats using SQL aggregates
+      const statsRow = db.db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN business_type = 'corporate' THEN 1 ELSE 0 END) as corporate,
+          SUM(CASE WHEN business_type = 'wedding' THEN 1 ELSE 0 END) as wedding,
+          SUM(CASE WHEN business_type = 'individual' THEN 1 ELSE 0 END) as individual,
+          SUM(CASE WHEN business_type = 'event' THEN 1 ELSE 0 END) as event,
+          COALESCE(SUM(total_spent), 0) as totalValue
+        FROM customers
+      `).get();
       const stats = {
-        corporate: allCustomers.filter(c => c.business_type === 'corporate').length,
-        wedding: allCustomers.filter(c => c.business_type === 'wedding').length,
-        individual: allCustomers.filter(c => c.business_type === 'individual').length,
-        event: allCustomers.filter(c => c.business_type === 'event').length,
-        totalValue: allCustomers.reduce((sum, c) => sum + (c.total_spent || 0), 0)
+        corporate: statsRow.corporate,
+        wedding: statsRow.wedding,
+        individual: statsRow.individual,
+        event: statsRow.event,
+        totalValue: statsRow.totalValue
       };
 
       return {
@@ -75,7 +84,24 @@ async function customerRoutes(fastify, options) {
   });
 
   // Create customer (requires authentication)
-  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', minLength: 1 },
+          business_type: { type: 'string' },
+          email: { type: 'string' },
+          phone: { type: 'string' },
+          address: { type: 'string' },
+          loyalty_status: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    },
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const { name, email, phone, business_type, loyalty_status = 'new' } = request.body;
 
@@ -135,7 +161,22 @@ async function customerRoutes(fastify, options) {
   });
 
   // Update customer (requires authentication)
-  fastify.put('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.put('/:id', {
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          email: { type: 'string' },
+          phone: { type: 'string' },
+          business_type: { type: 'string' },
+          loyalty_status: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    },
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const updates = request.body;
