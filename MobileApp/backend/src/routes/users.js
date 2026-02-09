@@ -46,16 +46,25 @@ async function usersRoutes(fastify, options) {
 
       const users = db.db.prepare(query).all(...params);
 
-      // Get role counts
-      const allUsers = db.db.prepare('SELECT role, is_active FROM users').all();
+      // Get role counts using SQL aggregates
+      const statsRow = db.db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active,
+          SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive,
+          SUM(CASE WHEN role = 'owner' THEN 1 ELSE 0 END) as owners,
+          SUM(CASE WHEN role = 'manager' THEN 1 ELSE 0 END) as managers,
+          SUM(CASE WHEN role = 'employee' THEN 1 ELSE 0 END) as employees
+        FROM users
+      `).get();
       const stats = {
-        total: allUsers.length,
-        active: allUsers.filter(u => u.is_active).length,
-        inactive: allUsers.filter(u => !u.is_active).length,
+        total: statsRow.total,
+        active: statsRow.active,
+        inactive: statsRow.inactive,
         byRole: {
-          owner: allUsers.filter(u => u.role === 'owner').length,
-          manager: allUsers.filter(u => u.role === 'manager').length,
-          employee: allUsers.filter(u => u.role === 'employee').length
+          owner: statsRow.owners,
+          manager: statsRow.managers,
+          employee: statsRow.employees
         }
       };
 
