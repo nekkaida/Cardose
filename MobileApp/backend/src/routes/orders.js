@@ -45,18 +45,30 @@ async function ordersRoutes(fastify, options) {
 
       const orders = db.db.prepare(query).all(...params);
 
-      // Calculate stats
-      const allOrders = db.db.prepare('SELECT status, total_amount FROM orders').all();
+      // Calculate stats using SQL aggregates
+      const statsRow = db.db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'designing' THEN 1 ELSE 0 END) as designing,
+          SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+          SUM(CASE WHEN status = 'production' THEN 1 ELSE 0 END) as production,
+          SUM(CASE WHEN status = 'quality_control' THEN 1 ELSE 0 END) as quality_control,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
+          COALESCE(SUM(total_amount), 0) as totalValue
+        FROM orders
+      `).get();
       const stats = {
-        total: allOrders.length,
-        pending: allOrders.filter(o => o.status === 'pending').length,
-        designing: allOrders.filter(o => o.status === 'designing').length,
-        approved: allOrders.filter(o => o.status === 'approved').length,
-        production: allOrders.filter(o => o.status === 'production').length,
-        quality_control: allOrders.filter(o => o.status === 'quality_control').length,
-        completed: allOrders.filter(o => o.status === 'completed').length,
-        cancelled: allOrders.filter(o => o.status === 'cancelled').length,
-        totalValue: allOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0)
+        total: statsRow.total,
+        pending: statsRow.pending,
+        designing: statsRow.designing,
+        approved: statsRow.approved,
+        production: statsRow.production,
+        quality_control: statsRow.quality_control,
+        completed: statsRow.completed,
+        cancelled: statsRow.cancelled,
+        totalValue: statsRow.totalValue
       };
 
       return {
@@ -78,28 +90,44 @@ async function ordersRoutes(fastify, options) {
   // Get order stats (requires authentication)
   fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const orders = db.db.prepare('SELECT status, priority, total_amount, due_date FROM orders').all();
+      const statsRow = db.db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'designing' THEN 1 ELSE 0 END) as designing,
+          SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+          SUM(CASE WHEN status = 'production' THEN 1 ELSE 0 END) as production,
+          SUM(CASE WHEN status = 'quality_control' THEN 1 ELSE 0 END) as quality_control,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
+          SUM(CASE WHEN priority = 'low' THEN 1 ELSE 0 END) as priority_low,
+          SUM(CASE WHEN priority = 'normal' THEN 1 ELSE 0 END) as priority_normal,
+          SUM(CASE WHEN priority = 'high' THEN 1 ELSE 0 END) as priority_high,
+          SUM(CASE WHEN priority = 'urgent' THEN 1 ELSE 0 END) as priority_urgent,
+          COALESCE(SUM(total_amount), 0) as totalValue,
+          SUM(CASE WHEN due_date IS NOT NULL AND DATE(due_date) < DATE('now') AND status NOT IN ('completed', 'cancelled') THEN 1 ELSE 0 END) as overdue
+        FROM orders
+      `).get();
 
-      const today = new Date();
       const stats = {
-        total: orders.length,
+        total: statsRow.total,
         byStatus: {
-          pending: orders.filter(o => o.status === 'pending').length,
-          designing: orders.filter(o => o.status === 'designing').length,
-          approved: orders.filter(o => o.status === 'approved').length,
-          production: orders.filter(o => o.status === 'production').length,
-          quality_control: orders.filter(o => o.status === 'quality_control').length,
-          completed: orders.filter(o => o.status === 'completed').length,
-          cancelled: orders.filter(o => o.status === 'cancelled').length
+          pending: statsRow.pending,
+          designing: statsRow.designing,
+          approved: statsRow.approved,
+          production: statsRow.production,
+          quality_control: statsRow.quality_control,
+          completed: statsRow.completed,
+          cancelled: statsRow.cancelled
         },
         byPriority: {
-          low: orders.filter(o => o.priority === 'low').length,
-          normal: orders.filter(o => o.priority === 'normal').length,
-          high: orders.filter(o => o.priority === 'high').length,
-          urgent: orders.filter(o => o.priority === 'urgent').length
+          low: statsRow.priority_low,
+          normal: statsRow.priority_normal,
+          high: statsRow.priority_high,
+          urgent: statsRow.priority_urgent
         },
-        totalValue: orders.reduce((sum, o) => sum + (o.total_amount || 0), 0),
-        overdue: orders.filter(o => o.due_date && new Date(o.due_date) < today && o.status !== 'completed' && o.status !== 'cancelled').length
+        totalValue: statsRow.totalValue,
+        overdue: statsRow.overdue
       };
 
       return { success: true, stats };
@@ -152,7 +180,26 @@ async function ordersRoutes(fastify, options) {
   });
 
   // Create new order (requires authentication)
-  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['customer_id'],
+        properties: {
+          customer_id: { type: 'string' },
+          order_number: { type: 'string' },
+          status: { type: 'string' },
+          priority: { type: 'string' },
+          total_amount: { type: 'number' },
+          items: { type: 'array' },
+          due_date: { type: 'string' },
+          box_type: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    },
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const { customer_id, total_amount, priority = 'normal', due_date, box_type } = request.body;
 
@@ -185,7 +232,23 @@ async function ordersRoutes(fastify, options) {
   });
 
   // Update order (requires authentication)
-  fastify.put('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.put('/:id', {
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          status: { type: 'string' },
+          priority: { type: 'string' },
+          total_amount: { type: 'number' },
+          items: { type: 'array' },
+          due_date: { type: 'string' },
+          box_type: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    },
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const updates = request.body;
@@ -225,7 +288,20 @@ async function ordersRoutes(fastify, options) {
   });
 
   // Update order status (requires authentication)
-  fastify.patch('/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.patch('/:id/status', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['status'],
+        properties: {
+          status: { type: 'string' },
+          notes: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    },
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { status, notes } = request.body;
