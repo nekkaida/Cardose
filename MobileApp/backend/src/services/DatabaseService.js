@@ -23,6 +23,9 @@ class DatabaseService {
       // Create tables
       this.createTables();
 
+      // Run migrations to add missing columns
+      this.runMigrations();
+
       console.log('✅ Database initialized successfully');
     } catch (error) {
       console.error('❌ Database initialization failed:', error);
@@ -131,7 +134,10 @@ class DatabaseService {
         status TEXT DEFAULT 'draft',
         issue_date DATETIME,
         due_date DATETIME,
+        paid_date DATETIME,
+        payment_method TEXT,
         notes TEXT,
+        items TEXT,
         created_by TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -397,11 +403,115 @@ class DatabaseService {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (order_id) REFERENCES orders (id),
         FOREIGN KEY (checked_by) REFERENCES users (id)
+      )`,
+
+      // Production Workflows table
+      `CREATE TABLE IF NOT EXISTS production_workflows (
+        id TEXT PRIMARY KEY,
+        order_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+        current_step INTEGER DEFAULT 0,
+        total_steps INTEGER DEFAULT 0,
+        steps TEXT,
+        started_at DATETIME,
+        completed_at DATETIME,
+        created_by TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (order_id) REFERENCES orders (id),
+        FOREIGN KEY (created_by) REFERENCES users (id)
+      )`,
+
+      // Production Issues table
+      `CREATE TABLE IF NOT EXISTS production_issues (
+        id TEXT PRIMARY KEY,
+        order_id TEXT,
+        task_id TEXT,
+        type TEXT NOT NULL CHECK (type IN ('quality', 'material', 'delay', 'equipment', 'other')),
+        severity TEXT DEFAULT 'medium' CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+        title TEXT NOT NULL,
+        description TEXT,
+        status TEXT DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+        resolution TEXT,
+        reported_by TEXT,
+        assigned_to TEXT,
+        resolved_by TEXT,
+        resolved_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (order_id) REFERENCES orders (id),
+        FOREIGN KEY (task_id) REFERENCES production_tasks (id),
+        FOREIGN KEY (reported_by) REFERENCES users (id),
+        FOREIGN KEY (assigned_to) REFERENCES users (id),
+        FOREIGN KEY (resolved_by) REFERENCES users (id)
+      )`,
+
+      // Production Templates table
+      `CREATE TABLE IF NOT EXISTS production_templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        steps TEXT NOT NULL,
+        estimated_hours REAL,
+        category TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_by TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users (id)
+      )`,
+
+      // Reorder Alerts table
+      `CREATE TABLE IF NOT EXISTS reorder_alerts (
+        id TEXT PRIMARY KEY,
+        item_id TEXT NOT NULL,
+        item_name TEXT NOT NULL,
+        current_stock INTEGER DEFAULT 0,
+        reorder_level INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'acknowledged', 'ordered', 'resolved')),
+        priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'critical')),
+        notes TEXT,
+        created_by TEXT,
+        acknowledged_by TEXT,
+        acknowledged_at DATETIME,
+        resolved_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (item_id) REFERENCES inventory_materials (id),
+        FOREIGN KEY (created_by) REFERENCES users (id),
+        FOREIGN KEY (acknowledged_by) REFERENCES users (id)
       )`
     ];
 
     for (const sql of tables) {
       this.db.exec(sql);
+    }
+  }
+
+  // Run migrations to add missing columns to existing tables
+  runMigrations() {
+    const migrations = [
+      // Add items column to invoices table if it doesn't exist
+      { table: 'invoices', column: 'items', sql: 'ALTER TABLE invoices ADD COLUMN items TEXT' },
+      // Add paid_date column to invoices table if it doesn't exist
+      { table: 'invoices', column: 'paid_date', sql: 'ALTER TABLE invoices ADD COLUMN paid_date DATETIME' },
+      // Add payment_method column to invoices table if it doesn't exist
+      { table: 'invoices', column: 'payment_method', sql: 'ALTER TABLE invoices ADD COLUMN payment_method TEXT' }
+    ];
+
+    for (const migration of migrations) {
+      try {
+        // Check if column exists
+        const columns = this.db.prepare(`PRAGMA table_info(${migration.table})`).all();
+        const columnExists = columns.some(col => col.name === migration.column);
+
+        if (!columnExists) {
+          this.db.exec(migration.sql);
+        }
+      } catch (err) {
+        // Ignore errors - column might already exist or table might not exist yet
+      }
     }
   }
 
@@ -480,12 +590,12 @@ class DatabaseService {
   }
 
   updateUser(userId, updates) {
-    const fields = Object.keys(updates);
-    const values = Object.values(updates);
-
+    const allowedFields = ['full_name', 'email', 'phone', 'role', 'is_active', 'username'];
+    const fields = Object.keys(updates).filter(f => allowedFields.includes(f));
+    if (fields.length === 0) return { changes: 0 };
+    const values = fields.map(f => updates[f]);
     const setClause = fields.map(field => `${field} = ?`).join(', ');
     const sql = `UPDATE users SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-
     return this.run(sql, [...values, userId]);
   }
 
@@ -632,12 +742,12 @@ class DatabaseService {
   }
 
   updateInvoice(invoiceId, updates) {
-    const fields = Object.keys(updates);
-    const values = Object.values(updates);
-
+    const allowedFields = ['status', 'subtotal', 'discount', 'discount_type', 'ppn_rate', 'ppn_amount', 'total_amount', 'paid_amount', 'due_date', 'notes', 'payment_date'];
+    const fields = Object.keys(updates).filter(f => allowedFields.includes(f));
+    if (fields.length === 0) return { changes: 0 };
+    const values = fields.map(f => updates[f]);
     const setClause = fields.map(field => `${field} = ?`).join(', ');
     const sql = `UPDATE invoices SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-
     return this.run(sql, [...values, invoiceId]);
   }
 
@@ -688,12 +798,12 @@ class DatabaseService {
   }
 
   updateBudget(budgetId, updates) {
-    const fields = Object.keys(updates);
-    const values = Object.values(updates);
-
+    const allowedFields = ['category', 'amount', 'period', 'start_date', 'end_date', 'notes'];
+    const fields = Object.keys(updates).filter(f => allowedFields.includes(f));
+    if (fields.length === 0) return { changes: 0 };
+    const values = fields.map(f => updates[f]);
     const setClause = fields.map(field => `${field} = ?`).join(', ');
     const sql = `UPDATE budgets SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-
     return this.run(sql, [...values, budgetId]);
   }
 
