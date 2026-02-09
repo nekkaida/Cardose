@@ -30,40 +30,17 @@ const OrdersPage: React.FC = () => {
     try {
       setLoading(true);
       const data = await getOrders();
-      // Mock data since backend returns sample data
-      const mockOrders: Order[] = [
-        {
-          id: '1',
-          orderNumber: 'PGB-2024-001',
-          customerName: 'PT. Maju Bersama',
-          status: 'in_progress',
-          priority: 'high',
-          totalAmount: 5000000,
-          dueDate: '2024-08-25',
-          createdAt: '2024-08-15'
-        },
-        {
-          id: '2',
-          orderNumber: 'PGB-2024-002',
-          customerName: 'CV. Sukses Mandiri',
-          status: 'pending',
-          priority: 'normal',
-          totalAmount: 3500000,
-          dueDate: '2024-08-30',
-          createdAt: '2024-08-16'
-        },
-        {
-          id: '3',
-          orderNumber: 'PGB-2024-003',
-          customerName: 'Wedding Organizer ABC',
-          status: 'completed',
-          priority: 'urgent',
-          totalAmount: 8500000,
-          dueDate: '2024-08-20',
-          createdAt: '2024-08-10'
-        }
-      ];
-      setOrders(mockOrders);
+      const apiOrders = (data.orders || []).map((o: any) => ({
+        id: o.id,
+        orderNumber: o.order_number || o.orderNumber || '',
+        customerName: o.customer_name || o.customerName || 'Unknown',
+        status: o.status || 'pending',
+        priority: o.priority || 'normal',
+        totalAmount: o.total_amount || o.totalAmount || 0,
+        dueDate: o.due_date || o.dueDate || '',
+        createdAt: o.created_at || o.createdAt || '',
+      }));
+      setOrders(apiOrders);
     } catch (error) {
       console.error('Error loading orders:', error);
     } finally {
