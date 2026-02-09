@@ -5,7 +5,22 @@ async function authRoutes(fastify, options) {
   const db = fastify.db;
 
   // Register route
-  fastify.post('/register', async (request, reply) => {
+  fastify.post('/register', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['username', 'password', 'email', 'fullName'],
+        properties: {
+          username: { type: 'string', minLength: 3 },
+          password: { type: 'string', minLength: 6 },
+          email: { type: 'string', format: 'email' },
+          fullName: { type: 'string', minLength: 1 },
+          phone: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { username, password, email, fullName, phone, role = 'employee' } = request.body;
 
@@ -70,7 +85,19 @@ async function authRoutes(fastify, options) {
   });
 
   // Login route
-  fastify.post('/login', async (request, reply) => {
+  fastify.post('/login', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['username', 'password'],
+        properties: {
+          username: { type: 'string' },
+          password: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { username, password } = request.body;
 
@@ -196,6 +223,17 @@ async function authRoutes(fastify, options) {
 
   // Update user profile
   fastify.put('/profile', {
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          fullName: { type: 'string' },
+          email: { type: 'string' },
+          phone: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    },
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
@@ -230,6 +268,17 @@ async function authRoutes(fastify, options) {
 
   // Change password
   fastify.post('/change-password', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: { type: 'string' },
+          newPassword: { type: 'string', minLength: 6 }
+        },
+        additionalProperties: false
+      }
+    },
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
@@ -273,7 +322,18 @@ async function authRoutes(fastify, options) {
   });
 
   // Request password reset (generates reset token)
-  fastify.post('/request-reset', async (request, reply) => {
+  fastify.post('/request-reset', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+          email: { type: 'string', format: 'email' }
+        },
+        additionalProperties: false
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { email } = request.body;
 
@@ -310,7 +370,19 @@ async function authRoutes(fastify, options) {
   });
 
   // Reset password with token
-  fastify.post('/reset-password', async (request, reply) => {
+  fastify.post('/reset-password', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['resetToken', 'newPassword'],
+        properties: {
+          resetToken: { type: 'string' },
+          newPassword: { type: 'string', minLength: 6 }
+        },
+        additionalProperties: false
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { resetToken, newPassword } = request.body;
 
