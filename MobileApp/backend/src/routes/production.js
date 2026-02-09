@@ -3,6 +3,13 @@ const { v4: uuidv4 } = require('uuid');
 async function productionRoutes(fastify, options) {
   const db = fastify.db;
 
+  function parsePagination(query) {
+    const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+    const page = Math.max(parseInt(query.page) || 1, 1);
+    const offset = (page - 1) * limit;
+    return { limit, page, offset };
+  }
+
   // Get production board (Kanban view) (requires authentication)
   fastify.get('/board', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
@@ -117,7 +124,8 @@ async function productionRoutes(fastify, options) {
   // Get all production tasks (requires authentication)
   fastify.get('/tasks', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { status, assigned_to, order_id, priority, limit = 100, page = 1 } = request.query;
+      const { status, assigned_to, order_id, priority } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = `
         SELECT pt.*, o.order_number, u.full_name as assigned_to_name
@@ -153,9 +161,8 @@ async function productionRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const tasks = db.db.prepare(query).all(...params);
 
@@ -179,8 +186,8 @@ async function productionRoutes(fastify, options) {
         success: true,
         tasks,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit),
         stats
       };
@@ -406,7 +413,8 @@ async function productionRoutes(fastify, options) {
   // Get quality checks (requires authentication)
   fastify.get('/quality-checks', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { order_id, status, limit = 100, page = 1 } = request.query;
+      const { order_id, status } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = `
         SELECT qc.*, o.order_number, u.full_name as checked_by_name
@@ -434,9 +442,8 @@ async function productionRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const checks = db.db.prepare(query).all(...params);
 
@@ -444,8 +451,8 @@ async function productionRoutes(fastify, options) {
         success: true,
         checks,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit)
       };
     } catch (error) {
