@@ -16,23 +16,30 @@ interface Customer {
 const CustomersPage: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 25;
 
   const { getCustomers } = useApi();
   const { t } = useLanguage();
 
   useEffect(() => {
     loadCustomers();
-  }, []);
+  }, [page]);
 
   const loadCustomers = async () => {
     try {
       setLoading(true);
-      const data = await getCustomers();
+      setError(null);
+      const data = await getCustomers({ page, limit: pageSize });
       setCustomers(data.customers || []);
-    } catch (error) {
-      console.error('Error loading customers:', error);
+      setTotalPages(data.totalPages || 1);
+    } catch (err) {
+      console.error('Error loading customers:', err);
+      setError('Failed to load customers. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -67,6 +74,18 @@ const CustomersPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg">
+        <p className="font-medium">Error</p>
+        <p className="text-sm">{error}</p>
+        <button onClick={() => { setError(null); loadCustomers(); }} className="mt-2 text-sm text-red-600 underline">
+          Try Again
+        </button>
       </div>
     );
   }
@@ -153,6 +172,15 @@ const CustomersPage: React.FC = () => {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="flex items-center justify-between px-6 py-3 border-t">
+          <span className="text-sm text-gray-700">Page {page} of {totalPages}</span>
+          <div className="space-x-2">
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-50">Previous</button>
+            <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-50">Next</button>
+          </div>
         </div>
       </div>
 
