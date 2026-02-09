@@ -1,10 +1,8 @@
 // Customer management routes - Using DatabaseService
-const DatabaseService = require('../services/DatabaseService');
 const { v4: uuidv4 } = require('uuid');
 
 async function customerRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Get all customers (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
@@ -186,6 +184,86 @@ async function customerRoutes(fastify, options) {
       return {
         success: true,
         message: 'Customer deleted successfully'
+      };
+    } catch (error) {
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get customer communications (requires authentication)
+  fastify.get('/:id/communications', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { type, limit = 50 } = request.query;
+
+      // Check if customer exists
+      const customer = db.db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
+      if (!customer) {
+        reply.code(404);
+        return { success: false, error: 'Customer not found' };
+      }
+
+      let query = 'SELECT * FROM communication_messages WHERE customer_id = ?';
+      const params = [id];
+
+      if (type) {
+        query += ' AND type = ?';
+        params.push(type);
+      }
+
+      query += ' ORDER BY created_at DESC LIMIT ?';
+      params.push(parseInt(limit));
+
+      const communications = db.db.prepare(query).all(...params);
+
+      return {
+        success: true,
+        communications
+      };
+    } catch (error) {
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Create customer communication (requires authentication)
+  fastify.post('/:id/communications', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const { type, direction = 'outbound', subject, content } = request.body;
+
+      // Check if customer exists
+      const customer = db.db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
+      if (!customer) {
+        reply.code(404);
+        return { success: false, error: 'Customer not found' };
+      }
+
+      if (!type || !content) {
+        reply.code(400);
+        return { success: false, error: 'Type and content are required' };
+      }
+
+      const validTypes = ['email', 'whatsapp', 'sms'];
+      if (!validTypes.includes(type)) {
+        reply.code(400);
+        return { success: false, error: 'Invalid communication type. Must be email, whatsapp, or sms' };
+      }
+
+      const commId = uuidv4();
+      db.db.prepare(`
+        INSERT INTO communication_messages (id, customer_id, type, direction, subject, content, status, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+      `).run(commId, id, type, direction, subject, content, request.user.id);
+
+      const communication = db.db.prepare('SELECT * FROM communication_messages WHERE id = ?').get(commId);
+
+      return {
+        success: true,
+        message: 'Communication created successfully',
+        communicationId: commId,
+        communication
       };
     } catch (error) {
       reply.code(500);
