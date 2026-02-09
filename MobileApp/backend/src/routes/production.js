@@ -343,7 +343,7 @@ async function productionRoutes(fastify, options) {
   });
 
   // Delete task (requires authentication)
-  fastify.delete('/tasks/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.delete('/tasks/:id', { preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
