@@ -9,7 +9,8 @@ async function webhookRoutes(fastify, options) {
    * Register webhook
    */
   fastify.post('/', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: { body: { type: 'object', required: ['url', 'event_type'], properties: { url: { type: 'string', format: 'uri' }, event_type: { type: 'string' }, description: { type: 'string' }, is_active: { type: 'boolean' } } } }
   }, async (request, reply) => {
     try {
       const { url, events, secret } = request.body;
@@ -52,7 +53,8 @@ async function webhookRoutes(fastify, options) {
    * Update webhook
    */
   fastify.put('/:webhookId', {
-    preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])]
+    preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
+    schema: { body: { type: 'object', properties: { url: { type: 'string' }, event_type: { type: 'string' }, description: { type: 'string' }, is_active: { type: 'boolean' } } } }
   }, async (request, reply) => {
     try {
       const { webhookId } = request.params;
