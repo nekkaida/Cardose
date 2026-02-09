@@ -1,15 +1,21 @@
-// Audit logging routes - Using DatabaseService
+// Audit logging routes
 const { v4: uuidv4 } = require('uuid');
-const DatabaseService = require('../services/DatabaseService');
+
+function parsePagination(query) {
+  const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+  const page = Math.max(parseInt(query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+  return { limit, page, offset };
+}
 
 async function auditRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Get audit logs (requires authentication)
   fastify.get('/logs', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { user_id, action, entity_type, entity_id, startDate, endDate, limit = 100, page = 1 } = request.query;
+      const { user_id, action, entity_type, entity_id, startDate, endDate } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = `
         SELECT al.*, u.full_name as user_name
@@ -52,9 +58,8 @@ async function auditRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const logs = db.db.prepare(query).all(...params);
 
@@ -68,8 +73,8 @@ async function auditRoutes(fastify, options) {
         success: true,
         logs: logsWithParsedDetails,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit)
       };
     } catch (error) {
