@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 const AnalyticsPage: React.FC = () => {
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const { getDashboardAnalytics } = useApi();
   const { t } = useLanguage();
@@ -16,10 +17,12 @@ const AnalyticsPage: React.FC = () => {
   const loadAnalytics = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await getDashboardAnalytics();
       setAnalytics(data.analytics || data);
-    } catch (error) {
-      console.error('Error loading analytics:', error);
+    } catch (err) {
+      console.error('Error loading analytics:', err);
+      setError('Failed to load analytics. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -37,6 +40,18 @@ const AnalyticsPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg">
+        <p className="font-medium">Error</p>
+        <p className="text-sm">{error}</p>
+        <button onClick={() => { setError(null); loadAnalytics(); }} className="mt-2 text-sm text-red-600 underline">
+          Try Again
+        </button>
       </div>
     );
   }
