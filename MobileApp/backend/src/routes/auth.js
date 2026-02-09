@@ -1,11 +1,8 @@
 // Authentication routes for Premium Gift Box backend - Using DatabaseService
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const DatabaseService = require('../services/DatabaseService');
-
 async function authRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Register route
   fastify.post('/register', async (request, reply) => {
