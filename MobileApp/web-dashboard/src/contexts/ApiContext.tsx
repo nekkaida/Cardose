@@ -56,6 +56,30 @@ interface ApiContextType {
   getCustomerAnalytics: () => Promise<any>;
   getInventoryAnalytics: () => Promise<any>;
   getProductionAnalytics: () => Promise<any>;
+
+  // Production
+  getProductionBoard: () => Promise<any>;
+  getProductionTasks: (params?: Record<string, any>) => Promise<any>;
+  getProductionStats: () => Promise<any>;
+
+  // Reports
+  getSalesReport: (params?: Record<string, any>) => Promise<any>;
+  getInventoryReport: () => Promise<any>;
+  getProductionReport: () => Promise<any>;
+  getCustomerReport: () => Promise<any>;
+  getFinancialReport: () => Promise<any>;
+
+  // Users
+  getUsers: (params?: Record<string, any>) => Promise<any>;
+  createUser: (userData: any) => Promise<any>;
+  updateUser: (id: string, updates: any) => Promise<any>;
+  updateUserStatus: (id: string, status: any) => Promise<any>;
+  deleteUser: (id: string) => Promise<any>;
+
+  // Settings
+  getSettings: () => Promise<any>;
+  updateSetting: (key: string, data: any) => Promise<any>;
+  deleteSetting: (key: string) => Promise<any>;
 }
 
 const ApiContext = createContext<ApiContextType | undefined>(undefined);
@@ -168,6 +192,90 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
     return response.data;
   };
 
+  // Production API
+  const getProductionBoard = async () => {
+    const response = await api.get(`/production/board`);
+    return response.data;
+  };
+
+  const getProductionTasks = async (params?: Record<string, any>) => {
+    const response = await api.get(`/production/tasks`, { params });
+    return response.data;
+  };
+
+  const getProductionStats = async () => {
+    const response = await api.get(`/production/stats`);
+    return response.data;
+  };
+
+  // Reports API
+  const getSalesReport = async (params?: Record<string, any>) => {
+    const response = await api.get(`/reports/sales`, { params });
+    return response.data;
+  };
+
+  const getInventoryReport = async () => {
+    const response = await api.get(`/reports/inventory`);
+    return response.data;
+  };
+
+  const getProductionReport = async () => {
+    const response = await api.get(`/reports/production`);
+    return response.data;
+  };
+
+  const getCustomerReport = async () => {
+    const response = await api.get(`/reports/customers`);
+    return response.data;
+  };
+
+  const getFinancialReport = async () => {
+    const response = await api.get(`/reports/financial`);
+    return response.data;
+  };
+
+  // Users API
+  const getUsers = async (params?: Record<string, any>) => {
+    const response = await api.get(`/users`, { params });
+    return response.data;
+  };
+
+  const createUser = async (userData: any) => {
+    const response = await api.post(`/users`, userData);
+    return response.data;
+  };
+
+  const updateUser = async (id: string, updates: any) => {
+    const response = await api.put(`/users/${id}`, updates);
+    return response.data;
+  };
+
+  const updateUserStatus = async (id: string, status: any) => {
+    const response = await api.patch(`/users/${id}/status`, status);
+    return response.data;
+  };
+
+  const deleteUser = async (id: string) => {
+    const response = await api.delete(`/users/${id}`);
+    return response.data;
+  };
+
+  // Settings API
+  const getSettings = async () => {
+    const response = await api.get(`/settings`);
+    return response.data;
+  };
+
+  const updateSetting = async (key: string, data: any) => {
+    const response = await api.put(`/settings/${key}`, data);
+    return response.data;
+  };
+
+  const deleteSetting = async (key: string) => {
+    const response = await api.delete(`/settings/${key}`);
+    return response.data;
+  };
+
   const value: ApiContextType = {
     // Orders
     getOrders,
@@ -196,6 +304,30 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
     getCustomerAnalytics,
     getInventoryAnalytics,
     getProductionAnalytics,
+
+    // Production
+    getProductionBoard,
+    getProductionTasks,
+    getProductionStats,
+
+    // Reports
+    getSalesReport,
+    getInventoryReport,
+    getProductionReport,
+    getCustomerReport,
+    getFinancialReport,
+
+    // Users
+    getUsers,
+    createUser,
+    updateUser,
+    updateUserStatus,
+    deleteUser,
+
+    // Settings
+    getSettings,
+    updateSetting,
+    deleteSetting,
   };
 
   return (
