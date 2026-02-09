@@ -7,7 +7,15 @@ async function customerRoutes(fastify, options) {
   // Get all customers (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { search, business_type, loyalty_status, limit = 100, page = 1 } = request.query;
+      function parsePagination(query) {
+        const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+        const page = Math.max(parseInt(query.page) || 1, 1);
+        const offset = (page - 1) * limit;
+        return { limit, page, offset };
+      }
+
+      const { search, business_type, loyalty_status } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = 'SELECT * FROM customers WHERE 1=1';
       const params = [];
@@ -35,9 +43,8 @@ async function customerRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const customers = db.db.prepare(query).all(...params);
 
@@ -55,8 +62,8 @@ async function customerRoutes(fastify, options) {
         success: true,
         customers,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit),
         stats
       };
