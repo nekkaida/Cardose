@@ -235,7 +235,7 @@ async function inventoryRoutes(fastify, options) {
   });
 
   // Delete inventory item (requires authentication)
-  fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.delete('/:id', { preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
