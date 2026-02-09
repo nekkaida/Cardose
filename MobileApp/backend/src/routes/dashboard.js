@@ -1,9 +1,7 @@
-// Dashboard routes - Using DatabaseService
-const DatabaseService = require('../services/DatabaseService');
+// Dashboard routes
 
 async function dashboardRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Get dashboard stats (requires authentication)
   fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
