@@ -96,7 +96,7 @@ async function qualityChecksRoutes(fastify, options) {
   });
 
   // Create quality check (requires authentication)
-  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['order_id'], properties: { order_id: { type: 'string' }, checklist_items: { type: 'array' }, overall_status: { type: 'string' }, notes: { type: 'string' }, checked_by: { type: 'string' } } } } }, async (request, reply) => {
     try {
       const { order_id, checklist_items, overall_status, notes, checked_by } = request.body;
 
@@ -136,7 +136,7 @@ async function qualityChecksRoutes(fastify, options) {
   });
 
   // Update quality check (requires authentication)
-  fastify.put('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.put('/:id', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', properties: { checklist_items: { type: 'array' }, overall_status: { type: 'string' }, notes: { type: 'string' } } } } }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { checklist_items, overall_status, notes } = request.body;
