@@ -4,10 +4,18 @@ async function financialRoutes(fastify, options) {
   const db = fastify.db;
   const PPN_RATE = 0.11; // 11% Indonesian VAT
 
+  function parsePagination(query) {
+    const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+    const page = Math.max(parseInt(query.page) || 1, 1);
+    const offset = (page - 1) * limit;
+    return { limit, page, offset };
+  }
+
   // Get all transactions (requires authentication)
   fastify.get('/transactions', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { type, category, startDate, endDate, limit = 100, page = 1 } = request.query;
+      const { type, category, startDate, endDate } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = 'SELECT * FROM financial_transactions WHERE 1=1';
       const params = [];
@@ -37,9 +45,8 @@ async function financialRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const transactions = db.db.prepare(query).all(...params);
 
@@ -58,8 +65,8 @@ async function financialRoutes(fastify, options) {
         success: true,
         transactions,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit),
         summary
       };
@@ -289,7 +296,8 @@ async function financialRoutes(fastify, options) {
   // Get all invoices (requires authentication)
   fastify.get('/invoices', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { status, customer_id, startDate, endDate, limit = 100, page = 1 } = request.query;
+      const { status, customer_id, startDate, endDate } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = `
         SELECT i.*, c.name as customer_name, o.order_number
@@ -325,9 +333,8 @@ async function financialRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const invoices = db.db.prepare(query).all(...params);
 
@@ -348,8 +355,8 @@ async function financialRoutes(fastify, options) {
         success: true,
         invoices,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit),
         stats
       };
