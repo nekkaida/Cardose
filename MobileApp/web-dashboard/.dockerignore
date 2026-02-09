@@ -1,0 +1,8 @@
+node_modules
+build
+.env
+.env.local
+src/__tests__
+*.test.tsx
+*.test.ts
+.git
