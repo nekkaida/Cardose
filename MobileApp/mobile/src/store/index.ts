@@ -39,7 +39,7 @@ const persistConfig = {
   key: 'root',
   version: 1,
   storage: AsyncStorage,
-  whitelist: ['auth', 'ui'], // Only persist these reducers
+  whitelist: ['ui'], // Only persist UI state; auth tokens handled by authSlice directly
   blacklist: ['orders', 'customers', 'inventory', 'financial', 'production', 'sync'], // Don't persist (use SQLite instead)
 };
 
