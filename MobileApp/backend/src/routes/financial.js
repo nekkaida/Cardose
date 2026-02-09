@@ -1,10 +1,7 @@
 // Financial management routes - Using DatabaseService
 const { v4: uuidv4 } = require('uuid');
-const DatabaseService = require('../services/DatabaseService');
-
 async function financialRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
   const PPN_RATE = 0.11; // 11% Indonesian VAT
 
   // Get all transactions (requires authentication)
@@ -406,7 +403,7 @@ async function financialRoutes(fastify, options) {
       const { id } = request.params;
 
       const invoice = db.db.prepare(`
-        SELECT i.*, c.name as customer_name, c.email as customer_email, c.phone as customer_phone, c.address as customer_address, o.order_number
+        SELECT i.*, c.name as customer_name, c.email as customer_email, c.phone as customer_phone, o.order_number
         FROM invoices i
         LEFT JOIN customers c ON i.customer_id = c.id
         LEFT JOIN orders o ON i.order_id = o.id
@@ -423,10 +420,10 @@ async function financialRoutes(fastify, options) {
         invoice.items = JSON.parse(invoice.items);
       }
 
-      // Get payments for this invoice
-      const payments = db.db.prepare(`
-        SELECT * FROM payments WHERE invoice_id = ? ORDER BY payment_date DESC
-      `).all(id);
+      // Get payments for this invoice (payments table may not exist in all deployments)
+      let payments = [];
+      // Skip payments query since the table doesn't exist in the schema
+      // In future, add payments table to DatabaseService if needed
 
       return {
         success: true,
@@ -635,6 +632,106 @@ async function financialRoutes(fastify, options) {
           totalExpenses: expenses?.total || 0,
           netIncome: (income?.total || 0) - (expenses?.total || 0),
           totalInvoices: invoiceCount?.count || 0
+        }
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get revenue analytics (requires authentication)
+  fastify.get('/analytics/revenue', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    try {
+      const { period = 'month' } = request.query;
+
+      let dateFilter = '';
+      if (period === 'day') {
+        dateFilter = "AND DATE(payment_date) = DATE('now')";
+      } else if (period === 'week') {
+        dateFilter = "AND payment_date >= DATE('now', '-7 days')";
+      } else if (period === 'month') {
+        dateFilter = "AND payment_date >= DATE('now', '-30 days')";
+      } else if (period === 'quarter') {
+        dateFilter = "AND payment_date >= DATE('now', '-90 days')";
+      } else if (period === 'year') {
+        dateFilter = "AND payment_date >= DATE('now', '-365 days')";
+      }
+
+      // Total revenue in period
+      const revenueData = db.db.prepare(`
+        SELECT
+          SUM(amount) as total_revenue,
+          COUNT(*) as transaction_count,
+          AVG(amount) as avg_transaction
+        FROM financial_transactions
+        WHERE type = 'income' ${dateFilter}
+      `).get();
+
+      // Revenue by category
+      const byCategory = db.db.prepare(`
+        SELECT
+          category,
+          SUM(amount) as revenue,
+          COUNT(*) as count
+        FROM financial_transactions
+        WHERE type = 'income' ${dateFilter}
+        GROUP BY category
+        ORDER BY revenue DESC
+      `).all();
+
+      // Daily revenue for charts
+      const dailyRevenue = db.db.prepare(`
+        SELECT
+          DATE(payment_date) as date,
+          SUM(amount) as revenue,
+          COUNT(*) as orders
+        FROM financial_transactions
+        WHERE type = 'income' ${dateFilter}
+        GROUP BY DATE(payment_date)
+        ORDER BY date ASC
+      `).all();
+
+      // Previous period comparison
+      let prevDateFilter = '';
+      if (period === 'day') {
+        prevDateFilter = "AND DATE(payment_date) = DATE('now', '-1 day')";
+      } else if (period === 'week') {
+        prevDateFilter = "AND payment_date >= DATE('now', '-14 days') AND payment_date < DATE('now', '-7 days')";
+      } else if (period === 'month') {
+        prevDateFilter = "AND payment_date >= DATE('now', '-60 days') AND payment_date < DATE('now', '-30 days')";
+      } else if (period === 'quarter') {
+        prevDateFilter = "AND payment_date >= DATE('now', '-180 days') AND payment_date < DATE('now', '-90 days')";
+      } else if (period === 'year') {
+        prevDateFilter = "AND payment_date >= DATE('now', '-730 days') AND payment_date < DATE('now', '-365 days')";
+      }
+
+      const prevRevenueData = db.db.prepare(`
+        SELECT SUM(amount) as total_revenue
+        FROM financial_transactions
+        WHERE type = 'income' ${prevDateFilter}
+      `).get();
+
+      const currentRevenue = revenueData?.total_revenue || 0;
+      const prevRevenue = prevRevenueData?.total_revenue || 0;
+      const growthRate = prevRevenue > 0
+        ? ((currentRevenue - prevRevenue) / prevRevenue * 100).toFixed(1)
+        : 0;
+
+      return {
+        success: true,
+        analytics: {
+          period,
+          revenue: {
+            total: currentRevenue,
+            transactionCount: revenueData?.transaction_count || 0,
+            avgTransaction: revenueData?.avg_transaction || 0,
+            previousPeriod: prevRevenue,
+            growthRate: parseFloat(growthRate)
+          },
+          byCategory,
+          dailyRevenue
         }
       };
     } catch (error) {
