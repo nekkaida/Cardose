@@ -1,15 +1,21 @@
-// Notification routes - Using DatabaseService
+// Notification routes
 const { v4: uuidv4 } = require('uuid');
-const DatabaseService = require('../services/DatabaseService');
+
+function parsePagination(query) {
+  const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+  const page = Math.max(parseInt(query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+  return { limit, page, offset };
+}
 
 async function notificationRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Get all notifications (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { type, read, limit = 50, page = 1 } = request.query;
+      const { type, read } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = 'SELECT * FROM notifications WHERE 1=1';
       const params = [];
@@ -31,9 +37,8 @@ async function notificationRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const notifications = db.db.prepare(query).all(...params);
 
@@ -41,8 +46,8 @@ async function notificationRoutes(fastify, options) {
         success: true,
         notifications,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit)
       };
     } catch (error) {
