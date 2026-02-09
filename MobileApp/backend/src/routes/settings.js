@@ -58,7 +58,8 @@ async function settingsRoutes(fastify, options) {
    * Update setting
    */
   fastify.put('/:key', {
-    preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])]
+    preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
+    schema: { body: { type: 'object', required: ['value'], properties: { value: { type: 'string' }, description: { type: 'string' } } } }
   }, async (request, reply) => {
     try {
       const { key } = request.params;
@@ -121,7 +122,8 @@ async function settingsRoutes(fastify, options) {
    * Batch update settings
    */
   fastify.post('/batch', {
-    preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])]
+    preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
+    schema: { body: { type: 'object', required: ['settings'], properties: { settings: { type: 'object' } } } }
   }, async (request, reply) => {
     try {
       const { settings } = request.body;
