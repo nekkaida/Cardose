@@ -69,6 +69,18 @@ async function buildApp() {
   fastify.register(require('../src/routes/search'), { prefix: '/api/search' });
   fastify.register(require('../src/routes/settings'), { prefix: '/api/settings' });
   fastify.register(require('../src/routes/analytics'), { prefix: '/api/analytics' });
+  fastify.register(require('../src/routes/notifications'), { prefix: '/api/notifications' });
+  fastify.register(require('../src/routes/invoices'), { prefix: '/api/invoices' });
+  fastify.register(require('../src/routes/purchase-orders'), { prefix: '/api/purchase-orders' });
+  fastify.register(require('../src/routes/quality-checks'), { prefix: '/api/quality-checks' });
+  fastify.register(require('../src/routes/reports'), { prefix: '/api/reports' });
+  fastify.register(require('../src/routes/templates'), { prefix: '/api/templates' });
+  fastify.register(require('../src/routes/webhooks'), { prefix: '/api/webhooks' });
+  fastify.register(require('../src/routes/audit'), { prefix: '/api/audit' });
+  fastify.register(require('../src/routes/audit-logs'), { prefix: '/api/audit-logs' });
+  fastify.register(require('../src/routes/sync'), { prefix: '/api/sync' });
+  fastify.register(require('../src/routes/backup'), { prefix: '/api/backup' });
+  fastify.register(require('../src/routes/communication'), { prefix: '/api/communication' });
 
   return fastify;
 }
