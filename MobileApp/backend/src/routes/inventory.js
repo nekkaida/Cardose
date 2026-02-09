@@ -46,18 +46,30 @@ async function inventoryRoutes(fastify, options) {
 
       const inventory = db.db.prepare(query).all(...params);
 
-      // Calculate stats
-      const allItems = db.db.prepare('SELECT category, current_stock, reorder_level, unit_cost FROM inventory_materials').all();
+      // Calculate stats using SQL aggregates
+      const statsRow = db.db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN category = 'paper' THEN 1 ELSE 0 END) as paper,
+          SUM(CASE WHEN category = 'ribbon' THEN 1 ELSE 0 END) as ribbon,
+          SUM(CASE WHEN category = 'accessories' THEN 1 ELSE 0 END) as accessories,
+          SUM(CASE WHEN category = 'packaging' THEN 1 ELSE 0 END) as packaging,
+          SUM(CASE WHEN category = 'printing' THEN 1 ELSE 0 END) as printing,
+          SUM(CASE WHEN current_stock <= reorder_level THEN 1 ELSE 0 END) as lowStock,
+          SUM(CASE WHEN current_stock <= 0 THEN 1 ELSE 0 END) as outOfStock,
+          COALESCE(SUM(current_stock * unit_cost), 0) as totalValue
+        FROM inventory_materials
+      `).get();
       const stats = {
-        total: allItems.length,
-        paper: allItems.filter(i => i.category === 'paper').length,
-        ribbon: allItems.filter(i => i.category === 'ribbon').length,
-        accessories: allItems.filter(i => i.category === 'accessories').length,
-        packaging: allItems.filter(i => i.category === 'packaging').length,
-        printing: allItems.filter(i => i.category === 'printing').length,
-        lowStock: allItems.filter(i => i.current_stock <= i.reorder_level).length,
-        outOfStock: allItems.filter(i => i.current_stock <= 0).length,
-        totalValue: allItems.reduce((sum, i) => sum + (i.current_stock * (i.unit_cost || 0)), 0)
+        total: statsRow.total,
+        paper: statsRow.paper,
+        ribbon: statsRow.ribbon,
+        accessories: statsRow.accessories,
+        packaging: statsRow.packaging,
+        printing: statsRow.printing,
+        lowStock: statsRow.lowStock,
+        outOfStock: statsRow.outOfStock,
+        totalValue: statsRow.totalValue
       };
 
       return {
@@ -167,7 +179,26 @@ async function inventoryRoutes(fastify, options) {
   });
 
   // Create inventory item (requires authentication)
-  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['name', 'category'],
+        properties: {
+          name: { type: 'string', minLength: 1 },
+          category: { type: 'string' },
+          current_stock: { type: 'number' },
+          reorder_level: { type: 'number' },
+          unit_cost: { type: 'number' },
+          supplier: { type: 'string' },
+          unit: { type: 'string' },
+          notes: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    },
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const { name, category, supplier, unit_cost, current_stock = 0, reorder_level = 10, unit, notes } = request.body;
 
@@ -199,7 +230,25 @@ async function inventoryRoutes(fastify, options) {
   });
 
   // Update inventory item (requires authentication)
-  fastify.put('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.put('/:id', {
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          category: { type: 'string' },
+          current_stock: { type: 'number' },
+          reorder_level: { type: 'number' },
+          unit_cost: { type: 'number' },
+          supplier: { type: 'string' },
+          unit: { type: 'string' },
+          notes: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    },
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const updates = request.body;
