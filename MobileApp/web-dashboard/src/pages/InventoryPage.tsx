@@ -15,23 +15,30 @@ interface InventoryItem {
 const InventoryPage: React.FC = () => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 25;
 
   const { getInventory } = useApi();
   const { t } = useLanguage();
 
   useEffect(() => {
     loadInventory();
-  }, []);
+  }, [page]);
 
   const loadInventory = async () => {
     try {
       setLoading(true);
-      const data = await getInventory();
+      setError(null);
+      const data = await getInventory({ page, limit: pageSize });
       setInventory(data.items || data.inventory || []);
-    } catch (error) {
-      console.error('Error loading inventory:', error);
+      setTotalPages(data.totalPages || 1);
+    } catch (err) {
+      console.error('Error loading inventory:', err);
+      setError('Failed to load inventory. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -60,6 +67,18 @@ const InventoryPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg">
+        <p className="font-medium">Error</p>
+        <p className="text-sm">{error}</p>
+        <button onClick={() => { setError(null); loadInventory(); }} className="mt-2 text-sm text-red-600 underline">
+          Try Again
+        </button>
       </div>
     );
   }
@@ -149,6 +168,15 @@ const InventoryPage: React.FC = () => {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="flex items-center justify-between px-6 py-3 border-t">
+          <span className="text-sm text-gray-700">Page {page} of {totalPages}</span>
+          <div className="space-x-2">
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-50">Previous</button>
+            <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-50">Next</button>
+          </div>
         </div>
       </div>
 
