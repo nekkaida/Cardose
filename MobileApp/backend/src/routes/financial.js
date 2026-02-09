@@ -50,15 +50,21 @@ async function financialRoutes(fastify, options) {
 
       const transactions = db.db.prepare(query).all(...params);
 
-      // Calculate summary
-      const allTransactions = db.db.prepare('SELECT type, amount, ppn_amount FROM financial_transactions').all();
+      // Calculate summary using SQL aggregates
+      const txStats = db.db.prepare(`
+        SELECT
+          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as totalIncome,
+          COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as totalExpenses,
+          COALESCE(SUM(CASE WHEN type = 'income' THEN ppn_amount ELSE 0 END), 0) as totalPpnCollected,
+          COALESCE(SUM(CASE WHEN type = 'expense' THEN ppn_amount ELSE 0 END), 0) as totalPpnPaid
+        FROM financial_transactions
+      `).get();
       const summary = {
-        totalIncome: allTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (t.amount || 0), 0),
-        totalExpenses: allTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (t.amount || 0), 0),
-        netIncome: allTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (t.amount || 0), 0) -
-                   allTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (t.amount || 0), 0),
-        totalPpnCollected: allTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (t.ppn_amount || 0), 0),
-        totalPpnPaid: allTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (t.ppn_amount || 0), 0)
+        totalIncome: txStats.totalIncome,
+        totalExpenses: txStats.totalExpenses,
+        netIncome: txStats.totalIncome - txStats.totalExpenses,
+        totalPpnCollected: txStats.totalPpnCollected,
+        totalPpnPaid: txStats.totalPpnPaid
       };
 
       return {
@@ -112,24 +118,42 @@ async function financialRoutes(fastify, options) {
   // Get financial summary (requires authentication)
   fastify.get('/summary', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      // Get transactions summary
-      const transactions = db.db.prepare('SELECT type, amount, ppn_amount FROM financial_transactions').all();
-      const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (t.amount || 0), 0);
-      const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (t.amount || 0), 0);
-      const totalTax = transactions.reduce((sum, t) => sum + (t.ppn_amount || 0), 0);
+      // Get transactions summary using SQL aggregates
+      const txSummary = db.db.prepare(`
+        SELECT
+          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as totalIncome,
+          COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as totalExpenses,
+          COALESCE(SUM(ppn_amount), 0) as totalTax
+        FROM financial_transactions
+      `).get();
+      const totalIncome = txSummary.totalIncome;
+      const totalExpenses = txSummary.totalExpenses;
+      const totalTax = txSummary.totalTax;
       const netProfit = totalIncome - totalExpenses;
       const profitMargin = totalIncome > 0 ? ((netProfit / totalIncome) * 100) : 0;
 
-      // Get orders summary
-      const orders = db.db.prepare('SELECT status, total_amount FROM orders').all();
-      const pendingOrders = orders.filter(o => o.status === 'pending' || o.status === 'designing' || o.status === 'production').length;
-      const completedOrders = orders.filter(o => o.status === 'completed').length;
-      const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      // Get orders summary using SQL aggregates
+      const ordersSummary = db.db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status IN ('pending', 'designing', 'production') THEN 1 ELSE 0 END) as pendingOrders,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completedOrders,
+          COALESCE(SUM(total_amount), 0) as totalOrderValue
+        FROM orders
+      `).get();
+      const pendingOrders = ordersSummary.pendingOrders;
+      const completedOrders = ordersSummary.completedOrders;
+      const totalOrderValue = ordersSummary.totalOrderValue;
 
-      // Get invoices summary
-      const invoices = db.db.prepare('SELECT status, total_amount FROM invoices').all();
-      const unpaidInvoices = invoices.filter(i => i.status === 'unpaid' || i.status === 'overdue').length;
-      const paidInvoices = invoices.filter(i => i.status === 'paid').length;
+      // Get invoices summary using SQL aggregates
+      const invoicesSummary = db.db.prepare(`
+        SELECT
+          SUM(CASE WHEN status IN ('unpaid', 'overdue') THEN 1 ELSE 0 END) as unpaidInvoices,
+          SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as paidInvoices
+        FROM invoices
+      `).get();
+      const unpaidInvoices = invoicesSummary.unpaidInvoices;
+      const paidInvoices = invoicesSummary.paidInvoices;
 
       return {
         success: true,
@@ -143,8 +167,8 @@ async function financialRoutes(fastify, options) {
           paidInvoices: paidInvoices,
           pendingOrders: pendingOrders,
           completedOrders: completedOrders,
-          totalOrders: orders.length,
-          averageOrderValue: orders.length > 0 ? totalOrderValue / orders.length : 0,
+          totalOrders: ordersSummary.total,
+          averageOrderValue: ordersSummary.total > 0 ? totalOrderValue / ordersSummary.total : 0,
           ppnRate: PPN_RATE * 100,
           monthlyGrowth: 12.5
         }
@@ -338,17 +362,28 @@ async function financialRoutes(fastify, options) {
 
       const invoices = db.db.prepare(query).all(...params);
 
-      // Calculate stats
-      const allInvoices = db.db.prepare('SELECT status, total_amount FROM invoices').all();
+      // Calculate stats using SQL aggregates
+      const invStats = db.db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'unpaid' THEN 1 ELSE 0 END) as unpaid,
+          SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as paid,
+          SUM(CASE WHEN status = 'overdue' THEN 1 ELSE 0 END) as overdue,
+          SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
+          COALESCE(SUM(total_amount), 0) as totalValue,
+          COALESCE(SUM(CASE WHEN status = 'paid' THEN total_amount ELSE 0 END), 0) as paidValue,
+          COALESCE(SUM(CASE WHEN status IN ('unpaid', 'overdue') THEN total_amount ELSE 0 END), 0) as unpaidValue
+        FROM invoices
+      `).get();
       const stats = {
-        total: allInvoices.length,
-        unpaid: allInvoices.filter(i => i.status === 'unpaid').length,
-        paid: allInvoices.filter(i => i.status === 'paid').length,
-        overdue: allInvoices.filter(i => i.status === 'overdue').length,
-        cancelled: allInvoices.filter(i => i.status === 'cancelled').length,
-        totalValue: allInvoices.reduce((sum, i) => sum + (i.total_amount || 0), 0),
-        paidValue: allInvoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + (i.total_amount || 0), 0),
-        unpaidValue: allInvoices.filter(i => i.status === 'unpaid' || i.status === 'overdue').reduce((sum, i) => sum + (i.total_amount || 0), 0)
+        total: invStats.total,
+        unpaid: invStats.unpaid,
+        paid: invStats.paid,
+        overdue: invStats.overdue,
+        cancelled: invStats.cancelled,
+        totalValue: invStats.totalValue,
+        paidValue: invStats.paidValue,
+        unpaidValue: invStats.unpaidValue
       };
 
       return {
@@ -777,14 +812,23 @@ async function financialRoutes(fastify, options) {
         });
       }
 
-      // Get customer stats
-      const customers = db.db.prepare('SELECT business_type, total_spent, total_orders FROM customers').all();
+      // Get customer stats using SQL aggregates
+      const customerStats = db.db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN business_type = 'corporate' THEN 1 ELSE 0 END) as corporate,
+          SUM(CASE WHEN business_type = 'wedding' THEN 1 ELSE 0 END) as wedding,
+          SUM(CASE WHEN business_type = 'trading' THEN 1 ELSE 0 END) as trading,
+          SUM(CASE WHEN business_type = 'individual' THEN 1 ELSE 0 END) as individual,
+          SUM(CASE WHEN business_type = 'event' THEN 1 ELSE 0 END) as event
+        FROM customers
+      `).get();
       const customersByType = {
-        corporate: customers.filter(c => c.business_type === 'corporate').length,
-        wedding: customers.filter(c => c.business_type === 'wedding').length,
-        trading: customers.filter(c => c.business_type === 'trading').length,
-        individual: customers.filter(c => c.business_type === 'individual').length,
-        event: customers.filter(c => c.business_type === 'event').length
+        corporate: customerStats.corporate,
+        wedding: customerStats.wedding,
+        trading: customerStats.trading,
+        individual: customerStats.individual,
+        event: customerStats.event
       };
 
       // Get top customers
@@ -795,17 +839,27 @@ async function financialRoutes(fastify, options) {
         LIMIT 5
       `).all();
 
-      // Get order stats
-      const orders = db.db.prepare('SELECT status, total_amount FROM orders').all();
+      // Get order stats using SQL aggregates
+      const orderStats = db.db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'designing' THEN 1 ELSE 0 END) as designing,
+          SUM(CASE WHEN status = 'production' THEN 1 ELSE 0 END) as production,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
+          COALESCE(SUM(total_amount), 0) as totalRevenue
+        FROM orders
+      `).get();
       const ordersByStatus = {
-        pending: orders.filter(o => o.status === 'pending').length,
-        designing: orders.filter(o => o.status === 'designing').length,
-        production: orders.filter(o => o.status === 'production').length,
-        completed: orders.filter(o => o.status === 'completed').length,
-        cancelled: orders.filter(o => o.status === 'cancelled').length
+        pending: orderStats.pending,
+        designing: orderStats.designing,
+        production: orderStats.production,
+        completed: orderStats.completed,
+        cancelled: orderStats.cancelled
       };
 
-      const totalRevenue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      const totalRevenue = orderStats.totalRevenue;
 
       return {
         success: true,
@@ -817,14 +871,14 @@ async function financialRoutes(fastify, options) {
             projectedMonthly: 25000000
           },
           customers: {
-            total: customers.length,
+            total: customerStats.total,
             byType: customersByType,
             topCustomers
           },
           orders: {
-            total: orders.length,
+            total: orderStats.total,
             byStatus: ordersByStatus,
-            averageValue: orders.length > 0 ? totalRevenue / orders.length : 0,
+            averageValue: orderStats.total > 0 ? totalRevenue / orderStats.total : 0,
             conversionRate: 85.5
           }
         }
