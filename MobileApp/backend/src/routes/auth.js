@@ -65,7 +65,7 @@ async function authRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'Registration failed: ' + error.message });
+      reply.status(500).send({ success: false, error: 'An internal error occurred' });
     }
   });
 
@@ -121,7 +121,7 @@ async function authRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ success: false, error: 'Login failed: ' + error.message });
+      reply.status(500).send({ success: false, error: 'An internal error occurred' });
     }
   });
 
