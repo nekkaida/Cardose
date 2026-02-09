@@ -12,16 +12,16 @@ import {
   ScrollView,
 } from 'react-native';
 import { theme } from '../../theme/theme';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { login, register, selectAuthLoading, selectAuthError, clearError } from '../../store/slices/authSlice';
 
-interface LoginScreenProps {
-  onLogin: (token: string, user: any) => void;
-  onRegister?: () => void;
-}
+export const LoginScreen: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const isLoading = useAppSelector(selectAuthLoading);
+  const authError = useAppSelector(selectAuthError);
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
   // Registration fields
@@ -35,29 +35,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister })
       return;
     }
 
-    setLoading(true);
     try {
-      // Replace with your backend URL
-      const response = await fetch('http://localhost:3000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        onLogin(data.token, data.user);
-      } else {
-        Alert.alert('Login Failed', data.error || 'Invalid credentials');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Unable to connect to server. Please check your connection.');
-      console.error('Login error:', error);
-    } finally {
-      setLoading(false);
+      await dispatch(login({ username, password })).unwrap();
+    } catch (error: any) {
+      Alert.alert('Login Failed', error || 'Invalid credentials');
     }
   };
 
@@ -72,48 +53,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister })
       return;
     }
 
-    setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username,
-          password,
-          email,
-          fullName,
-          phone,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        Alert.alert('Success', 'Registration successful! You can now login.', [
-          {
-            text: 'OK',
-            onPress: () => {
-              onLogin(data.token, data.user);
-            },
-          },
-        ]);
-      } else {
-        Alert.alert('Registration Failed', data.error || 'Unable to register');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Unable to connect to server. Please check your connection.');
-      console.error('Registration error:', error);
-    } finally {
-      setLoading(false);
+      await dispatch(register({
+        username,
+        password,
+        email,
+        full_name: fullName,
+        phone: phone || undefined,
+      })).unwrap();
+      Alert.alert('Success', 'Registration successful!');
+    } catch (error: any) {
+      Alert.alert('Registration Failed', error || 'Unable to register');
     }
   };
 
   const toggleMode = () => {
     setMode(mode === 'login' ? 'register' : 'login');
-    // Clear password when switching modes for security
     setPassword('');
+    dispatch(clearError());
   };
 
   return (
@@ -198,11 +155,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister })
             </View>
 
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
+              style={[styles.button, isLoading && styles.buttonDisabled]}
               onPress={mode === 'login' ? handleLogin : handleRegister}
-              disabled={loading}
+              disabled={isLoading}
             >
-              {loading ? (
+              {isLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>
@@ -214,7 +171,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister })
             <TouchableOpacity
               style={styles.switchModeButton}
               onPress={toggleMode}
-              disabled={loading}
+              disabled={isLoading}
             >
               <Text style={styles.switchModeText}>
                 {mode === 'login'
@@ -224,7 +181,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onRegister })
             </TouchableOpacity>
 
             {mode === 'login' && (
-              <TouchableOpacity style={styles.forgotPasswordButton} disabled={loading}>
+              <TouchableOpacity style={styles.forgotPasswordButton} disabled={isLoading}>
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </TouchableOpacity>
             )}
