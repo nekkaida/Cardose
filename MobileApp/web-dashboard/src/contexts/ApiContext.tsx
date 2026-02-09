@@ -3,19 +3,44 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+});
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 interface ApiContextType {
   // Orders
-  getOrders: () => Promise<any>;
+  getOrders: (params?: Record<string, any>) => Promise<any>;
   createOrder: (orderData: any) => Promise<any>;
   updateOrder: (id: string, updates: any) => Promise<any>;
-  
+
   // Customers
-  getCustomers: () => Promise<any>;
+  getCustomers: (params?: Record<string, any>) => Promise<any>;
   createCustomer: (customerData: any) => Promise<any>;
   updateCustomer: (id: string, updates: any) => Promise<any>;
-  
+
   // Inventory
-  getInventory: () => Promise<any>;
+  getInventory: (params?: Record<string, any>) => Promise<any>;
   createInventoryItem: (itemData: any) => Promise<any>;
   updateInventoryStock: (id: string, stockData: any) => Promise<any>;
   
@@ -49,97 +74,97 @@ interface ApiProviderProps {
 
 export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Orders API
-  const getOrders = async () => {
-    const response = await axios.get(`${API_BASE_URL}/orders`);
+  const getOrders = async (params?: Record<string, any>) => {
+    const response = await api.get(`/orders`, { params });
     return response.data;
   };
 
   const createOrder = async (orderData: any) => {
-    const response = await axios.post(`${API_BASE_URL}/orders`, orderData);
+    const response = await api.post(`/orders`, orderData);
     return response.data;
   };
 
   const updateOrder = async (id: string, updates: any) => {
-    const response = await axios.put(`${API_BASE_URL}/orders/${id}`, updates);
+    const response = await api.put(`/orders/${id}`, updates);
     return response.data;
   };
 
   // Customers API
-  const getCustomers = async () => {
-    const response = await axios.get(`${API_BASE_URL}/customers`);
+  const getCustomers = async (params?: Record<string, any>) => {
+    const response = await api.get(`/customers`, { params });
     return response.data;
   };
 
   const createCustomer = async (customerData: any) => {
-    const response = await axios.post(`${API_BASE_URL}/customers`, customerData);
+    const response = await api.post(`/customers`, customerData);
     return response.data;
   };
 
   const updateCustomer = async (id: string, updates: any) => {
-    const response = await axios.put(`${API_BASE_URL}/customers/${id}`, updates);
+    const response = await api.put(`/customers/${id}`, updates);
     return response.data;
   };
 
   // Inventory API
-  const getInventory = async () => {
-    const response = await axios.get(`${API_BASE_URL}/inventory`);
+  const getInventory = async (params?: Record<string, any>) => {
+    const response = await api.get(`/inventory`, { params });
     return response.data;
   };
 
   const createInventoryItem = async (itemData: any) => {
-    const response = await axios.post(`${API_BASE_URL}/inventory`, itemData);
+    const response = await api.post(`/inventory`, itemData);
     return response.data;
   };
 
   const updateInventoryStock = async (id: string, stockData: any) => {
-    const response = await axios.put(`${API_BASE_URL}/inventory/${id}/stock`, stockData);
+    const response = await api.put(`/inventory/${id}/stock`, stockData);
     return response.data;
   };
 
   // Financial API
   const getFinancialSummary = async () => {
-    const response = await axios.get(`${API_BASE_URL}/financial/summary`);
+    const response = await api.get(`/financial/summary`);
     return response.data;
   };
 
   const getTransactions = async () => {
-    const response = await axios.get(`${API_BASE_URL}/financial/transactions`);
+    const response = await api.get(`/financial/transactions`);
     return response.data;
   };
 
   const createTransaction = async (transactionData: any) => {
-    const response = await axios.post(`${API_BASE_URL}/financial/transactions`, transactionData);
+    const response = await api.post(`/financial/transactions`, transactionData);
     return response.data;
   };
 
   const calculatePricing = async (pricingData: any) => {
-    const response = await axios.post(`${API_BASE_URL}/financial/calculate-price`, pricingData);
+    const response = await api.post(`/financial/calculate-price`, pricingData);
     return response.data;
   };
 
   // Analytics API
   const getDashboardAnalytics = async () => {
-    const response = await axios.get(`${API_BASE_URL}/analytics/dashboard`);
+    const response = await api.get(`/analytics/dashboard`);
     return response.data;
   };
 
   const getRevenueAnalytics = async () => {
-    const response = await axios.get(`${API_BASE_URL}/analytics/revenue`);
+    const response = await api.get(`/analytics/revenue`);
     return response.data;
   };
 
   const getCustomerAnalytics = async () => {
-    const response = await axios.get(`${API_BASE_URL}/analytics/customers`);
+    const response = await api.get(`/analytics/customers`);
     return response.data;
   };
 
   const getInventoryAnalytics = async () => {
-    const response = await axios.get(`${API_BASE_URL}/analytics/inventory`);
+    const response = await api.get(`/analytics/inventory`);
     return response.data;
   };
 
   const getProductionAnalytics = async () => {
-    const response = await axios.get(`${API_BASE_URL}/analytics/production`);
+    const response = await api.get(`/analytics/production`);
     return response.data;
   };
 
