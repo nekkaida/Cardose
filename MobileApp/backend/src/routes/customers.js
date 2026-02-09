@@ -1,5 +1,6 @@
 // Customer management routes - Using DatabaseService
 const { v4: uuidv4 } = require('uuid');
+const { parsePagination } = require('../utils/pagination');
 
 async function customerRoutes(fastify, options) {
   const db = fastify.db;
@@ -7,13 +8,6 @@ async function customerRoutes(fastify, options) {
   // Get all customers (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      function parsePagination(query) {
-        const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
-        const page = Math.max(parseInt(query.page) || 1, 1);
-        const offset = (page - 1) * limit;
-        return { limit, page, offset };
-      }
-
       const { search, business_type, loyalty_status } = request.query;
       const { limit, page, offset } = parsePagination(request.query);
 
