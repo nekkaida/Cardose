@@ -13,7 +13,7 @@ async function webhookRoutes(fastify, options) {
   }, async (request, reply) => {
     try {
       const { url, events, secret } = request.body;
-      const userId = request.user.userId;
+      const userId = request.user.id;
 
       if (!url || !events || !Array.isArray(events)) {
         return reply.status(400).send({ error: 'URL and events array are required' });
@@ -35,7 +35,7 @@ async function webhookRoutes(fastify, options) {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
-      const userId = request.user.userId;
+      const userId = request.user.id;
       const webhooks = await webhookService.getWebhooks(userId);
 
       return {
@@ -52,7 +52,7 @@ async function webhookRoutes(fastify, options) {
    * Update webhook
    */
   fastify.put('/:webhookId', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])]
   }, async (request, reply) => {
     try {
       const { webhookId } = request.params;
@@ -71,7 +71,7 @@ async function webhookRoutes(fastify, options) {
    * Delete webhook
    */
   fastify.delete('/:webhookId', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])]
   }, async (request, reply) => {
     try {
       const { webhookId } = request.params;
