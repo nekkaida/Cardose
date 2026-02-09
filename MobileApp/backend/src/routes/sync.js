@@ -13,7 +13,7 @@ async function syncRoutes(fastify, options) {
   }, async (request, reply) => {
     try {
       const { deviceName, deviceType } = request.body;
-      const userId = request.user.userId;
+      const userId = request.user.id;
 
       if (!deviceName || !deviceType) {
         return reply.status(400).send({ error: 'Device name and type are required' });
@@ -35,7 +35,7 @@ async function syncRoutes(fastify, options) {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
-      const userId = request.user.userId;
+      const userId = request.user.id;
 
       const devices = await syncService.getDevices(userId);
 
