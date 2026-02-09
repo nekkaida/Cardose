@@ -1,10 +1,7 @@
 // Order management routes - Using DatabaseService
 const { v4: uuidv4 } = require('uuid');
-const DatabaseService = require('../services/DatabaseService');
-
 async function ordersRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Get all orders (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
@@ -100,6 +97,22 @@ async function ordersRoutes(fastify, options) {
 
       return { success: true, stats };
     } catch (error) {
+      reply.code(500);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get latest order number (requires authentication)
+  fastify.get('/latest-number', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    try {
+      const nextOrderNumber = await generateOrderNumber(db);
+
+      return {
+        success: true,
+        orderNumber: nextOrderNumber
+      };
+    } catch (error) {
+      fastify.log.error(error);
       reply.code(500);
       return { success: false, error: error.message };
     }
