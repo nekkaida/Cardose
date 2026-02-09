@@ -122,12 +122,6 @@ const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <h3 className="text-sm font-medium text-blue-800 mb-2">Demo Credentials:</h3>
-            <p className="text-sm text-blue-600">Username: demo</p>
-            <p className="text-sm text-blue-600">Password: password</p>
-          </div>
         </div>
       </div>
     </div>
