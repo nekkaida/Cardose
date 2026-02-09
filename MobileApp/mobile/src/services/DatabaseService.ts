@@ -414,24 +414,46 @@ export class DatabaseService {
    * Update existing order
    */
   static async updateOrder(orderId: string, updates: Partial<Order>): Promise<void> {
+    const fieldMap: Record<string, (val: any) => any> = {
+      order_number: (v: any) => v,
+      customer_id: (v: any) => v,
+      status: (v: any) => v,
+      priority: (v: any) => v,
+      box_type: (v: any) => v,
+      width: (v: any) => v,
+      height: (v: any) => v,
+      depth: (v: any) => v,
+      materials: (v: any) => typeof v === 'string' ? v : JSON.stringify(v),
+      colors: (v: any) => typeof v === 'string' ? v : JSON.stringify(v),
+      special_requests: (v: any) => v,
+      design_files: (v: any) => typeof v === 'string' ? v : JSON.stringify(v),
+      material_cost: (v: any) => v,
+      labor_cost: (v: any) => v,
+      markup_percentage: (v: any) => v,
+      total_price: (v: any) => v,
+      currency: (v: any) => v,
+      estimated_completion: (v: any) => v,
+      actual_completion: (v: any) => v,
+      whatsapp_thread: (v: any) => v,
+      last_contact: (v: any) => v,
+      created_by: (v: any) => v,
+      updated_by: (v: any) => v,
+    };
+
     const fields: string[] = [];
     const params: any[] = [];
 
-    // Build dynamic UPDATE query
-    if (updates.status !== undefined) {
-      fields.push('status = ?');
-      params.push(updates.status);
+    for (const [col, transform] of Object.entries(fieldMap)) {
+      if ((updates as any)[col] !== undefined) {
+        fields.push(`${col} = ?`);
+        params.push(transform((updates as any)[col]));
+      }
     }
 
-    if (updates.total_price !== undefined) {
-      fields.push('total_price = ?');
-      params.push(updates.total_price);
-    }
+    if (fields.length === 0) return;
 
-    // Add other fields as needed
     fields.push('updated_at = ?');
     params.push(new Date().toISOString());
-
     params.push(orderId);
 
     const sql = `UPDATE orders SET ${fields.join(', ')} WHERE id = ?`;
@@ -565,23 +587,41 @@ export class DatabaseService {
    * Update existing customer
    */
   static async updateCustomer(customerId: string, updates: Partial<Customer>): Promise<void> {
-    // Similar to updateOrder - build dynamic UPDATE query
+    const fieldMap: Record<string, (val: any) => any> = {
+      name: (v: any) => v,
+      email: (v: any) => v,
+      whatsapp: (v: any) => v,
+      phone: (v: any) => v,
+      address: (v: any) => typeof v === 'string' ? v : JSON.stringify(v),
+      business_type: (v: any) => v,
+      company_name: (v: any) => v,
+      industry: (v: any) => v,
+      tax_id: (v: any) => v,
+      preferred_contact: (v: any) => v,
+      loyalty_status: (v: any) => v,
+      referred_by: (v: any) => v,
+      notes: (v: any) => v,
+      tags: (v: any) => typeof v === 'string' ? v : JSON.stringify(v),
+      preferences: (v: any) => typeof v === 'string' ? v : JSON.stringify(v),
+      metrics: (v: any) => typeof v === 'string' ? v : JSON.stringify(v),
+      created_by: (v: any) => v,
+      updated_by: (v: any) => v,
+    };
+
     const fields: string[] = [];
     const params: any[] = [];
 
-    if (updates.name !== undefined) {
-      fields.push('name = ?');
-      params.push(updates.name);
+    for (const [col, transform] of Object.entries(fieldMap)) {
+      if ((updates as any)[col] !== undefined) {
+        fields.push(`${col} = ?`);
+        params.push(transform((updates as any)[col]));
+      }
     }
 
-    if (updates.loyalty_status !== undefined) {
-      fields.push('loyalty_status = ?');
-      params.push(updates.loyalty_status);
-    }
+    if (fields.length === 0) return;
 
     fields.push('updated_at = ?');
     params.push(new Date().toISOString());
-
     params.push(customerId);
 
     const sql = `UPDATE customers SET ${fields.join(', ')} WHERE id = ?`;
