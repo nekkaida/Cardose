@@ -1,9 +1,6 @@
 // Global search routes - Using DatabaseService
-const DatabaseService = require('../services/DatabaseService');
-
 async function searchRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Global search (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
@@ -72,12 +69,12 @@ async function searchRoutes(fastify, options) {
       // Search inventory
       if (!type || type === 'inventory') {
         const inventory = db.db.prepare(`
-          SELECT id, name, sku, category, supplier, current_stock, reorder_level
+          SELECT id, name, category, supplier, current_stock, reorder_level
           FROM inventory_materials
-          WHERE name LIKE ? OR sku LIKE ? OR supplier LIKE ?
+          WHERE name LIKE ? OR supplier LIKE ?
           ORDER BY name ASC
           LIMIT ?
-        `).all(searchTerm, searchTerm, searchTerm, parseInt(limit));
+        `).all(searchTerm, searchTerm, parseInt(limit));
         results.inventory = inventory;
         total += inventory.length;
       }
