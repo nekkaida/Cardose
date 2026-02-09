@@ -6,6 +6,7 @@ const FinancialPage: React.FC = () => {
   const [summary, setSummary] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const { getFinancialSummary, getTransactions } = useApi();
   const { t } = useLanguage();
@@ -17,6 +18,7 @@ const FinancialPage: React.FC = () => {
   const loadFinancialData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const [summaryData, transData] = await Promise.allSettled([
         getFinancialSummary(),
         getTransactions(),
@@ -28,8 +30,12 @@ const FinancialPage: React.FC = () => {
       if (transData.status === 'fulfilled') {
         setTransactions(transData.value.transactions || []);
       }
-    } catch (error) {
-      console.error('Error loading financial data:', error);
+      if (summaryData.status === 'rejected' && transData.status === 'rejected') {
+        setError('Failed to load financial data. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error loading financial data:', err);
+      setError('Failed to load financial data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -52,6 +58,18 @@ const FinancialPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg">
+        <p className="font-medium">Error</p>
+        <p className="text-sm">{error}</p>
+        <button onClick={() => { setError(null); loadFinancialData(); }} className="mt-2 text-sm text-red-600 underline">
+          Try Again
+        </button>
       </div>
     );
   }
