@@ -1,15 +1,9 @@
 // Financial management routes - Using DatabaseService
 const { v4: uuidv4 } = require('uuid');
+const { parsePagination } = require('../utils/pagination');
 async function financialRoutes(fastify, options) {
   const db = fastify.db;
   const PPN_RATE = 0.11; // 11% Indonesian VAT
-
-  function parsePagination(query) {
-    const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
-    const page = Math.max(parseInt(query.page) || 1, 1);
-    const offset = (page - 1) * limit;
-    return { limit, page, offset };
-  }
 
   // Get all transactions (requires authentication)
   fastify.get('/transactions', { preHandler: [fastify.authenticate] }, async (request, reply) => {
