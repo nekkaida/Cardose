@@ -7,7 +7,13 @@ import { Provider as ReduxProvider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './src/store';
 import { theme } from './src/theme/theme';
-import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { useAppSelector, useAppDispatch } from './src/store/hooks';
+import {
+  selectUser,
+  selectIsAuthenticated,
+  selectAuthLoading,
+  initializeAuth,
+} from './src/store/slices/authSlice';
 import { DatabaseService } from './src/services/DatabaseService';
 
 // Screen and Navigator imports
@@ -23,7 +29,14 @@ import ProfileScreen from './src/screens/Profile/ProfileScreen';
 const Tab = createBottomTabNavigator();
 
 function AppNavigator() {
-  const { isAuthenticated, isLoading, login, user } = useAuth();
+  const dispatch = useAppDispatch();
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const isLoading = useAppSelector(selectAuthLoading);
+  const user = useAppSelector(selectUser);
+
+  useEffect(() => {
+    dispatch(initializeAuth());
+  }, [dispatch]);
 
   if (isLoading) {
     return (
@@ -35,7 +48,7 @@ function AppNavigator() {
   }
 
   if (!isAuthenticated) {
-    return <LoginScreen onLogin={login} />;
+    return <LoginScreen />;
   }
 
   return (
@@ -53,7 +66,7 @@ function AppNavigator() {
           name="Dashboard"
           component={DashboardScreen}
           options={{
-            title: `Premium Gift Box - ${user?.fullName || 'User'}`,
+            title: `Premium Gift Box - ${user?.fullName || user?.full_name || 'User'}`,
             tabBarIcon: ({ color }) => (
               <Text style={{ color, fontSize: 18 }}>📊</Text>
             ),
@@ -142,11 +155,9 @@ export default function App() {
   return (
     <ReduxProvider store={store}>
       <PersistGate loading={<LoadingScreen />} persistor={persistor}>
-        <AuthProvider>
-          <PaperProvider theme={theme}>
-            <AppNavigator />
-          </PaperProvider>
-        </AuthProvider>
+        <PaperProvider theme={theme}>
+          <AppNavigator />
+        </PaperProvider>
       </PersistGate>
     </ReduxProvider>
   );
