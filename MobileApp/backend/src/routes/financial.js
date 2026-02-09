@@ -78,7 +78,7 @@ async function financialRoutes(fastify, options) {
   });
 
   // Create transaction (requires authentication)
-  fastify.post('/transactions', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/transactions', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['type', 'amount'], properties: { type: { type: 'string', enum: ['income', 'expense'] }, amount: { type: 'number', minimum: 0 }, category: { type: 'string' }, description: { type: 'string' }, order_id: { type: 'string' }, payment_method: { type: 'string' }, payment_date: { type: 'string' } } } } }, async (request, reply) => {
     try {
       const { type, category, amount, description, order_id, payment_method, payment_date, ppn_amount, base_amount, invoice_number } = request.body;
 
@@ -235,7 +235,7 @@ async function financialRoutes(fastify, options) {
   });
 
   // Create budget (requires authentication)
-  fastify.post('/budgets', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/budgets', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['category', 'amount', 'period'], properties: { category: { type: 'string' }, amount: { type: 'number', minimum: 0 }, period: { type: 'string' }, start_date: { type: 'string' }, end_date: { type: 'string' }, notes: { type: 'string' } } } } }, async (request, reply) => {
     try {
       const { category, amount, period, start_date, end_date, notes } = request.body;
 
@@ -397,7 +397,7 @@ async function financialRoutes(fastify, options) {
   });
 
   // Create invoice (requires authentication)
-  fastify.post('/invoices', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/invoices', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['customer_id'], properties: { customer_id: { type: 'string' }, order_id: { type: 'string' }, subtotal: { type: 'number' }, discount: { type: 'number' }, due_date: { type: 'string' }, notes: { type: 'string' }, items: { type: 'array' } } } } }, async (request, reply) => {
     try {
       const { order_id, customer_id, subtotal, discount = 0, due_date, notes, items } = request.body;
 
@@ -473,7 +473,7 @@ async function financialRoutes(fastify, options) {
   });
 
   // Update invoice status (requires authentication)
-  fastify.patch('/invoices/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.patch('/invoices/:id/status', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['draft', 'sent', 'paid', 'overdue', 'cancelled'] }, paid_date: { type: 'string' }, payment_method: { type: 'string' } } } } }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { status, paid_date, payment_method } = request.body;
@@ -540,7 +540,7 @@ async function financialRoutes(fastify, options) {
   });
 
   // Calculate pricing (requires authentication)
-  fastify.post('/calculate-pricing', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/calculate-pricing', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['materials'], properties: { materials: { type: 'array' }, labor_cost: { type: 'number' }, overhead_percentage: { type: 'number' }, profit_margin: { type: 'number' }, discount_percentage: { type: 'number' }, quantity: { type: 'integer', minimum: 1 } } } } }, async (request, reply) => {
     try {
       const {
         materials = [],
