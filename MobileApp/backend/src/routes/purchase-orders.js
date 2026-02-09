@@ -1,15 +1,21 @@
-// Purchase orders routes - Using DatabaseService
+// Purchase orders routes
 const { v4: uuidv4 } = require('uuid');
-const DatabaseService = require('../services/DatabaseService');
+
+function parsePagination(query) {
+  const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+  const page = Math.max(parseInt(query.page) || 1, 1);
+  const offset = (page - 1) * limit;
+  return { limit, page, offset };
+}
 
 async function purchaseOrdersRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
   // Get all purchase orders (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { status, supplier, limit = 100, page = 1 } = request.query;
+      const { status, supplier } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = 'SELECT * FROM purchase_orders WHERE 1=1';
       const params = [];
@@ -31,9 +37,8 @@ async function purchaseOrdersRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const purchaseOrders = db.db.prepare(query).all(...params);
 
@@ -48,8 +53,8 @@ async function purchaseOrdersRoutes(fastify, options) {
         purchaseOrders: ordersWithParsedItems,
         orders: ordersWithParsedItems,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit)
       };
     } catch (error) {
