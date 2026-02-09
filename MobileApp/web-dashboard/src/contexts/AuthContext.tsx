@@ -31,29 +31,47 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing token on mount
-    const savedToken = localStorage.getItem('auth_token');
-    const savedUser = localStorage.getItem('auth_user');
-    
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-      // Set default authorization header
-      axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
-    }
-    
-    setLoading(false);
+    const initAuth = async () => {
+      const savedToken = localStorage.getItem('auth_token');
+      const savedUser = localStorage.getItem('auth_user');
+
+      if (savedToken && savedUser) {
+        try {
+          const response = await axios.get(`${API_BASE_URL}/auth/verify`, {
+            headers: { Authorization: `Bearer ${savedToken}` }
+          });
+
+          if (response.data.valid) {
+            setToken(savedToken);
+            setUser(JSON.parse(savedUser));
+            axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+          } else {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+          }
+        } catch {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+        }
+      }
+
+      setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await axios.post('http://localhost:3001/api/auth/login', {
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
         username,
         password
       });
