@@ -17,7 +17,7 @@ import {
   Divider,
   Button,
 } from 'react-native-paper';
-import { useAuthenticatedFetch } from '../../contexts/AuthContext';
+import { useAuthenticatedFetch } from '../../hooks/useAuthenticatedFetch';
 import { theme } from '../../theme/theme';
 
 interface ProductionOrder {
