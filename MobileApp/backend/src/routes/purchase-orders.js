@@ -85,7 +85,7 @@ async function purchaseOrdersRoutes(fastify, options) {
   });
 
   // Create purchase order (requires authentication)
-  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['supplier'], properties: { supplier: { type: 'string', minLength: 1 }, items: { type: 'array' }, total_amount: { type: 'number' }, expected_date: { type: 'string' }, notes: { type: 'string' } } } } }, async (request, reply) => {
     try {
       const { supplier, items, total_amount, expected_date, notes } = request.body;
 
@@ -121,7 +121,7 @@ async function purchaseOrdersRoutes(fastify, options) {
   });
 
   // Update purchase order status (requires authentication)
-  fastify.patch('/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.patch('/:id/status', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['pending', 'approved', 'ordered', 'received', 'cancelled'] }, received_date: { type: 'string' } } } } }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { status, received_date } = request.body;
