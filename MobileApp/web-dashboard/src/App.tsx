@@ -7,6 +7,10 @@ import CustomersPage from './pages/CustomersPage';
 import InventoryPage from './pages/InventoryPage';
 import FinancialPage from './pages/FinancialPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import ProductionPage from './pages/ProductionPage';
+import ReportsPage from './pages/ReportsPage';
+import UsersPage from './pages/UsersPage';
+import SettingsPage from './pages/SettingsPage';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -43,6 +47,10 @@ function AppContent() {
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/financial" element={<FinancialPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/production" element={<ProductionPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/dashboard" />} />
           </Routes>
         </main>
