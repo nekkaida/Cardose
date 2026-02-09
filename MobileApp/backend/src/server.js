@@ -111,4 +111,21 @@ const start = async () => {
   }
 };
 
+// Graceful shutdown
+const shutdown = async () => {
+  console.log('Shutting down gracefully...');
+  try {
+    await fastify.close();
+    db.close();
+    console.log('Server closed.');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+
 start();
