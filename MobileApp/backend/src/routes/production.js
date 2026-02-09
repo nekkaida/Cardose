@@ -166,19 +166,31 @@ async function productionRoutes(fastify, options) {
 
       const tasks = db.db.prepare(query).all(...params);
 
-      // Calculate stats
-      const allTasks = db.db.prepare('SELECT status, priority FROM production_tasks').all();
+      // Calculate stats using SQL aggregates
+      const statsRow = db.db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
+          SUM(CASE WHEN priority = 'urgent' THEN 1 ELSE 0 END) as priority_urgent,
+          SUM(CASE WHEN priority = 'high' THEN 1 ELSE 0 END) as priority_high,
+          SUM(CASE WHEN priority = 'normal' THEN 1 ELSE 0 END) as priority_normal,
+          SUM(CASE WHEN priority = 'low' THEN 1 ELSE 0 END) as priority_low
+        FROM production_tasks
+      `).get();
       const stats = {
-        total: allTasks.length,
-        pending: allTasks.filter(t => t.status === 'pending').length,
-        in_progress: allTasks.filter(t => t.status === 'in_progress').length,
-        completed: allTasks.filter(t => t.status === 'completed').length,
-        cancelled: allTasks.filter(t => t.status === 'cancelled').length,
+        total: statsRow.total,
+        pending: statsRow.pending,
+        in_progress: statsRow.in_progress,
+        completed: statsRow.completed,
+        cancelled: statsRow.cancelled,
         byPriority: {
-          urgent: allTasks.filter(t => t.priority === 'urgent').length,
-          high: allTasks.filter(t => t.priority === 'high').length,
-          normal: allTasks.filter(t => t.priority === 'normal').length,
-          low: allTasks.filter(t => t.priority === 'low').length
+          urgent: statsRow.priority_urgent,
+          high: statsRow.priority_high,
+          normal: statsRow.priority_normal,
+          low: statsRow.priority_low
         }
       };
 
