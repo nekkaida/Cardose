@@ -6,7 +6,15 @@ async function inventoryRoutes(fastify, options) {
   // Get all inventory items (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { category, lowStock, search, limit = 100, page = 1 } = request.query;
+      function parsePagination(query) {
+        const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
+        const page = Math.max(parseInt(query.page) || 1, 1);
+        const offset = (page - 1) * limit;
+        return { limit, page, offset };
+      }
+
+      const { category, lowStock, search } = request.query;
+      const { limit, page, offset } = parsePagination(request.query);
 
       let query = 'SELECT * FROM inventory_materials WHERE 1=1';
       const params = [];
@@ -33,9 +41,8 @@ async function inventoryRoutes(fastify, options) {
       const total = countResult ? countResult.total : 0;
 
       // Add pagination
-      const offset = (page - 1) * limit;
       query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
+      params.push(limit, offset);
 
       const inventory = db.db.prepare(query).all(...params);
 
@@ -58,8 +65,8 @@ async function inventoryRoutes(fastify, options) {
         inventory,
         items: inventory,
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         totalPages: Math.ceil(total / limit),
         stats
       };
