@@ -18,6 +18,8 @@ class DatabaseService {
 
       // Open database connection
       this.db = new Database(this.dbPath);
+      this.db.pragma('journal_mode = WAL');
+      this.db.pragma('foreign_keys = ON');
       console.log('✅ Connected to SQLite database');
 
       // Create tables
@@ -547,6 +549,7 @@ class DatabaseService {
   close() {
     if (this.db) {
       this.db.close();
+      console.log('Database connection closed.');
     }
   }
 
