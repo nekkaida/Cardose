@@ -15,6 +15,7 @@ import {
   initializeAuth,
 } from './src/store/slices/authSlice';
 import { DatabaseService } from './src/services/DatabaseService';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 // Screen and Navigator imports
 import { LoginScreen } from './src/screens/Auth/LoginScreen';
@@ -153,13 +154,15 @@ export default function App() {
   }, []);
 
   return (
-    <ReduxProvider store={store}>
-      <PersistGate loading={<LoadingScreen />} persistor={persistor}>
-        <PaperProvider theme={theme}>
-          <AppNavigator />
-        </PaperProvider>
-      </PersistGate>
-    </ReduxProvider>
+    <ErrorBoundary>
+      <ReduxProvider store={store}>
+        <PersistGate loading={<LoadingScreen />} persistor={persistor}>
+          <PaperProvider theme={theme}>
+            <AppNavigator />
+          </PaperProvider>
+        </PersistGate>
+      </ReduxProvider>
+    </ErrorBoundary>
   );
 }
 
