@@ -1,12 +1,6 @@
 // Quality checks routes
 const { v4: uuidv4 } = require('uuid');
-
-function parsePagination(query) {
-  const limit = Math.min(Math.max(parseInt(query.limit) || 50, 1), 200);
-  const page = Math.max(parseInt(query.page) || 1, 1);
-  const offset = (page - 1) * limit;
-  return { limit, page, offset };
-}
+const { parsePagination } = require('../utils/pagination');
 
 async function qualityChecksRoutes(fastify, options) {
   const db = fastify.db;
