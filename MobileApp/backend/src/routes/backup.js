@@ -118,10 +118,17 @@ async function backupRoutes(fastify, options) {
     }
   });
 
-  // Delete backup (requires authentication)
-  fastify.delete('/:filename', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  // Delete backup (requires authentication, owner only)
+  fastify.delete('/:filename', { preHandler: [fastify.authenticate, fastify.authorize(['owner'])] }, async (request, reply) => {
     try {
       const { filename } = request.params;
+
+      // Prevent path traversal
+      const sanitized = path.basename(filename);
+      if (sanitized !== filename || filename.includes('..')) {
+        return reply.status(400).send({ error: 'Invalid filename' });
+      }
+
       const filepath = path.join(backupDir, filename);
 
       if (!fs.existsSync(filepath)) {
