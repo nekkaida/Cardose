@@ -12,6 +12,7 @@ import Header from './components/Header';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ApiProvider } from './contexts/ApiContext';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
@@ -52,15 +53,17 @@ function AppContent() {
 
 function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <ApiProvider>
-          <Router>
-            <AppContent />
-          </Router>
-        </ApiProvider>
-      </AuthProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <AuthProvider>
+          <ApiProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </ApiProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
 
