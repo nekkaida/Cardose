@@ -1,0 +1,10 @@
+node_modules
+data/*.db
+uploads/*
+backups/*
+.env
+tests
+jest.config.js
+*.test.js
+test-*.js
+.git
