@@ -7,15 +7,6 @@ async function authRoutes(fastify, options) {
   const db = new DatabaseService();
   db.initialize();
 
-  // Define authenticate function for this scope
-  const authenticate = async function (request, reply) {
-    try {
-      await request.jwtVerify();
-    } catch (err) {
-      reply.status(401).send({ error: 'Authentication required' });
-    }
-  };
-
   // Register route
   fastify.post('/register', async (request, reply) => {
     try {
@@ -48,7 +39,7 @@ async function authRoutes(fastify, options) {
 
       // Create user
       const userId = uuidv4();
-      const userRole = role === 'owner' || role === 'manager' ? role : 'employee';
+      const userRole = 'employee'; // Only admins can assign elevated roles via /api/users
 
       db.db.prepare(`
         INSERT INTO users (id, username, email, password_hash, role, full_name, phone, is_active, created_at)
@@ -61,7 +52,7 @@ async function authRoutes(fastify, options) {
         username,
         email,
         role: userRole
-      });
+      }, { expiresIn: '24h' });
 
       return {
         success: true,
@@ -117,7 +108,7 @@ async function authRoutes(fastify, options) {
         username: user.username,
         email: user.email,
         role: user.role
-      });
+      }, { expiresIn: '24h' });
 
       return {
         success: true,
@@ -139,7 +130,7 @@ async function authRoutes(fastify, options) {
 
   // Logout route (client-side token removal, optional server-side tracking)
   fastify.post('/logout', {
-    preHandler: [authenticate]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     return {
       success: true,
@@ -149,7 +140,7 @@ async function authRoutes(fastify, options) {
 
   // Get current user profile (/me endpoint for test compatibility)
   fastify.get('/me', {
-    preHandler: [authenticate]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
       const user = db.db.prepare('SELECT * FROM users WHERE id = ?').get(request.user.id);
@@ -179,7 +170,7 @@ async function authRoutes(fastify, options) {
 
   // Get current user profile
   fastify.get('/profile', {
-    preHandler: [authenticate]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
       const user = db.db.prepare('SELECT * FROM users WHERE id = ?').get(request.user.id);
@@ -208,7 +199,7 @@ async function authRoutes(fastify, options) {
 
   // Update user profile
   fastify.put('/profile', {
-    preHandler: [authenticate]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
       const { fullName, email, phone } = request.body;
@@ -242,7 +233,7 @@ async function authRoutes(fastify, options) {
 
   // Change password
   fastify.post('/change-password', {
-    preHandler: [authenticate]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
       const { currentPassword, newPassword } = request.body;
@@ -309,12 +300,11 @@ async function authRoutes(fastify, options) {
         { expiresIn: '1h' }
       );
 
-      // In production, send email with reset link
-      // For now, return token (for testing/development)
+      // TODO: In production, send resetToken via email using nodemailer
+      // For now, token is generated but not exposed in response
       return {
         success: true,
-        message: 'Reset token generated',
-        resetToken // Remove this in production, send via email instead
+        message: 'If the email exists, reset instructions will be sent'
       };
     } catch (error) {
       fastify.log.error(error);
@@ -367,7 +357,7 @@ async function authRoutes(fastify, options) {
 
   // Verify JWT token (for debugging/testing)
   fastify.get('/verify', {
-    preHandler: [authenticate]
+    preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     return {
       valid: true,
@@ -376,31 +366,4 @@ async function authRoutes(fastify, options) {
   });
 }
 
-// Add authenticate decorator globally
-async function authenticateDecorator(fastify, options) {
-  fastify.decorate('authenticate', async function (request, reply) {
-    try {
-      await request.jwtVerify();
-    } catch (err) {
-      reply.status(401).send({ error: 'Authentication required' });
-    }
-  });
-
-  // Add role-based authorization decorator
-  fastify.decorate('authorize', (roles) => {
-    return async function (request, reply) {
-      try {
-        await request.jwtVerify();
-
-        if (!roles.includes(request.user.role)) {
-          reply.status(403).send({ error: 'Insufficient permissions' });
-        }
-      } catch (err) {
-        reply.status(401).send({ error: 'Authentication required' });
-      }
-    };
-  });
-}
-
 module.exports = authRoutes;
-module.exports.authenticateDecorator = authenticateDecorator;
