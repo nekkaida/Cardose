@@ -9,11 +9,12 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState('');
 
   const { getDashboardAnalytics } = useApi();
-  const { t } = useLanguage();
+  useLanguage();
   const navigate = useNavigate();
 
   useEffect(() => {
     loadDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadDashboardData = async () => {
