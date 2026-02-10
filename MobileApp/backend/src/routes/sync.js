@@ -9,7 +9,17 @@ async function syncRoutes(fastify, options) {
    * Register device for sync
    */
   fastify.post('/register-device', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['deviceName', 'deviceType'],
+        properties: {
+          deviceName: { type: 'string' },
+          deviceType: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { deviceName, deviceType } = request.body;
@@ -89,7 +99,18 @@ async function syncRoutes(fastify, options) {
    * Get changes since last sync
    */
   fastify.post('/pull', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['deviceId', 'lastSyncTimestamp'],
+        properties: {
+          deviceId: { type: 'string' },
+          lastSyncTimestamp: { type: 'string' },
+          tables: { type: 'array', items: { type: 'string' } }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { deviceId, lastSyncTimestamp, tables } = request.body;
@@ -114,7 +135,17 @@ async function syncRoutes(fastify, options) {
    * Push changes from device
    */
   fastify.post('/push', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['deviceId', 'changes'],
+        properties: {
+          deviceId: { type: 'string' },
+          changes: { type: 'object' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { deviceId, changes } = request.body;
@@ -139,7 +170,19 @@ async function syncRoutes(fastify, options) {
    * Full sync (pull and push)
    */
   fastify.post('/full-sync', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['deviceId'],
+        properties: {
+          deviceId: { type: 'string' },
+          lastSyncTimestamp: { type: 'string' },
+          changes: { type: 'object' },
+          tables: { type: 'array', items: { type: 'string' } }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { deviceId, lastSyncTimestamp, changes, tables } = request.body;
@@ -220,7 +263,16 @@ async function syncRoutes(fastify, options) {
    * Resolve conflict manually
    */
   fastify.post('/conflicts/:conflictId/resolve', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['chosenVersion'],
+        properties: {
+          chosenVersion: { type: 'string', enum: ['existing', 'incoming'] }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { conflictId } = request.params;
@@ -243,7 +295,16 @@ async function syncRoutes(fastify, options) {
    * Set conflict resolution strategy
    */
   fastify.post('/strategy', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['strategy'],
+        properties: {
+          strategy: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { strategy } = request.body;
