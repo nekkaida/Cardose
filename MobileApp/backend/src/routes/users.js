@@ -108,7 +108,23 @@ async function usersRoutes(fastify, options) {
   });
 
   // Create user (requires authentication)
-  fastify.post('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['username', 'email', 'password', 'full_name'],
+        properties: {
+          username: { type: 'string', minLength: 3 },
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 6 },
+          full_name: { type: 'string', minLength: 1 },
+          phone: { type: 'string' },
+          role: { type: 'string', enum: ['owner', 'manager', 'employee'] }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { username, email, password, full_name, phone, role = 'employee' } = request.body;
 
@@ -151,7 +167,23 @@ async function usersRoutes(fastify, options) {
   });
 
   // Update user (requires authentication)
-  fastify.put('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.put('/:id', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          username: { type: 'string' },
+          email: { type: 'string' },
+          full_name: { type: 'string' },
+          phone: { type: 'string' },
+          role: { type: 'string', enum: ['owner', 'manager', 'employee'] },
+          is_active: { type: 'boolean' },
+          password: { type: 'string', minLength: 6 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const updates = request.body;
@@ -200,7 +232,18 @@ async function usersRoutes(fastify, options) {
   });
 
   // Activate/Deactivate user (requires authentication)
-  fastify.patch('/:id/status', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.patch('/:id/status', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['is_active'],
+        properties: {
+          is_active: { type: 'boolean' }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { is_active } = request.body;
