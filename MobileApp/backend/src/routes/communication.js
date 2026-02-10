@@ -13,7 +13,17 @@ async function communicationRoutes(fastify, options) {
    * Send WhatsApp text message
    */
   fastify.post('/whatsapp/send', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['to', 'message'],
+        properties: {
+          to: { type: 'string' },
+          message: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { to, message } = request.body;
@@ -58,7 +68,16 @@ async function communicationRoutes(fastify, options) {
    * Send WhatsApp order notification
    */
   fastify.post('/whatsapp/notify/order', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['orderId'],
+        properties: {
+          orderId: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { orderId } = request.body;
@@ -102,7 +121,16 @@ async function communicationRoutes(fastify, options) {
    * Send WhatsApp invoice notification
    */
   fastify.post('/whatsapp/notify/invoice', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['invoiceId'],
+        properties: {
+          invoiceId: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { invoiceId } = request.body;
@@ -146,7 +174,17 @@ async function communicationRoutes(fastify, options) {
    * Send production update
    */
   fastify.post('/whatsapp/notify/production', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['orderId', 'stage'],
+        properties: {
+          orderId: { type: 'string' },
+          stage: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { orderId, stage } = request.body;
@@ -190,7 +228,16 @@ async function communicationRoutes(fastify, options) {
    * Send payment reminder
    */
   fastify.post('/whatsapp/notify/payment-reminder', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['invoiceId'],
+        properties: {
+          invoiceId: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { invoiceId } = request.body;
@@ -240,7 +287,17 @@ async function communicationRoutes(fastify, options) {
    * Send bulk messages
    */
   fastify.post('/whatsapp/bulk-send', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['customerIds', 'message'],
+        properties: {
+          customerIds: { type: 'array', maxItems: 100 },
+          message: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { customerIds, message } = request.body;
@@ -251,6 +308,10 @@ async function communicationRoutes(fastify, options) {
 
       if (!message) {
         return reply.status(400).send({ error: 'Message is required' });
+      }
+
+      if (customerIds.length > 100) {
+        return reply.status(400).send({ error: 'Maximum 100 recipients allowed per bulk send' });
       }
 
       // Get customers
@@ -413,7 +474,20 @@ async function communicationRoutes(fastify, options) {
    * Send email
    */
   fastify.post('/email/send', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['to', 'subject', 'html'],
+        properties: {
+          to: { type: 'string' },
+          subject: { type: 'string' },
+          html: { type: 'string' },
+          text: { type: 'string' },
+          attachments: { type: 'array' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { to, subject, html, text, attachments } = request.body;
@@ -457,7 +531,16 @@ async function communicationRoutes(fastify, options) {
    * Send order confirmation email
    */
   fastify.post('/email/notify/order', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['orderId'],
+        properties: {
+          orderId: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { orderId } = request.body;
@@ -501,7 +584,17 @@ async function communicationRoutes(fastify, options) {
    * Send invoice email
    */
   fastify.post('/email/notify/invoice', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['invoiceId'],
+        properties: {
+          invoiceId: { type: 'string' },
+          attachPdf: { type: 'boolean' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { invoiceId, attachPdf } = request.body;
@@ -561,7 +654,17 @@ async function communicationRoutes(fastify, options) {
    * Send production update email
    */
   fastify.post('/email/notify/production', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['orderId', 'stage'],
+        properties: {
+          orderId: { type: 'string' },
+          stage: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { orderId, stage } = request.body;
@@ -605,7 +708,16 @@ async function communicationRoutes(fastify, options) {
    * Send payment reminder email
    */
   fastify.post('/email/notify/payment-reminder', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['invoiceId'],
+        properties: {
+          invoiceId: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { invoiceId } = request.body;
@@ -655,7 +767,18 @@ async function communicationRoutes(fastify, options) {
    * Send bulk emails
    */
   fastify.post('/email/bulk-send', {
-    preHandler: [fastify.authenticate]
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['customerIds', 'subject', 'html'],
+        properties: {
+          customerIds: { type: 'array', maxItems: 100 },
+          subject: { type: 'string' },
+          html: { type: 'string' }
+        }
+      }
+    }
   }, async (request, reply) => {
     try {
       const { customerIds, subject, html } = request.body;
@@ -666,6 +789,10 @@ async function communicationRoutes(fastify, options) {
 
       if (!subject || !html) {
         return reply.status(400).send({ error: 'Subject and HTML content are required' });
+      }
+
+      if (customerIds.length > 100) {
+        return reply.status(400).send({ error: 'Maximum 100 recipients allowed per bulk send' });
       }
 
       // Get customers
