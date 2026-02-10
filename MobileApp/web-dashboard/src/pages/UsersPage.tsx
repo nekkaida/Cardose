@@ -32,6 +32,7 @@ const UsersPage: React.FC = () => {
 
   useEffect(() => {
     loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, roleFilter]);
 
   const loadUsers = async () => {
