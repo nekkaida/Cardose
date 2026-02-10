@@ -12,6 +12,7 @@ const AnalyticsPage: React.FC = () => {
 
   useEffect(() => {
     loadAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadAnalytics = async () => {
