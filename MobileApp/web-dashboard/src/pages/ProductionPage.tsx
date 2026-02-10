@@ -23,6 +23,7 @@ const ProductionPage: React.FC = () => {
 
   useEffect(() => {
     loadProduction();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadProduction = async () => {
