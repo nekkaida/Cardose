@@ -752,7 +752,7 @@ console.log(`   ✅ Created ${auditLogs.length} audit logs`);
 // ==================== WEBHOOKS ====================
 console.log('🔗 Seeding webhooks (10 webhooks - active and inactive)...');
 const webhooks = [
-  { name: 'Slack Order Notifications', url: 'https://hooks.slack.com/services/T00/B00/XXX', events: 'order.created,order.updated,order.completed', is_active: 1 },
+  { name: 'Slack Order Notifications', url: 'https://hooks.example.com/slack/orders', events: 'order.created,order.updated,order.completed', is_active: 1 },
   { name: 'CRM Integration', url: 'https://crm.example.com/webhook/orders', events: 'order.created,customer.created', is_active: 1 },
   { name: 'Inventory Alert System', url: 'https://inventory.example.com/alerts', events: 'inventory.low,inventory.out_of_stock', is_active: 1 },
   { name: 'Payment Gateway Callback', url: 'https://payment.example.com/callback', events: 'payment.received,invoice.paid', is_active: 1 },
