@@ -15,6 +15,7 @@ const ReportsPage: React.FC = () => {
 
   useEffect(() => {
     loadReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportType]);
 
   const loadReport = async () => {
@@ -144,7 +145,7 @@ const ReportsPage: React.FC = () => {
                   <div key={key} className="bg-gray-50 rounded-lg p-4">
                     <p className="text-sm text-gray-600 capitalize">{key.replace(/_/g, ' ')}</p>
                     <p className="text-xl font-bold text-gray-900">
-                      {typeof value === 'number' && key.includes('amount') || key.includes('revenue') || key.includes('value') || key.includes('cost')
+                      {typeof value === 'number' && (key.includes('amount') || key.includes('revenue') || key.includes('value') || key.includes('cost'))
                         ? formatCurrency(value as number)
                         : String(value)}
                     </p>
