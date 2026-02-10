@@ -11,7 +11,19 @@ fastify.register(require('@fastify/cors'), {
 
 fastify.register(require('@fastify/rate-limit'), {
   max: 100,
-  timeWindow: '1 minute'
+  timeWindow: '1 minute',
+  keyGenerator: (request) => request.ip,
+  hook: 'onRequest'
+});
+
+// Stricter rate limit for auth endpoints (applied per-route below)
+fastify.decorate('authRateLimit', {
+  config: {
+    rateLimit: {
+      max: 10,
+      timeWindow: '1 minute'
+    }
+  }
 });
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -36,7 +48,10 @@ fastify.decorate('db', db);
 fastify.register(require('./middleware/auth'));
 
 // Register routes
-fastify.register(require('./routes/auth'), { prefix: '/api/auth' });
+fastify.register(require('./routes/auth'), {
+  prefix: '/api/auth',
+  config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
+});
 fastify.register(require('./routes/files'), { prefix: '/api/files' });
 fastify.register(require('./routes/orders'), { prefix: '/api/orders' });
 fastify.register(require('./routes/customers'), { prefix: '/api/customers' });
