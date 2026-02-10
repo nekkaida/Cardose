@@ -19,6 +19,9 @@ async function buildApp() {
     secret: process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing'
   });
 
+  // Register multipart (needed for file upload routes)
+  await fastify.register(require('@fastify/multipart'));
+
   // Database setup (needed for settings and analytics routes)
   const DatabaseService = require('../src/services/DatabaseService');
   const dbService = new DatabaseService();
@@ -179,6 +182,23 @@ async function buildApp() {
     )
   `);
 
+  // 8. Create communication_logs table (used by communication routes)
+  rawDb.exec(`
+    CREATE TABLE IF NOT EXISTS communication_logs (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      type TEXT NOT NULL,
+      recipient TEXT NOT NULL,
+      message TEXT,
+      status TEXT NOT NULL,
+      sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      reference_type TEXT,
+      reference_id TEXT,
+      error_message TEXT,
+      metadata TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // ---- End schema fixups ----
 
   // Create async-compatible wrapper for settings/analytics routes that expect async methods
@@ -187,7 +207,13 @@ async function buildApp() {
     all: async (sql, params = []) => dbService.db.prepare(sql).all(...params),
     run: async (sql, params = []) => dbService.db.prepare(sql).run(...params),
     // Also expose the raw db for routes that use db.db directly
-    db: dbService.db
+    db: dbService.db,
+    // File methods (used by files route)
+    createFile: (file) => dbService.createFile(file),
+    getFileById: (fileId) => dbService.getFileById(fileId),
+    getFilesByUser: (userId) => dbService.getFilesByUser(userId),
+    deleteFile: (fileId) => dbService.deleteFile(fileId),
+    getFileStats: () => dbService.getFileStats()
   };
   fastify.decorate('db', asyncDb);
 
@@ -238,6 +264,7 @@ async function buildApp() {
   fastify.register(require('../src/routes/sync'), { prefix: '/api/sync' });
   fastify.register(require('../src/routes/backup'), { prefix: '/api/backup' });
   fastify.register(require('../src/routes/communication'), { prefix: '/api/communication' });
+  fastify.register(require('../src/routes/files'), { prefix: '/api/files' });
 
   return fastify;
 }
