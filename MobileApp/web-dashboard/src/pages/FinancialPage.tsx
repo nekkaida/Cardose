@@ -13,6 +13,7 @@ const FinancialPage: React.FC = () => {
 
   useEffect(() => {
     loadFinancialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadFinancialData = async () => {
