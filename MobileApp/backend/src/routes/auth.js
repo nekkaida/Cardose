@@ -1,8 +1,11 @@
 // Authentication routes for Premium Gift Box backend - Using DatabaseService
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const EmailService = require('../services/EmailService');
+
 async function authRoutes(fastify, options) {
   const db = fastify.db;
+  const emailService = new EmailService();
 
   // Register route
   fastify.post('/register', {
@@ -357,8 +360,28 @@ async function authRoutes(fastify, options) {
         { expiresIn: '1h' }
       );
 
-      // TODO: In production, send resetToken via email using nodemailer
-      // For now, token is generated but not exposed in response
+      // Send reset token via email
+      try {
+        const resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+        await emailService.sendEmail(
+          user.email,
+          'Password Reset - Premium Gift Box',
+          `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+            <div style="background:#2C5530;color:white;padding:20px;text-align:center"><h1>Premium Gift Box</h1></div>
+            <div style="padding:20px;background:#f9f9f9">
+              <h2>Password Reset Request</h2>
+              <p>Hi ${user.full_name},</p>
+              <p>We received a request to reset your password. Click the link below to set a new password:</p>
+              <p><a href="${resetUrl}" style="background:#2C5530;color:white;padding:12px 30px;text-decoration:none;border-radius:5px;display:inline-block">Reset Password</a></p>
+              <p>This link expires in 1 hour. If you did not request this, please ignore this email.</p>
+              <p>Best regards,<br>Premium Gift Box Team</p>
+            </div>
+          </div>`
+        );
+      } catch (emailError) {
+        fastify.log.error('Failed to send password reset email:', emailError);
+      }
+
       return {
         success: true,
         message: 'If the email exists, reset instructions will be sent'
