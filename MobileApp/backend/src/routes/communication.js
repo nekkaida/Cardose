@@ -60,7 +60,7 @@ async function communicationRoutes(fastify, options) {
         fastify.log.error('Failed to log communication error:', dbError);
       }
 
-      return reply.status(500).send({ error: 'Failed to send WhatsApp message', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send WhatsApp message' });
     }
   });
 
@@ -113,7 +113,7 @@ async function communicationRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send order notification', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send order notification' });
     }
   });
 
@@ -166,7 +166,7 @@ async function communicationRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send invoice notification', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send invoice notification' });
     }
   });
 
@@ -220,7 +220,7 @@ async function communicationRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send production update', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send production update' });
     }
   });
 
@@ -279,7 +279,7 @@ async function communicationRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send payment reminder', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send payment reminder' });
     }
   });
 
@@ -345,7 +345,7 @@ async function communicationRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send bulk messages', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send bulk messages' });
     }
   });
 
@@ -523,7 +523,7 @@ async function communicationRoutes(fastify, options) {
         fastify.log.error('Failed to log communication error:', dbError);
       }
 
-      return reply.status(500).send({ error: 'Failed to send email', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send email' });
     }
   });
 
@@ -576,7 +576,7 @@ async function communicationRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send order confirmation email', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send order confirmation email' });
     }
   });
 
@@ -646,7 +646,7 @@ async function communicationRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send invoice email', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send invoice email' });
     }
   });
 
@@ -700,7 +700,7 @@ async function communicationRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send production update email', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send production update email' });
     }
   });
 
@@ -759,7 +759,7 @@ async function communicationRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send payment reminder email', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send payment reminder email' });
     }
   });
 
@@ -826,7 +826,7 @@ async function communicationRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to send bulk emails', details: error.message });
+      return reply.status(500).send({ error: 'Failed to send bulk emails' });
     }
   });
 }
