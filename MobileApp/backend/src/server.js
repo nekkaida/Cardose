@@ -39,7 +39,7 @@ fastify.register(require('@fastify/multipart'));
 
 // Database setup
 const Database = require('./services/DatabaseService');
-const db = new Database();
+const db = new Database(fastify.log);
 
 // Make database available in all routes
 fastify.decorate('db', db);
