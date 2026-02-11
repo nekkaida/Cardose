@@ -25,7 +25,7 @@ async function settingsRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get settings', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get settings' });
     }
   });
 
@@ -50,7 +50,7 @@ async function settingsRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get setting', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get setting' });
     }
   });
 
@@ -93,7 +93,7 @@ async function settingsRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to update setting', details: error.message });
+      return reply.status(500).send({ error: 'Failed to update setting' });
     }
   });
 
@@ -114,7 +114,7 @@ async function settingsRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to delete setting', details: error.message });
+      return reply.status(500).send({ error: 'Failed to delete setting' });
     }
   });
 
@@ -149,7 +149,7 @@ async function settingsRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to batch update settings', details: error.message });
+      return reply.status(500).send({ error: 'Failed to batch update settings' });
     }
   });
 }
