@@ -24,6 +24,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Security audit
+        run: npm audit --audit-level=high || true
+
       - run: npm test
 
   web-build:
@@ -42,5 +45,8 @@ jobs:
           cache-dependency-path: MobileApp/web-dashboard/package-lock.json
 
       - run: npm ci
+
+      - name: Security audit
+        run: npm audit --audit-level=high || true
 
       - run: npm run build
