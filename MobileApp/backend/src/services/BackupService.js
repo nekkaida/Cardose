@@ -7,10 +7,11 @@ const util = require('util');
 const execPromise = util.promisify(exec);
 
 class BackupService {
-  constructor(databasePath) {
+  constructor(databasePath, logger = null) {
     this.databasePath = databasePath || path.join(__dirname, '../../data/premiumgiftbox.db');
     this.backupDir = process.env.BACKUP_DIR || path.join(__dirname, '../../backups');
     this.maxBackups = parseInt(process.env.MAX_BACKUPS || '10');
+    this.log = logger || { info: console.log, error: console.error, warn: console.warn };
     this.autoBackupInterval = null;
     this.ensureBackupDirectory();
   }
@@ -264,13 +265,13 @@ class BackupService {
     this.autoBackupInterval = setInterval(async () => {
       try {
         await this.createBackup('Automatic backup');
-        console.log(`✓ Automatic backup created at ${new Date().toISOString()}`);
+        this.log.info('Automatic backup created at %s', new Date().toISOString());
       } catch (error) {
-        console.error(`✗ Automatic backup failed: ${error.message}`);
+        this.log.error('Automatic backup failed: %s', error.message);
       }
     }, intervalMs);
 
-    console.log(`🔄 Automatic backup enabled (every ${intervalHours} hours)`);
+    this.log.info('Automatic backup enabled (every %d hours)', intervalHours);
   }
 
   /**
@@ -280,7 +281,7 @@ class BackupService {
     if (this.autoBackupInterval) {
       clearInterval(this.autoBackupInterval);
       this.autoBackupInterval = null;
-      console.log('🛑 Automatic backup disabled');
+      this.log.info('Automatic backup disabled');
     }
   }
 
