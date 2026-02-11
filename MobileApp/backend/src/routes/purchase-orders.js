@@ -1,6 +1,6 @@
 // Purchase orders routes
 const { v4: uuidv4 } = require('uuid');
-const { parsePagination } = require('../utils/pagination');
+const { parsePagination, safeJsonParse } = require('../utils/pagination');
 
 async function purchaseOrdersRoutes(fastify, options) {
   const db = fastify.db;
@@ -39,7 +39,7 @@ async function purchaseOrdersRoutes(fastify, options) {
       // Parse items JSON
       const ordersWithParsedItems = purchaseOrders.map(po => ({
         ...po,
-        items: po.items ? JSON.parse(po.items) : []
+        items: safeJsonParse(po.items, [])
       }));
 
       return {
@@ -74,7 +74,7 @@ async function purchaseOrdersRoutes(fastify, options) {
         success: true,
         purchaseOrder: {
           ...purchaseOrder,
-          items: purchaseOrder.items ? JSON.parse(purchaseOrder.items) : []
+          items: safeJsonParse(purchaseOrder.items, [])
         }
       };
     } catch (error) {
@@ -110,7 +110,7 @@ async function purchaseOrdersRoutes(fastify, options) {
         purchaseOrderId: id,
         purchaseOrder: {
           ...purchaseOrder,
-          items: JSON.parse(purchaseOrder.items)
+          items: safeJsonParse(purchaseOrder.items, [])
         }
       };
     } catch (error) {
@@ -151,7 +151,7 @@ async function purchaseOrdersRoutes(fastify, options) {
         values.push(received_date || new Date().toISOString().split('T')[0]);
 
         // Update inventory if received
-        const items = existing.items ? JSON.parse(existing.items) : [];
+        const items = safeJsonParse(existing.items, []);
         for (const item of items) {
           if (item.material_id) {
             db.db.prepare(`
