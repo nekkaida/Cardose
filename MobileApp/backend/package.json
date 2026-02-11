@@ -15,7 +15,9 @@
     "test:orders": "jest --runInBand tests/orders.test.js",
     "test:inventory": "jest --runInBand tests/inventory.test.js",
     "test:production": "jest --runInBand tests/production.test.js",
-    "test:financial": "jest --runInBand tests/financial.test.js"
+    "test:financial": "jest --runInBand tests/financial.test.js",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
   },
   "keywords": [
     "gift-box",
@@ -48,6 +50,7 @@
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
+    "eslint": "^8.57.1",
     "jest": "^30.2.0",
     "nodemon": "^3.1.11",
     "supertest": "^7.2.2"
