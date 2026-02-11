@@ -1,6 +1,6 @@
 // Quality checks routes
 const { v4: uuidv4 } = require('uuid');
-const { parsePagination } = require('../utils/pagination');
+const { parsePagination, safeJsonParse } = require('../utils/pagination');
 
 async function qualityChecksRoutes(fastify, options) {
   const db = fastify.db;
@@ -45,7 +45,7 @@ async function qualityChecksRoutes(fastify, options) {
       // Parse checklist items JSON
       const checksWithParsedItems = checks.map(check => ({
         ...check,
-        checklist_items: check.checklist_items ? JSON.parse(check.checklist_items) : []
+        checklist_items: safeJsonParse(check.checklist_items, [])
       }));
 
       return {
@@ -85,7 +85,7 @@ async function qualityChecksRoutes(fastify, options) {
         success: true,
         check: {
           ...check,
-          checklist_items: check.checklist_items ? JSON.parse(check.checklist_items) : []
+          checklist_items: safeJsonParse(check.checklist_items, [])
         }
       };
     } catch (error) {
@@ -125,7 +125,7 @@ async function qualityChecksRoutes(fastify, options) {
         checkId: id,
         check: {
           ...check,
-          checklist_items: JSON.parse(check.checklist_items)
+          checklist_items: safeJsonParse(check.checklist_items, [])
         }
       };
     } catch (error) {
