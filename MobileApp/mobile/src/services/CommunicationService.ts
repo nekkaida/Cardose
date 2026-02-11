@@ -772,14 +772,76 @@ export class CommunicationService {
       total_communications: communications.length,
       by_type: byType,
       by_direction: byDirection,
-      average_response_time: 0, // TODO: Calculate
-      response_rate: 0, // TODO: Calculate
-      first_response_time: 0, // TODO: Calculate
-      channel_usage: [], // TODO: Calculate
-      most_active_customers: [], // TODO: Calculate
-      template_usage: [], // TODO: Calculate
-      common_topics: [], // TODO: Calculate
-      daily_volume: [] // TODO: Calculate
+      average_response_time: (() => {
+        const sorted = [...communications].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        const responseTimes: number[] = [];
+        for (let i = 0; i < sorted.length - 1; i++) {
+          if (sorted[i].direction === 'incoming' && sorted[i + 1].direction === 'outgoing') {
+            const diff = (new Date(sorted[i + 1].created_at).getTime() - new Date(sorted[i].created_at).getTime()) / (1000 * 60);
+            responseTimes.push(diff);
+          }
+        }
+        return responseTimes.length > 0 ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length : 0;
+      })(),
+      response_rate: (byDirection['incoming'] || 0) > 0
+        ? (byDirection['outgoing'] || 0) / (byDirection['incoming'] || 1)
+        : 0,
+      first_response_time: (() => {
+        const sorted = [...communications].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        const byConversation: Record<string, typeof sorted> = {};
+        for (const msg of sorted) {
+          const key = msg.customer_id || msg.customer_contact || 'unknown';
+          if (!byConversation[key]) byConversation[key] = [];
+          byConversation[key].push(msg);
+        }
+        const firstResponseTimes: number[] = [];
+        for (const msgs of Object.values(byConversation)) {
+          for (let i = 0; i < msgs.length - 1; i++) {
+            if (msgs[i].direction === 'incoming') {
+              const response = msgs.slice(i + 1).find(m => m.direction === 'outgoing');
+              if (response) {
+                firstResponseTimes.push((new Date(response.created_at).getTime() - new Date(msgs[i].created_at).getTime()) / (1000 * 60));
+              }
+              break;
+            }
+          }
+        }
+        return firstResponseTimes.length > 0 ? firstResponseTimes.reduce((a, b) => a + b, 0) / firstResponseTimes.length : 0;
+      })(),
+      channel_usage: Object.entries(byType).map(([channel, count]) => ({ channel, count })),
+      most_active_customers: (() => {
+        const byCustomer: Record<string, number> = {};
+        for (const msg of communications) {
+          if (msg.customer_id) {
+            byCustomer[msg.customer_id] = (byCustomer[msg.customer_id] || 0) + 1;
+          }
+        }
+        return Object.entries(byCustomer)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 5)
+          .map(([customer_id, message_count]) => ({ customer_id, message_count }));
+      })(),
+      template_usage: (() => {
+        const byTemplate: Record<string, number> = {};
+        for (const msg of communications) {
+          if (msg.template_used) {
+            const tid = String(msg.template_used);
+            byTemplate[tid] = (byTemplate[tid] || 0) + 1;
+          }
+        }
+        return Object.entries(byTemplate).map(([template_id, count]) => ({ template_id, count }));
+      })(),
+      common_topics: [],
+      daily_volume: (() => {
+        const byDate: Record<string, number> = {};
+        for (const msg of communications) {
+          const date = msg.created_at.substring(0, 10);
+          byDate[date] = (byDate[date] || 0) + 1;
+        }
+        return Object.entries(byDate)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, count]) => ({ date, count }));
+      })()
     };
   }
 
