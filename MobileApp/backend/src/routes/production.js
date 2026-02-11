@@ -1,6 +1,6 @@
 // Production management routes - Using DatabaseService
 const { v4: uuidv4 } = require('uuid');
-const { parsePagination } = require('../utils/pagination');
+const { parsePagination, safeJsonParse } = require('../utils/pagination');
 async function productionRoutes(fastify, options) {
   const db = fastify.db;
 
@@ -539,7 +539,7 @@ async function productionRoutes(fastify, options) {
         workflowId: id,
         workflow: {
           ...workflow,
-          steps: JSON.parse(workflow.steps || '[]')
+          steps: safeJsonParse(workflow.steps, [])
         }
       };
     } catch (error) {
@@ -564,7 +564,7 @@ async function productionRoutes(fastify, options) {
 
       const workflowsWithParsedSteps = workflows.map(w => ({
         ...w,
-        steps: JSON.parse(w.steps || '[]')
+        steps: safeJsonParse(w.steps, [])
       }));
 
       return {
@@ -817,7 +817,7 @@ async function productionRoutes(fastify, options) {
 
       const templatesWithParsedSteps = templates.map(t => ({
         ...t,
-        steps: JSON.parse(t.steps || '[]')
+        steps: safeJsonParse(t.steps, [])
       }));
 
       return {
