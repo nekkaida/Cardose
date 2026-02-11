@@ -1,6 +1,6 @@
 // Invoice routes (separate from financial)
 const { v4: uuidv4 } = require('uuid');
-const { parsePagination } = require('../utils/pagination');
+const { parsePagination, safeJsonParse } = require('../utils/pagination');
 
 async function invoicesRoutes(fastify, options) {
   const db = fastify.db;
@@ -99,9 +99,7 @@ async function invoicesRoutes(fastify, options) {
       }
 
       // Parse items if exists
-      if (invoice.items) {
-        invoice.items = JSON.parse(invoice.items);
-      }
+      invoice.items = safeJsonParse(invoice.items, []);
 
       // Get payments for this invoice
       const payments = db.db.prepare(`
