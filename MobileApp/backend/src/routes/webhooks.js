@@ -25,7 +25,7 @@ async function webhookRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to register webhook', details: error.message });
+      return reply.status(500).send({ error: 'Failed to register webhook' });
     }
   });
 
@@ -45,7 +45,7 @@ async function webhookRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get webhooks', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get webhooks' });
     }
   });
 
@@ -65,7 +65,7 @@ async function webhookRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to update webhook', details: error.message });
+      return reply.status(500).send({ error: 'Failed to update webhook' });
     }
   });
 
@@ -83,7 +83,7 @@ async function webhookRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to delete webhook', details: error.message });
+      return reply.status(500).send({ error: 'Failed to delete webhook' });
     }
   });
 
@@ -101,7 +101,7 @@ async function webhookRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to test webhook', details: error.message });
+      return reply.status(500).send({ error: 'Failed to test webhook' });
     }
   });
 
@@ -120,7 +120,7 @@ async function webhookRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get webhook logs', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get webhook logs' });
     }
   });
 }
