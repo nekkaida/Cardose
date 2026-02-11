@@ -3,8 +3,9 @@ const https = require('https');
 const http = require('http');
 
 class WebhookService {
-  constructor(db) {
+  constructor(db, logger) {
     this.db = db;
+    this.log = logger || { info: console.log, error: console.error, warn: console.warn };
   }
 
   /**
@@ -274,7 +275,7 @@ class WebhookService {
         );
       }
     } catch (error) {
-      console.error('Failed to log webhook delivery:', error.message);
+      this.log.error('Failed to log webhook delivery: %s', error.message);
     }
   }
 
