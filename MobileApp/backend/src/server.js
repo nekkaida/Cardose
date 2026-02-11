@@ -76,13 +76,13 @@ fastify.register(require('./routes/quality-checks'), { prefix: '/api/quality-che
 fastify.register(require('./routes/purchase-orders'), { prefix: '/api/purchase-orders' });
 fastify.register(require('./routes/audit-logs'), { prefix: '/api/audit-logs' });
 
-// Backup service setup
+// Backup service setup (logger injected after fastify is ready)
 const BackupService = require('./services/BackupService');
-const backupService = new BackupService();
+const backupService = new BackupService(undefined, fastify.log);
 
-// Notification service setup
+// Notification service setup (logger injected after fastify is ready)
 const NotificationService = require('./services/NotificationService');
-const notificationService = new NotificationService(db);
+const notificationService = new NotificationService(db, fastify.log);
 
 // Health check endpoint
 fastify.get('/api/health', async (request, reply) => {
@@ -99,8 +99,17 @@ const start = async () => {
     const host = process.env.HOST || '0.0.0.0';
     
     await fastify.listen({ port, host });
-    console.log(`🚀 Premium Gift Box Server running on http://${host}:${port}`);
-    console.log(`📱 Mobile app can connect to: http://192.168.1.x:${port}`);
+    fastify.log.info('Premium Gift Box Server running on http://%s:%s', host, port);
+
+    // Warn about missing optional service credentials
+    const EmailService = require('./services/EmailService');
+    const emailCheck = new EmailService();
+    if (emailCheck.configWarning) {
+      fastify.log.warn(emailCheck.configWarning);
+    }
+    if (!process.env.WHATSAPP_PHONE_NUMBER_ID || !process.env.WHATSAPP_ACCESS_TOKEN) {
+      fastify.log.warn('WhatsApp credentials not set (WHATSAPP_PHONE_NUMBER_ID/WHATSAPP_ACCESS_TOKEN) - WhatsApp features disabled');
+    }
 
     // Start automatic backup if enabled
     if (process.env.AUTO_BACKUP === 'true') {
@@ -120,14 +129,14 @@ const start = async () => {
 
 // Graceful shutdown
 const shutdown = async () => {
-  console.log('Shutting down gracefully...');
+  fastify.log.info('Shutting down gracefully...');
   try {
     await fastify.close();
     db.close();
-    console.log('Server closed.');
+    fastify.log.info('Server closed.');
     process.exit(0);
   } catch (err) {
-    console.error('Error during shutdown:', err);
+    fastify.log.error(err, 'Error during shutdown');
     process.exit(1);
   }
 };
