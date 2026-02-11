@@ -34,7 +34,7 @@ async function syncRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to register device', details: error.message });
+      return reply.status(500).send({ error: 'Failed to register device' });
     }
   });
 
@@ -55,7 +55,7 @@ async function syncRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get devices', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get devices' });
     }
   });
 
@@ -73,7 +73,7 @@ async function syncRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to remove device', details: error.message });
+      return reply.status(500).send({ error: 'Failed to remove device' });
     }
   });
 
@@ -91,7 +91,7 @@ async function syncRoutes(fastify, options) {
       return status;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get sync status', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get sync status' });
     }
   });
 
@@ -127,7 +127,7 @@ async function syncRoutes(fastify, options) {
       return changes;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to pull changes', details: error.message });
+      return reply.status(500).send({ error: 'Failed to pull changes' });
     }
   });
 
@@ -162,7 +162,7 @@ async function syncRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to push changes', details: error.message });
+      return reply.status(500).send({ error: 'Failed to push changes' });
     }
   });
 
@@ -212,7 +212,7 @@ async function syncRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to perform full sync', details: error.message });
+      return reply.status(500).send({ error: 'Failed to perform full sync' });
     }
   });
 
@@ -236,7 +236,7 @@ async function syncRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get sync history', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get sync history' });
     }
   });
 
@@ -255,7 +255,7 @@ async function syncRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get conflicts', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get conflicts' });
     }
   });
 
@@ -287,7 +287,7 @@ async function syncRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to resolve conflict', details: error.message });
+      return reply.status(500).send({ error: 'Failed to resolve conflict' });
     }
   });
 
@@ -322,7 +322,7 @@ async function syncRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to set strategy', details: error.message });
+      return reply.status(500).send({ error: 'Failed to set strategy' });
     }
   });
 }
