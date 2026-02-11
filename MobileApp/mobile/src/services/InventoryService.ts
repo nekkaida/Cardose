@@ -523,12 +523,21 @@ export class InventoryService {
       turnover: {
         fast_moving: fastMoving,
         slow_moving: slowMoving,
-        average_turnover_days: 30 // TODO: Calculate actual turnover
+        average_turnover_days: (() => {
+          const totalUsageValue = usage.reduce((sum, m) => sum + Math.abs(m.total_cost || 0), 0);
+          const periodDays = Math.max(1, (now.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+          const dailyUsageValue = totalUsageValue / periodDays;
+          return dailyUsageValue > 0 ? Math.round(totalValue / dailyUsageValue) : 30;
+        })()
       },
       trends: {
-        stock_value_change: 0, // TODO: Calculate compared to previous period
+        stock_value_change: (() => {
+          const purchaseValue = purchases.reduce((sum, m) => sum + (m.total_cost || 0), 0);
+          const usageValue = usage.reduce((sum, m) => sum + Math.abs(m.total_cost || 0), 0);
+          return purchaseValue - usageValue;
+        })(),
         usage_trend: 'stable',
-        reorder_frequency: 0 // TODO: Calculate from reorder alerts
+        reorder_frequency: allItems.filter(item => item.current_stock <= item.reorder_level).length
       }
     };
   }
