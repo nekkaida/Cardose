@@ -4,16 +4,20 @@ const DatabaseService = require('../services/DatabaseService');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
+// Seed logger — silence with SEED_QUIET=1
+const quiet = process.env.SEED_QUIET === '1';
+const log = (...args) => { if (!quiet) log(...args); };
+
 // Initialize database
 const dbService = new DatabaseService();
 dbService.initialize();
 const db = dbService.db;
 
-console.log('\n🌱 Starting ULTRA COMPREHENSIVE database seeding...\n');
-console.log('📋 This seed covers ALL edge cases and scenarios\n');
+log('\n🌱 Starting ULTRA COMPREHENSIVE database seeding...\n');
+log('📋 This seed covers ALL edge cases and scenarios\n');
 
 // Clear all existing data first (disable foreign keys to avoid constraint issues)
-console.log('🗑️ Clearing existing data...');
+log('🗑️ Clearing existing data...');
 db.exec('PRAGMA foreign_keys = OFF');
 
 const tablesToClear = [
@@ -33,7 +37,7 @@ tablesToClear.forEach(table => {
 });
 
 db.exec('PRAGMA foreign_keys = ON');
-console.log('   ✅ Cleared all existing data\n');
+log('   ✅ Cleared all existing data\n');
 
 // Helper functions
 const hash = (password) => bcrypt.hashSync(password, 10);
@@ -54,7 +58,7 @@ const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
 
 // ==================== USERS (All roles, states, edge cases) ====================
-console.log('👥 Seeding users (15 users - all roles and edge cases)...');
+log('👥 Seeding users (15 users - all roles and edge cases)...');
 const users = [
   // OWNER - Full access
   { id: uuidv4(), username: 'owner', email: 'owner@premiumgiftbox.com', password_hash: hash('owner123'), role: 'owner', full_name: 'Budi Santoso', phone: '+62-812-1111-0001', is_active: 1 },
@@ -84,7 +88,7 @@ const users = [
 
 const insertUser = db.prepare(`INSERT INTO users (id, username, email, password_hash, role, full_name, phone, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 users.forEach(u => insertUser.run(u.id, u.username, u.email, u.password_hash, u.role, u.full_name, u.phone, u.is_active));
-console.log(`   ✅ Created ${users.length} users`);
+log(`   ✅ Created ${users.length} users`);
 
 // Get user IDs for references
 const ownerId = users[0].id;
@@ -92,7 +96,7 @@ const managerId = users[1].id;
 const employeeIds = users.filter(u => u.role === 'employee' && u.is_active).map(u => u.id);
 
 // ==================== CUSTOMERS (All types, statuses, edge cases) ====================
-console.log('🏢 Seeding customers (50 diverse customers - all business types & loyalty statuses)...');
+log('🏢 Seeding customers (50 diverse customers - all business types & loyalty statuses)...');
 const customers = [
   // CORPORATE - VIP (High value)
   { id: uuidv4(), name: 'PT. Maju Bersama Indonesia', email: 'procurement@majubersama.co.id', phone: '+62-21-5551234', business_type: 'corporate', loyalty_status: 'vip', total_orders: 85, total_spent: 850000000 },
@@ -185,10 +189,10 @@ const customers = [
 
 const insertCustomer = db.prepare(`INSERT INTO customers (id, name, email, phone, business_type, loyalty_status, total_orders, total_spent) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 customers.forEach(c => insertCustomer.run(c.id, c.name, c.email, c.phone, c.business_type, c.loyalty_status, c.total_orders, c.total_spent));
-console.log(`   ✅ Created ${customers.length} customers`);
+log(`   ✅ Created ${customers.length} customers`);
 
 // ==================== INVENTORY MATERIALS (All categories, stock levels) ====================
-console.log('📦 Seeding inventory materials (60 items - all categories & stock scenarios)...');
+log('📦 Seeding inventory materials (60 items - all categories & stock scenarios)...');
 const materials = [
   // PAPER - Various stock levels
   { id: uuidv4(), name: 'Art Paper 260gsm White', category: 'paper', supplier: 'PT. Kertas Nusantara', unit_cost: 1500, current_stock: 500, reorder_level: 100, unit: 'lembar' },
@@ -269,10 +273,10 @@ const materials = [
 
 const insertMaterial = db.prepare(`INSERT INTO inventory_materials (id, name, category, supplier, unit_cost, current_stock, reorder_level, unit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 materials.forEach(m => insertMaterial.run(m.id, m.name, m.category, m.supplier, m.unit_cost, m.current_stock, m.reorder_level, m.unit));
-console.log(`   ✅ Created ${materials.length} inventory materials`);
+log(`   ✅ Created ${materials.length} inventory materials`);
 
 // ==================== ORDERS (All statuses, priorities, edge cases) ====================
-console.log('📋 Seeding orders (100 orders - all statuses, priorities, edge cases)...');
+log('📋 Seeding orders (100 orders - all statuses, priorities, edge cases)...');
 const orderStatuses = ['pending', 'designing', 'approved', 'production', 'quality_control', 'completed', 'cancelled'];
 const boxTypes = ['executive', 'luxury', 'premium', 'standard', 'custom'];
 const priorities = ['low', 'normal', 'high', 'urgent'];
@@ -364,10 +368,10 @@ for (let i = orderNum; i <= 100; i++) {
 
 const insertOrder = db.prepare(`INSERT INTO orders (id, order_number, customer_id, status, priority, total_amount, final_price, box_type, due_date, estimated_completion, actual_completion, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 orders.forEach(o => insertOrder.run(o.id, o.order_number, o.customer_id, o.status, o.priority, o.total_amount, o.final_price, o.box_type, o.due_date, o.estimated_completion, o.actual_completion, o.created_at));
-console.log(`   ✅ Created ${orders.length} orders`);
+log(`   ✅ Created ${orders.length} orders`);
 
 // ==================== INVOICES (All statuses, edge cases) ====================
-console.log('💰 Seeding invoices (80 invoices - all statuses, edge cases)...');
+log('💰 Seeding invoices (80 invoices - all statuses, edge cases)...');
 const invoiceStatuses = ['draft', 'sent', 'paid', 'partial', 'overdue', 'cancelled'];
 const invoices = [];
 
@@ -479,10 +483,10 @@ for (let i = invNum; i <= 80; i++) {
 
 const insertInvoice = db.prepare(`INSERT INTO invoices (id, invoice_number, order_id, customer_id, subtotal, discount, ppn_rate, ppn_amount, total_amount, status, issue_date, due_date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 invoices.forEach(inv => insertInvoice.run(inv.id, inv.invoice_number, inv.order_id, inv.customer_id, inv.subtotal, inv.discount, inv.ppn_rate, inv.ppn_amount, inv.total_amount, inv.status, inv.issue_date, inv.due_date, inv.notes, inv.created_by));
-console.log(`   ✅ Created ${invoices.length} invoices`);
+log(`   ✅ Created ${invoices.length} invoices`);
 
 // ==================== PRODUCTION TASKS (All statuses, assignments) ====================
-console.log('🔧 Seeding production tasks (150 tasks - all statuses, assignments)...');
+log('🔧 Seeding production tasks (150 tasks - all statuses, assignments)...');
 const taskStatuses = ['pending', 'in_progress', 'completed', 'cancelled'];
 const taskTitles = [
   'Design Layout', 'Print Materials', 'Cut Cardboard', 'Assemble Box Base',
@@ -521,10 +525,10 @@ for (let i = 0; i < 150; i++) {
 
 const insertTask = db.prepare(`INSERT INTO production_tasks (id, order_id, title, description, status, priority, assigned_to, estimated_hours, actual_hours, start_date, due_date, completed_at, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 tasks.forEach(t => insertTask.run(t.id, t.order_id, t.title, t.description, t.status, t.priority, t.assigned_to, t.estimated_hours, t.actual_hours, t.start_date, t.due_date, t.completed_at, t.notes, t.created_by));
-console.log(`   ✅ Created ${tasks.length} production tasks`);
+log(`   ✅ Created ${tasks.length} production tasks`);
 
 // ==================== FINANCIAL TRANSACTIONS ====================
-console.log('💵 Seeding financial transactions (120 transactions)...');
+log('💵 Seeding financial transactions (120 transactions)...');
 const transTypes = ['income', 'expense'];
 const incomeCategories = ['sales', 'deposit', 'refund_reversal', 'other_income'];
 const expenseCategories = ['materials', 'labor', 'utilities', 'rent', 'marketing', 'equipment', 'transport', 'maintenance', 'office', 'misc'];
@@ -550,10 +554,10 @@ for (let i = 0; i < 120; i++) {
 
 const insertTrans = db.prepare(`INSERT INTO financial_transactions (id, type, amount, category, order_id, payment_date, description) VALUES (?, ?, ?, ?, ?, ?, ?)`);
 transactions.forEach(t => insertTrans.run(t.id, t.type, t.amount, t.category, t.order_id, t.payment_date, t.description));
-console.log(`   ✅ Created ${transactions.length} financial transactions`);
+log(`   ✅ Created ${transactions.length} financial transactions`);
 
 // ==================== BUDGETS ====================
-console.log('📊 Seeding budgets (24 budgets - monthly and quarterly)...');
+log('📊 Seeding budgets (24 budgets - monthly and quarterly)...');
 const budgetCategories = ['materials', 'labor', 'utilities', 'rent', 'marketing', 'equipment', 'office', 'transport', 'maintenance', 'insurance', 'training', 'misc'];
 const budgets = [];
 
@@ -607,10 +611,10 @@ for (let i = 0; i < 4; i++) {
 
 const insertBudget = db.prepare(`INSERT INTO budgets (id, category, amount, period, start_date, end_date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 budgets.forEach(b => insertBudget.run(b.id, b.category, b.amount, b.period, b.start_date, b.end_date, b.notes, b.created_by));
-console.log(`   ✅ Created ${budgets.length} budgets`);
+log(`   ✅ Created ${budgets.length} budgets`);
 
 // ==================== MESSAGE TEMPLATES ====================
-console.log('📝 Seeding message templates (20 templates - all types)...');
+log('📝 Seeding message templates (20 templates - all types)...');
 const templates = [
   // WhatsApp templates
   { name: 'Order Confirmation WA', type: 'whatsapp', subject: null, content: 'Hi {{customer_name}}, pesanan Anda #{{order_number}} sudah kami terima. Total: Rp {{total_amount}}. Estimasi selesai: {{due_date}}', variables: 'customer_name,order_number,total_amount,due_date', is_active: 1 },
@@ -644,10 +648,10 @@ const insertTemplate = db.prepare(`INSERT INTO message_templates (id, name, type
 templates.forEach(t => {
   insertTemplate.run(uuidv4(), t.name, t.type, t.subject, t.content, t.variables, t.is_active, ownerId);
 });
-console.log(`   ✅ Created ${templates.length} message templates`);
+log(`   ✅ Created ${templates.length} message templates`);
 
 // ==================== SETTINGS ====================
-console.log('⚙️ Seeding settings (30 settings - all categories)...');
+log('⚙️ Seeding settings (30 settings - all categories)...');
 const settings = [
   // General
   { key: 'company_name', value: 'Premium Gift Box', type: 'string', category: 'general', description: 'Company name' },
@@ -694,10 +698,10 @@ const settings = [
 
 const insertSetting = db.prepare(`INSERT INTO settings (id, key, value, type, category, description, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)`);
 settings.forEach(s => insertSetting.run(uuidv4(), s.key, s.value, s.type, s.category, s.description, ownerId));
-console.log(`   ✅ Created ${settings.length} settings`);
+log(`   ✅ Created ${settings.length} settings`);
 
 // ==================== NOTIFICATIONS ====================
-console.log('🔔 Seeding notifications (60 notifications - read and unread)...');
+log('🔔 Seeding notifications (60 notifications - read and unread)...');
 const notifTypes = ['order', 'invoice', 'inventory', 'system', 'task', 'payment', 'reminder'];
 const notifications = [];
 
@@ -719,10 +723,10 @@ for (let i = 0; i < 60; i++) {
 
 const insertNotif = db.prepare(`INSERT INTO notifications (id, user_id, type, title, message, data, is_read) VALUES (?, ?, ?, ?, ?, ?, ?)`);
 notifications.forEach(n => insertNotif.run(n.id, n.user_id, n.type, n.title, n.message, n.data, n.is_read));
-console.log(`   ✅ Created ${notifications.length} notifications`);
+log(`   ✅ Created ${notifications.length} notifications`);
 
 // ==================== AUDIT LOGS ====================
-console.log('📜 Seeding audit logs (100 logs - all action types)...');
+log('📜 Seeding audit logs (100 logs - all action types)...');
 const auditActions = ['create', 'update', 'delete', 'login', 'logout', 'view', 'export', 'import', 'approve', 'reject'];
 const auditEntityTypes = ['order', 'customer', 'invoice', 'user', 'material', 'task', 'budget', 'template', 'webhook', 'setting'];
 const auditLogs = [];
@@ -747,10 +751,10 @@ for (let i = 0; i < 100; i++) {
 
 const insertAudit = db.prepare(`INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, old_values, new_values, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
 auditLogs.forEach(a => insertAudit.run(a.id, a.user_id, a.action, a.entity_type, a.entity_id, a.old_values, a.new_values, a.ip_address));
-console.log(`   ✅ Created ${auditLogs.length} audit logs`);
+log(`   ✅ Created ${auditLogs.length} audit logs`);
 
 // ==================== WEBHOOKS ====================
-console.log('🔗 Seeding webhooks (10 webhooks - active and inactive)...');
+log('🔗 Seeding webhooks (10 webhooks - active and inactive)...');
 const webhooks = [
   { name: 'Slack Order Notifications', url: 'https://hooks.example.com/slack/orders', events: 'order.created,order.updated,order.completed', is_active: 1 },
   { name: 'CRM Integration', url: 'https://crm.example.com/webhook/orders', events: 'order.created,customer.created', is_active: 1 },
@@ -769,10 +773,10 @@ const insertWebhook = db.prepare(`INSERT INTO webhooks (id, name, url, events, s
 webhooks.forEach(w => {
   insertWebhook.run(uuidv4(), w.name, w.url, w.events, 'whsec_' + uuidv4().replace(/-/g, ''), w.is_active, ownerId);
 });
-console.log(`   ✅ Created ${webhooks.length} webhooks`);
+log(`   ✅ Created ${webhooks.length} webhooks`);
 
 // ==================== INVENTORY MOVEMENTS ====================
-console.log('📦 Seeding inventory movements (100 movements)...');
+log('📦 Seeding inventory movements (100 movements)...');
 const movementTypes = ['purchase', 'usage', 'adjustment', 'waste', 'sale'];
 const movements = [];
 
@@ -799,10 +803,10 @@ for (let i = 0; i < 100; i++) {
 
 const insertMovement = db.prepare(`INSERT INTO inventory_movements (id, type, item_id, item_type, quantity, unit_cost, total_cost, reason, order_id, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 movements.forEach(m => insertMovement.run(m.id, m.type, m.item_id, m.item_type, m.quantity, m.unit_cost, m.total_cost, m.reason, m.order_id, m.notes, m.created_by));
-console.log(`   ✅ Created ${movements.length} inventory movements`);
+log(`   ✅ Created ${movements.length} inventory movements`);
 
 // ==================== PURCHASE ORDERS ====================
-console.log('🛒 Seeding purchase orders (30 purchase orders - all statuses)...');
+log('🛒 Seeding purchase orders (30 purchase orders - all statuses)...');
 const poStatuses = ['pending', 'ordered', 'received', 'cancelled'];
 const purchaseOrders = [];
 
@@ -845,10 +849,10 @@ for (let i = 1; i <= 30; i++) {
 
 const insertPO = db.prepare(`INSERT INTO purchase_orders (id, po_number, supplier, items, total_amount, status, expected_delivery, received_date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 purchaseOrders.forEach(po => insertPO.run(po.id, po.po_number, po.supplier, po.items, po.total_amount, po.status, po.expected_delivery, po.received_date, po.notes, po.created_by));
-console.log(`   ✅ Created ${purchaseOrders.length} purchase orders`);
+log(`   ✅ Created ${purchaseOrders.length} purchase orders`);
 
 // ==================== QUALITY CHECKS ====================
-console.log('✅ Seeding quality checks (60 checks - all statuses)...');
+log('✅ Seeding quality checks (60 checks - all statuses)...');
 const qcStatuses = ['pending', 'passed', 'failed'];
 const qcTypes = ['visual', 'dimensional', 'material', 'finish', 'assembly', 'packaging', 'final'];
 const qualityChecks = [];
@@ -871,10 +875,10 @@ for (let i = 0; i < 60; i++) {
 
 const insertQC = db.prepare(`INSERT INTO quality_checks (id, order_id, check_type, status, checked_by, checked_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?)`);
 qualityChecks.forEach(qc => insertQC.run(qc.id, qc.order_id, qc.check_type, qc.status, qc.checked_by, qc.checked_at, qc.notes));
-console.log(`   ✅ Created ${qualityChecks.length} quality checks`);
+log(`   ✅ Created ${qualityChecks.length} quality checks`);
 
 // ==================== COMMUNICATION MESSAGES ====================
-console.log('💬 Seeding communication messages (50 messages)...');
+log('💬 Seeding communication messages (50 messages)...');
 const msgTypes = ['email', 'whatsapp', 'sms'];
 const msgStatuses = ['pending', 'sent', 'delivered', 'failed', 'read'];
 const msgDirections = ['inbound', 'outbound'];
@@ -902,10 +906,10 @@ for (let i = 0; i < 50; i++) {
 
 const insertMsg = db.prepare(`INSERT INTO communication_messages (id, customer_id, type, direction, subject, content, status, sent_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 commMessages.forEach(m => insertMsg.run(m.id, m.customer_id, m.type, m.direction, m.subject, m.content, m.status, m.sent_at, m.created_by));
-console.log(`   ✅ Created ${commMessages.length} communication messages`);
+log(`   ✅ Created ${commMessages.length} communication messages`);
 
 // ==================== BACKUPS ====================
-console.log('💾 Seeding backups (20 backups - all statuses)...');
+log('💾 Seeding backups (20 backups - all statuses)...');
 const backupStatuses = ['pending', 'in_progress', 'completed', 'failed'];
 const backupTypes = ['manual', 'automatic'];
 const backups = [];
@@ -926,10 +930,10 @@ for (let i = 0; i < 20; i++) {
 
 const insertBackup = db.prepare(`INSERT INTO backups (id, filename, size, type, status, created_by) VALUES (?, ?, ?, ?, ?, ?)`);
 backups.forEach(b => insertBackup.run(b.id, b.filename, b.size, b.type, b.status, b.created_by));
-console.log(`   ✅ Created ${backups.length} backups`);
+log(`   ✅ Created ${backups.length} backups`);
 
 // ==================== ORDER STAGES ====================
-console.log('📊 Seeding order stages (150 stages)...');
+log('📊 Seeding order stages (150 stages)...');
 const stageNames = ['inquiry', 'quote', 'design', 'design_approval', 'material_prep', 'production', 'finishing', 'quality_check', 'packaging', 'ready', 'delivery', 'completed'];
 const orderStages = [];
 
@@ -952,10 +956,10 @@ for (let i = 0; i < 150; i++) {
 
 const insertStage = db.prepare(`INSERT INTO order_stages (id, order_id, stage, start_date, end_date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)`);
 orderStages.forEach(s => insertStage.run(s.id, s.order_id, s.stage, s.start_date, s.end_date, s.notes, s.created_by));
-console.log(`   ✅ Created ${orderStages.length} order stages`);
+log(`   ✅ Created ${orderStages.length} order stages`);
 
 // ==================== PRODUCTION LOGS ====================
-console.log('📝 Seeding production logs (80 logs)...');
+log('📝 Seeding production logs (80 logs)...');
 const prodActions = ['started', 'paused', 'resumed', 'completed', 'note_added', 'issue_reported', 'issue_resolved'];
 const prodLogs = [];
 
@@ -975,66 +979,66 @@ for (let i = 0; i < 80; i++) {
 
 const insertProdLog = db.prepare(`INSERT INTO production_logs (id, task_id, action, description, hours_worked, created_by) VALUES (?, ?, ?, ?, ?, ?)`);
 prodLogs.forEach(l => insertProdLog.run(l.id, l.task_id, l.action, l.description, l.hours_worked, l.created_by));
-console.log(`   ✅ Created ${prodLogs.length} production logs`);
+log(`   ✅ Created ${prodLogs.length} production logs`);
 
 // Close database
 db.close();
 
 // ==================== SUMMARY ====================
-console.log('\n' + '='.repeat(60));
-console.log('✨ ULTRA COMPREHENSIVE DATABASE SEEDING COMPLETED!');
-console.log('='.repeat(60));
-console.log('\n📊 DATA SUMMARY:');
-console.log('─'.repeat(40));
-console.log(`   Users:                 ${users.length}`);
-console.log(`   Customers:             ${customers.length}`);
-console.log(`   Materials:             ${materials.length}`);
-console.log(`   Orders:                ${orders.length}`);
-console.log(`   Invoices:              ${invoices.length}`);
-console.log(`   Production Tasks:      ${tasks.length}`);
-console.log(`   Financial Trans:       ${transactions.length}`);
-console.log(`   Budgets:               ${budgets.length}`);
-console.log(`   Message Templates:     ${templates.length}`);
-console.log(`   Settings:              ${settings.length}`);
-console.log(`   Notifications:         ${notifications.length}`);
-console.log(`   Audit Logs:            ${auditLogs.length}`);
-console.log(`   Webhooks:              ${webhooks.length}`);
-console.log(`   Inventory Movements:   ${movements.length}`);
-console.log(`   Purchase Orders:       ${purchaseOrders.length}`);
-console.log(`   Quality Checks:        ${qualityChecks.length}`);
-console.log(`   Comm. Messages:        ${commMessages.length}`);
-console.log(`   Backups:               ${backups.length}`);
-console.log(`   Order Stages:          ${orderStages.length}`);
-console.log(`   Production Logs:       ${prodLogs.length}`);
-console.log('─'.repeat(40));
+log('\n' + '='.repeat(60));
+log('✨ ULTRA COMPREHENSIVE DATABASE SEEDING COMPLETED!');
+log('='.repeat(60));
+log('\n📊 DATA SUMMARY:');
+log('─'.repeat(40));
+log(`   Users:                 ${users.length}`);
+log(`   Customers:             ${customers.length}`);
+log(`   Materials:             ${materials.length}`);
+log(`   Orders:                ${orders.length}`);
+log(`   Invoices:              ${invoices.length}`);
+log(`   Production Tasks:      ${tasks.length}`);
+log(`   Financial Trans:       ${transactions.length}`);
+log(`   Budgets:               ${budgets.length}`);
+log(`   Message Templates:     ${templates.length}`);
+log(`   Settings:              ${settings.length}`);
+log(`   Notifications:         ${notifications.length}`);
+log(`   Audit Logs:            ${auditLogs.length}`);
+log(`   Webhooks:              ${webhooks.length}`);
+log(`   Inventory Movements:   ${movements.length}`);
+log(`   Purchase Orders:       ${purchaseOrders.length}`);
+log(`   Quality Checks:        ${qualityChecks.length}`);
+log(`   Comm. Messages:        ${commMessages.length}`);
+log(`   Backups:               ${backups.length}`);
+log(`   Order Stages:          ${orderStages.length}`);
+log(`   Production Logs:       ${prodLogs.length}`);
+log('─'.repeat(40));
 const totalRecords = users.length + customers.length + materials.length + orders.length +
   invoices.length + tasks.length + transactions.length + budgets.length + templates.length +
   settings.length + notifications.length + auditLogs.length + webhooks.length + movements.length +
   purchaseOrders.length + qualityChecks.length + commMessages.length + backups.length +
   orderStages.length + prodLogs.length;
-console.log(`   TOTAL RECORDS:         ${totalRecords}`);
+log(`   TOTAL RECORDS:         ${totalRecords}`);
 
-console.log('\n🔑 TEST ACCOUNTS:');
-console.log('─'.repeat(40));
-console.log('   OWNER:    owner / owner123');
-console.log('   MANAGER:  manager / manager123');
-console.log('   EMPLOYEE: employee1 / employee123');
-console.log('   DESIGNER: designer / designer123');
-console.log('   QC STAFF: qc_staff / qc123');
-console.log('   TEST:     test_user / test123');
-console.log('   INACTIVE: inactive_employee / inactive123 (disabled)');
+log('\n🔑 TEST ACCOUNTS:');
+log('─'.repeat(40));
+log('   OWNER:    owner / owner123');
+log('   MANAGER:  manager / manager123');
+log('   EMPLOYEE: employee1 / employee123');
+log('   DESIGNER: designer / designer123');
+log('   QC STAFF: qc_staff / qc123');
+log('   TEST:     test_user / test123');
+log('   INACTIVE: inactive_employee / inactive123 (disabled)');
 
-console.log('\n📋 EDGE CASES INCLUDED:');
-console.log('─'.repeat(40));
-console.log('   ✓ Users: active, inactive, all roles, special chars');
-console.log('   ✓ Customers: all business types, loyalty statuses, null fields');
-console.log('   ✓ Materials: all categories, low stock, out of stock, high value');
-console.log('   ✓ Orders: all statuses, priorities, overdue, completed');
-console.log('   ✓ Invoices: all statuses, partial payment, overdue');
-console.log('   ✓ Tasks: assigned, unassigned, all statuses');
-console.log('   ✓ Templates: all types, active/inactive, with/without variables');
-console.log('   ✓ Webhooks: active/inactive, various event types');
-console.log('   ✓ And much more...');
+log('\n📋 EDGE CASES INCLUDED:');
+log('─'.repeat(40));
+log('   ✓ Users: active, inactive, all roles, special chars');
+log('   ✓ Customers: all business types, loyalty statuses, null fields');
+log('   ✓ Materials: all categories, low stock, out of stock, high value');
+log('   ✓ Orders: all statuses, priorities, overdue, completed');
+log('   ✓ Invoices: all statuses, partial payment, overdue');
+log('   ✓ Tasks: assigned, unassigned, all statuses');
+log('   ✓ Templates: all types, active/inactive, with/without variables');
+log('   ✓ Webhooks: active/inactive, various event types');
+log('   ✓ And much more...');
 
-console.log('\n🚀 Ready for comprehensive API testing!');
-console.log('='.repeat(60) + '\n');
+log('\n🚀 Ready for comprehensive API testing!');
+log('='.repeat(60) + '\n');
