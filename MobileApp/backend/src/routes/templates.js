@@ -27,7 +27,7 @@ async function templateRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to create template', details: error.message });
+      return reply.status(500).send({ error: 'Failed to create template' });
     }
   });
 
@@ -48,7 +48,7 @@ async function templateRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get templates', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get templates' });
     }
   });
 
@@ -69,7 +69,7 @@ async function templateRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get template', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get template' });
     }
   });
 
@@ -89,7 +89,7 @@ async function templateRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to update template', details: error.message });
+      return reply.status(500).send({ error: 'Failed to update template' });
     }
   });
 
@@ -107,7 +107,7 @@ async function templateRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to delete template', details: error.message });
+      return reply.status(500).send({ error: 'Failed to delete template' });
     }
   });
 
@@ -127,7 +127,7 @@ async function templateRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to render template', details: error.message });
+      return reply.status(500).send({ error: 'Failed to render template' });
     }
   });
 
@@ -148,7 +148,7 @@ async function templateRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to duplicate template', details: error.message });
+      return reply.status(500).send({ error: 'Failed to duplicate template' });
     }
   });
 
@@ -166,7 +166,7 @@ async function templateRoutes(fastify, options) {
       return result;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to initialize templates', details: error.message });
+      return reply.status(500).send({ error: 'Failed to initialize templates' });
     }
   });
 
@@ -184,7 +184,7 @@ async function templateRoutes(fastify, options) {
       return stats;
     } catch (error) {
       fastify.log.error(error);
-      return reply.status(500).send({ error: 'Failed to get template stats', details: error.message });
+      return reply.status(500).send({ error: 'Failed to get template stats' });
     }
   });
 }
