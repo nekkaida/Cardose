@@ -3,6 +3,17 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
 
+// Whitelist of valid table names to prevent SQL injection
+const ALLOWED_TABLES = new Set([
+  'users', 'customers', 'orders', 'order_items', 'invoices', 'payments',
+  'inventory_materials', 'inventory_movements', 'production_tasks',
+  'production_stages', 'quality_checks', 'financial_transactions',
+  'communication_messages', 'communication_logs', 'files', 'templates',
+  'notifications', 'webhooks', 'webhook_logs', 'settings', 'audit_logs',
+  'backups', 'sync_devices', 'sync_logs', 'sync_conflicts',
+  'purchase_orders', 'purchase_order_items'
+]);
+
 async function backupRoutes(fastify, options) {
   const db = fastify.db;
   const backupDir = path.join(__dirname, '../../backups');
@@ -166,13 +177,18 @@ async function backupRoutes(fastify, options) {
       sql += `-- Created: ${new Date().toISOString()}\n\n`;
 
       for (const table of tables) {
-        // Get table schema
+        // Skip tables not in whitelist to prevent SQL injection
+        if (!ALLOWED_TABLES.has(table.name)) {
+          continue;
+        }
+
+        // Get table schema using parameterized lookup
         const schema = db.db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`).get(table.name);
         sql += `-- Table: ${table.name}\n`;
         sql += `${schema.sql};\n\n`;
 
-        // Get table data
-        const rows = db.db.prepare(`SELECT * FROM ${table.name}`).all();
+        // Get table data (table.name validated against whitelist above)
+        const rows = db.db.prepare(`SELECT * FROM "${table.name}"`).all();
         for (const row of rows) {
           const columns = Object.keys(row);
           const values = Object.values(row).map(v => {
@@ -180,7 +196,7 @@ async function backupRoutes(fastify, options) {
             if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
             return v;
           });
-          sql += `INSERT INTO ${table.name} (${columns.join(', ')}) VALUES (${values.join(', ')});\n`;
+          sql += `INSERT INTO "${table.name}" (${columns.join(', ')}) VALUES (${values.join(', ')});\n`;
         }
         sql += '\n';
       }
