@@ -24,6 +24,8 @@ class EmailService {
 
     if (smtpConfig.auth.user && smtpConfig.auth.pass) {
       this.transporter = nodemailer.createTransport(smtpConfig);
+    } else {
+      this.configWarning = 'SMTP credentials not set (SMTP_USER/SMTP_PASS) - email features disabled';
     }
   }
 
