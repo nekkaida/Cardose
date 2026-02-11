@@ -1,7 +1,8 @@
 // Audit logging service for tracking system changes
 class AuditService {
-  constructor(db) {
+  constructor(db, logger = null) {
     this.db = db;
+    this.log = logger || { info: console.log, error: console.error, warn: console.warn };
   }
 
   /**
@@ -15,7 +16,7 @@ class AuditService {
         [userId, action, entityType, entityId, details ? JSON.stringify(details) : null, ipAddress]
       );
     } catch (error) {
-      console.error('Failed to log audit action:', error.message);
+      this.log.error('Failed to log audit action: %s', error.message);
     }
   }
 
