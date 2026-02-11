@@ -877,8 +877,13 @@ class DatabaseService {
       'CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)',
       'CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read)',
       'CREATE INDEX IF NOT EXISTS idx_comm_msgs_customer_id ON communication_messages(customer_id)',
+      'CREATE INDEX IF NOT EXISTS idx_comm_msgs_type ON communication_messages(type)',
+      'CREATE INDEX IF NOT EXISTS idx_comm_msgs_status ON communication_messages(status)',
       'CREATE INDEX IF NOT EXISTS idx_files_uploaded_by ON files(uploaded_by)',
       'CREATE INDEX IF NOT EXISTS idx_quality_checks_order_id ON quality_checks(order_id)',
+      'CREATE INDEX IF NOT EXISTS idx_prod_tasks_due_date ON production_tasks(due_date)',
+      'CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date)',
+      'CREATE INDEX IF NOT EXISTS idx_inv_movements_type ON inventory_movements(type)',
     ];
 
     for (const sql of indexes) {
