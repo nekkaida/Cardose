@@ -3,8 +3,9 @@ const WhatsAppService = require('./WhatsAppService');
 const EmailService = require('./EmailService');
 
 class NotificationService {
-  constructor(db) {
+  constructor(db, logger = null) {
     this.db = db;
+    this.log = logger || { info: console.log, error: console.error, warn: console.warn };
     this.whatsappService = new WhatsAppService();
     this.emailService = new EmailService();
     this.scheduledJobs = new Map();
@@ -370,9 +371,9 @@ Premium Gift Box System
     const overdueInterval = setInterval(async () => {
       try {
         await this.checkOverdueInvoices();
-        console.log('✓ Overdue invoice check completed');
+        this.log.info('Overdue invoice check completed');
       } catch (error) {
-        console.error('✗ Overdue invoice check failed:', error.message);
+        this.log.error('Overdue invoice check failed: %s', error.message);
       }
     }, 6 * 60 * 60 * 1000);
 
@@ -382,9 +383,9 @@ Premium Gift Box System
       if (now.getHours() === 9 && now.getMinutes() === 0) {
         try {
           await this.checkLowStock();
-          console.log('✓ Low stock check completed');
+          this.log.info('Low stock check completed');
         } catch (error) {
-          console.error('✗ Low stock check failed:', error.message);
+          this.log.error('Low stock check failed: %s', error.message);
         }
       }
     }, 60 * 1000); // Check every minute
@@ -395,9 +396,9 @@ Premium Gift Box System
       if (now.getHours() === 18 && now.getMinutes() === 0) {
         try {
           await this.sendDailyDigest();
-          console.log('✓ Daily digest sent');
+          this.log.info('Daily digest sent');
         } catch (error) {
-          console.error('✗ Daily digest failed:', error.message);
+          this.log.error('Daily digest failed: %s', error.message);
         }
       }
     }, 60 * 1000); // Check every minute
@@ -406,7 +407,7 @@ Premium Gift Box System
     this.scheduledJobs.set('lowstock', lowStockInterval);
     this.scheduledJobs.set('digest', digestInterval);
 
-    console.log('🔔 Automated notifications enabled');
+    this.log.info('Automated notifications enabled');
   }
 
   /**
@@ -417,7 +418,7 @@ Premium Gift Box System
       clearInterval(interval);
     }
     this.scheduledJobs.clear();
-    console.log('🔕 Automated notifications disabled');
+    this.log.info('Automated notifications disabled');
   }
 }
 
