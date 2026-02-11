@@ -254,13 +254,13 @@ export class InventoryService {
     order_id?: string;
     batch_number?: string;
     expiry_date?: string;
-  }): Promise<StockMovement> {
+  }, userId: string = 'system'): Promise<StockMovement> {
     const movement: StockMovement = {
       id: this.generateMovementId(),
       ...movementData,
       total_cost: movementData.quantity * (movementData.unit_cost || 0),
       created_at: new Date().toISOString(),
-      created_by: 'system', // TODO: Get from auth context
+      created_by: userId,
       is_synced: false
     };
 
