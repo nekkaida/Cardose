@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const MigrationService = require('./MigrationService');
 
 class DatabaseService {
   constructor() {
@@ -25,8 +26,12 @@ class DatabaseService {
       // Create tables
       this.createTables();
 
-      // Run migrations to add missing columns
-      this.runMigrations();
+      // Run tracked migrations
+      const migrationService = new MigrationService(this.db);
+      const migrationResult = migrationService.runAll();
+      if (migrationResult.applied > 0) {
+        console.log(`✅ Applied ${migrationResult.applied} migration(s)`);
+      }
 
       // Create indexes for performance
       this.addIndexes();
@@ -494,30 +499,10 @@ class DatabaseService {
     }
   }
 
-  // Run migrations to add missing columns to existing tables
-  runMigrations() {
-    const migrations = [
-      // Add items column to invoices table if it doesn't exist
-      { table: 'invoices', column: 'items', sql: 'ALTER TABLE invoices ADD COLUMN items TEXT' },
-      // Add paid_date column to invoices table if it doesn't exist
-      { table: 'invoices', column: 'paid_date', sql: 'ALTER TABLE invoices ADD COLUMN paid_date DATETIME' },
-      // Add payment_method column to invoices table if it doesn't exist
-      { table: 'invoices', column: 'payment_method', sql: 'ALTER TABLE invoices ADD COLUMN payment_method TEXT' }
-    ];
-
-    for (const migration of migrations) {
-      try {
-        // Check if column exists
-        const columns = this.db.prepare(`PRAGMA table_info(${migration.table})`).all();
-        const columnExists = columns.some(col => col.name === migration.column);
-
-        if (!columnExists) {
-          this.db.exec(migration.sql);
-        }
-      } catch (err) {
-        // Ignore errors - column might already exist or table might not exist yet
-      }
-    }
+  // Migration status (for health checks / debugging)
+  getMigrationStatus() {
+    const migrationService = new MigrationService(this.db);
+    return migrationService.getStatus();
   }
 
   // Synchronous database operations (better-sqlite3 is synchronous)
