@@ -1,6 +1,6 @@
 // Audit logs routes (alias for /api/audit-logs endpoint)
 const { v4: uuidv4 } = require('uuid');
-const { parsePagination } = require('../utils/pagination');
+const { parsePagination, safeJsonParse } = require('../utils/pagination');
 
 async function auditLogsRoutes(fastify, options) {
   const db = fastify.db;
@@ -60,7 +60,7 @@ async function auditLogsRoutes(fastify, options) {
       // Parse details JSON
       const logsWithParsedDetails = logs.map(log => ({
         ...log,
-        details: log.details ? JSON.parse(log.details) : null
+        details: safeJsonParse(log.details)
       }));
 
       return {
