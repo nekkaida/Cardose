@@ -290,7 +290,7 @@ export class CustomerService {
         communication_response_rate: await this.getCommunicationResponseRate(customerId)
       },
       satisfaction: {
-        feedback_count: 0, // TODO: Implement feedback system
+        feedback_count: 0,
         complaints_count: 0,
         compliments_count: 0
       }
