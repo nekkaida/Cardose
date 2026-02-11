@@ -261,11 +261,11 @@ export class ProductionService {
   /**
    * Assign task to team member
    */
-  static async assignTask(taskId: string, assignedTo: string, notes?: string): Promise<ProductionTask> {
+  static async assignTask(taskId: string, assignedTo: string, notes?: string, userId: string = 'system'): Promise<ProductionTask> {
     const updateData = {
       assigned_to: assignedTo,
       assigned_at: new Date().toISOString(),
-      assigned_by: 'system', // TODO: Get from auth context
+      assigned_by: userId,
       updated_at: new Date().toISOString()
     };
 
@@ -354,13 +354,13 @@ export class ProductionService {
   /**
    * Report production issue
    */
-  static async reportProductionIssue(issueData: Omit<ProductionIssue, 'id' | 'reported_at' | 'updated_at'>): Promise<ProductionIssue> {
+  static async reportProductionIssue(issueData: Omit<ProductionIssue, 'id' | 'reported_at' | 'updated_at'>, userId: string = 'system'): Promise<ProductionIssue> {
     const issue: ProductionIssue = {
       id: this.generateIssueId(),
       ...issueData,
       status: 'open',
       photos: issueData.photos || [],
-      reported_by: 'system', // TODO: Get from auth context
+      reported_by: userId,
       reported_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -697,6 +697,16 @@ export class ProductionService {
     const totalCapacityHours = 8;
     const allocatedHours = tasks.reduce((sum, task) => sum + (task.estimated_duration / 60), 0);
 
+    // Get distinct team members from all production tasks
+    const allTasks = await DatabaseService.getProductionTasks();
+    const teamMemberSet = new Set<string>();
+    for (const task of allTasks) {
+      if (task.assigned_to) {
+        teamMemberSet.add(task.assigned_to);
+      }
+    }
+    const availableTeamMembers = Array.from(teamMemberSet);
+
     return {
       id: this.generateScheduleId(),
       date,
@@ -712,7 +722,7 @@ export class ProductionService {
         equipment_needed: task.required_tools,
         materials_prepared: task.required_materials.every(m => m.is_available)
       })),
-      available_team_members: [], // TODO: Implement team management
+      available_team_members: availableTeamMembers,
       team_capacity: {},
       workspace_allocation: [],
       equipment_allocation: [],
