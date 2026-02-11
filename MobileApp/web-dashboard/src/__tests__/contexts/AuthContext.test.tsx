@@ -84,6 +84,9 @@ describe('AuthContext', () => {
         return null;
       });
 
+      // Mock the token verification API call
+      mockedAxios.get.mockResolvedValueOnce({ data: { valid: true } });
+
       render(
         <AuthProvider>
           <TestComponent />
@@ -201,6 +204,9 @@ describe('AuthContext', () => {
         if (key === 'auth_user') return JSON.stringify(savedUser);
         return null;
       });
+
+      // Mock the token verification API call
+      mockedAxios.get.mockResolvedValueOnce({ data: { valid: true } });
 
       render(
         <AuthProvider>
