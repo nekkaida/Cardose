@@ -770,17 +770,95 @@ export class ProductionService {
             return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
           }, 0) / completedWorkflows.length
         : 0,
-      on_time_delivery_rate: 0, // TODO: Calculate based on due dates
-      quality_score_average: 0, // TODO: Calculate from quality checks
-      planned_vs_actual_hours: {
-        planned: workflows.reduce((sum, w) => sum + w.total_estimated_hours, 0),
-        actual: workflows.reduce((sum, w) => sum + w.actual_hours_spent, 0),
-        efficiency_percentage: 0 // TODO: Calculate
-      },
-      stage_performance: {} as any, // TODO: Implement
-      team_performance: [], // TODO: Implement
-      common_issues: [], // TODO: Implement
-      bottlenecks: [] // TODO: Implement
+      on_time_delivery_rate: (() => {
+        if (completedWorkflows.length === 0) return 0;
+        const onTime = completedWorkflows.filter(w => {
+          const completionDate = new Date(w.actual_completion_date || now);
+          const dueDate = new Date(w.planned_completion_date);
+          return completionDate <= dueDate;
+        }).length;
+        return (onTime / completedWorkflows.length) * 100;
+      })(),
+      quality_score_average: (() => {
+        const withScores = completedWorkflows.filter(w => (w as any).quality_score != null);
+        if (withScores.length === 0) return 0;
+        return withScores.reduce((sum, w) => sum + ((w as any).quality_score || 0), 0) / withScores.length;
+      })(),
+      planned_vs_actual_hours: (() => {
+        const planned = workflows.reduce((sum, w) => sum + w.total_estimated_hours, 0);
+        const actual = workflows.reduce((sum, w) => sum + w.actual_hours_spent, 0);
+        return {
+          planned,
+          actual,
+          efficiency_percentage: actual > 0 ? (planned / actual) * 100 : 0
+        };
+      })(),
+      stage_performance: (() => {
+        const stageData: Record<string, { totalHours: number; count: number }> = {};
+        for (const w of workflows) {
+          if (w.stages) {
+            for (const s of w.stages) {
+              if (!stageData[s.stage]) stageData[s.stage] = { totalHours: 0, count: 0 };
+              stageData[s.stage].totalHours += s.actual_hours || 0;
+              stageData[s.stage].count += 1;
+            }
+          }
+        }
+        const result: Record<string, { avg_hours: number; count: number }> = {};
+        for (const [stage, data] of Object.entries(stageData)) {
+          result[stage] = {
+            avg_hours: data.count > 0 ? data.totalHours / data.count : 0,
+            count: data.count
+          };
+        }
+        return result;
+      })() as any,
+      team_performance: (() => {
+        const teamData: Record<string, { completed_count: number; totalHours: number }> = {};
+        for (const t of completedTasks) {
+          const member = t.assigned_to || 'unassigned';
+          if (!teamData[member]) teamData[member] = { completed_count: 0, totalHours: 0 };
+          teamData[member].completed_count += 1;
+          teamData[member].totalHours += (t.estimated_duration || 0) / 60;
+        }
+        return Object.entries(teamData).map(([member, data]) => ({
+          member,
+          completed_count: data.completed_count,
+          avg_hours: data.completed_count > 0 ? data.totalHours / data.completed_count : 0
+        }));
+      })(),
+      common_issues: (() => {
+        const issueCounts: Record<string, number> = {};
+        for (const w of workflows) {
+          if (w.issues) {
+            for (const issue of w.issues) {
+              const key = (issue as any).category || (issue as any).title || 'other';
+              issueCounts[key] = (issueCounts[key] || 0) + 1;
+            }
+          }
+        }
+        return Object.entries(issueCounts)
+          .sort(([, a], [, b]) => b - a)
+          .map(([issue, count]) => ({ issue, count }));
+      })(),
+      bottlenecks: (() => {
+        const stageData: Record<string, { totalHours: number; count: number }> = {};
+        for (const w of workflows) {
+          if (w.stages) {
+            for (const s of w.stages) {
+              if (!stageData[s.stage]) stageData[s.stage] = { totalHours: 0, count: 0 };
+              stageData[s.stage].totalHours += s.actual_hours || 0;
+              stageData[s.stage].count += 1;
+            }
+          }
+        }
+        return Object.entries(stageData)
+          .map(([stage, data]) => ({
+            stage,
+            avg_hours: data.count > 0 ? data.totalHours / data.count : 0
+          }))
+          .sort((a, b) => b.avg_hours - a.avg_hours);
+      })()
     };
   }
 
