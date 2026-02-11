@@ -28,7 +28,7 @@ export class CommunicationService {
     subject?: string;
     message: string;
     template_id?: string;
-    attachments?: File[];
+    attachments?: Array<{ name: string; uri: string; type: string }>;
   }): Promise<CommunicationRecord> {
     
     // Validate message data
@@ -69,7 +69,7 @@ export class CommunicationService {
       message: processedMessage,
       status: 'draft',
       template_used: messageData.template_id as any,
-      attachments: [], // TODO: Handle file uploads
+      attachments: messageData.attachments || [],
       photos: [],
       sent_to: messageData.recipient,
       requires_follow_up: false,
