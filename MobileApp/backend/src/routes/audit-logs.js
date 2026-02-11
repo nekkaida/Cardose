@@ -74,7 +74,7 @@ async function auditLogsRoutes(fastify, options) {
     } catch (error) {
       fastify.log.error(error);
       reply.code(500);
-      return { success: false, error: error.message };
+      return { success: false, error: 'An internal error occurred' };
     }
   });
 }
