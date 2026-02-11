@@ -5,8 +5,9 @@ const fs = require('fs');
 
 const DB_PATH = path.join(__dirname, 'premium_gift_box.db');
 
-function initializeDatabase() {
-  console.log('Initializing database...');
+function initializeDatabase(logger) {
+  const log = logger || { info: console.log, error: console.error };
+  log.info('Initializing database...');
 
   // Create database directory if it doesn't exist
   const dbDir = path.dirname(DB_PATH);
@@ -15,7 +16,7 @@ function initializeDatabase() {
   }
 
   const db = new Database(DB_PATH);
-  console.log('Connected to SQLite database.');
+  log.info('Connected to SQLite database.');
 
   // Create tables
   const createTables = [
@@ -86,9 +87,9 @@ function initializeDatabase() {
     createTables.forEach(sql => {
       db.exec(sql);
     });
-    console.log('Database initialized successfully.');
+    log.info('Database initialized successfully.');
   } catch (err) {
-    console.error('Error creating tables:', err.message);
+    log.error('Error creating tables:', err.message);
   } finally {
     db.close();
   }
