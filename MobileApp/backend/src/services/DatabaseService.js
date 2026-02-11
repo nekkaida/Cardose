@@ -4,9 +4,10 @@ const fs = require('fs');
 const MigrationService = require('./MigrationService');
 
 class DatabaseService {
-  constructor() {
-    this.dbPath = path.join(__dirname, '../database/premium_gift_box.db');
+  constructor(logger) {
+    this.dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../database/premium_gift_box.db');
     this.db = null;
+    this.log = logger || { info: console.log, error: console.error, warn: console.warn };
   }
 
   initialize() {
@@ -21,7 +22,7 @@ class DatabaseService {
       this.db = new Database(this.dbPath);
       this.db.pragma('journal_mode = WAL');
       this.db.pragma('foreign_keys = ON');
-      console.log('✅ Connected to SQLite database');
+      this.log.info('Connected to SQLite database at %s', this.dbPath);
 
       // Create tables
       this.createTables();
@@ -30,15 +31,15 @@ class DatabaseService {
       const migrationService = new MigrationService(this.db);
       const migrationResult = migrationService.runAll();
       if (migrationResult.applied > 0) {
-        console.log(`✅ Applied ${migrationResult.applied} migration(s)`);
+        this.log.info('Applied %d migration(s)', migrationResult.applied);
       }
 
       // Create indexes for performance
       this.addIndexes();
 
-      console.log('✅ Database initialized successfully');
+      this.log.info('Database initialized successfully');
     } catch (error) {
-      console.error('❌ Database initialization failed:', error);
+      this.log.error('Database initialization failed: %s', error.message);
       throw error;
     }
   }
@@ -537,7 +538,7 @@ class DatabaseService {
   close() {
     if (this.db) {
       this.db.close();
-      console.log('Database connection closed.');
+      this.log.info('Database connection closed.');
     }
   }
 
