@@ -2,11 +2,26 @@
 const fs = require('fs');
 const path = require('path');
 
+// Whitelist of tables allowed for sync operations
+const SYNCABLE_TABLES = new Set([
+  'customers', 'orders', 'invoices', 'inventory_materials',
+  'production_tasks', 'quality_checks', 'files', 'communication_logs'
+]);
+
 class SyncService {
   constructor(db) {
     this.db = db;
     this.syncLog = [];
     this.conflictResolutionStrategy = 'latest_wins'; // 'latest_wins', 'manual', 'server_wins', 'client_wins'
+  }
+
+  /**
+   * Validate table name against whitelist
+   */
+  validateTableName(table) {
+    if (!SYNCABLE_TABLES.has(table)) {
+      throw new Error(`Table '${table}' is not allowed for sync operations`);
+    }
   }
 
   /**
@@ -28,9 +43,11 @@ class SyncService {
       const changes = {};
 
       for (const table of tablesToSync) {
+        this.validateTableName(table);
+
         // Get all records updated after last sync
         const query = `
-          SELECT * FROM ${table}
+          SELECT * FROM "${table}"
           WHERE updated_at > datetime(?)
           ORDER BY updated_at ASC
         `;
@@ -65,11 +82,13 @@ class SyncService {
     };
 
     for (const [table, records] of Object.entries(changes)) {
+      this.validateTableName(table);
+
       for (const record of records) {
         try {
           // Check if record exists
           const existing = await this.db.get(
-            `SELECT * FROM ${table} WHERE id = ?`,
+            `SELECT * FROM "${table}" WHERE id = ?`,
             [record.id]
           );
 
@@ -218,7 +237,7 @@ class SyncService {
     const values = fields.map(field => record[field]);
     values.push(record.id);
 
-    const query = `UPDATE ${table} SET ${setClause} WHERE id = ?`;
+    const query = `UPDATE "${table}" SET ${setClause} WHERE id = ?`;
     await this.db.run(query, values);
   }
 
@@ -230,7 +249,7 @@ class SyncService {
     const placeholders = fields.map(() => '?').join(', ');
     const values = fields.map(field => record[field]);
 
-    const query = `INSERT INTO ${table} (${fields.join(', ')}) VALUES (${placeholders})`;
+    const query = `INSERT INTO "${table}" (${fields.join(', ')}) VALUES (${placeholders})`;
     await this.db.run(query, values);
   }
 
