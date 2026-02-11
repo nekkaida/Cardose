@@ -70,7 +70,7 @@ export class FinancialService {
   /**
    * Create a new transaction
    */
-  static async createTransaction(transactionData: CreateTransactionData): Promise<FinancialTransaction> {
+  static async createTransaction(transactionData: CreateTransactionData, userId: string = 'system'): Promise<FinancialTransaction> {
     // Validate transaction data
     this.validateTransactionData(transactionData);
 
@@ -90,7 +90,7 @@ export class FinancialService {
       payment_status: transactionData.payment_status || 'completed',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      created_by: 'system', // TODO: Get from auth context
+      created_by: userId,
       is_synced: false
     };
 
@@ -221,7 +221,7 @@ export class FinancialService {
     colors: string[];
     finishing_type?: string;
     complexity_level: 'simple' | 'moderate' | 'complex' | 'premium';
-  }): Promise<PricingCalculation> {
+  }, userId: string = 'system'): Promise<PricingCalculation> {
     
     // Get material costs from inventory
     const materialCosts = await this.calculateMaterialCosts(specifications);
@@ -261,7 +261,7 @@ export class FinancialService {
       profit_amount: profitAmount,
       profit_margin: profitMargin,
       calculated_at: new Date().toISOString(),
-      calculated_by: 'system' // TODO: Get from auth context
+      calculated_by: userId
     };
 
     // Save calculation for future reference
