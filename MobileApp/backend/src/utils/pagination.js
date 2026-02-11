@@ -6,4 +6,14 @@ function parsePagination(query) {
   return { limit, page, offset };
 }
 
-module.exports = { parsePagination };
+// Safe JSON parse that returns fallback on corrupt data instead of throwing
+function safeJsonParse(str, fallback = null) {
+  if (!str) return fallback;
+  try {
+    return JSON.parse(str);
+  } catch {
+    return fallback;
+  }
+}
+
+module.exports = { parsePagination, safeJsonParse };
