@@ -77,7 +77,7 @@ async function fileRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'File upload failed: ' + error.message });
+      reply.status(500).send({ error: 'File upload failed' });
     }
   });
 
@@ -149,7 +149,7 @@ async function fileRoutes(fastify, options) {
       };
     } catch (error) {
       fastify.log.error(error);
-      reply.status(500).send({ error: 'Multiple file upload failed: ' + error.message });
+      reply.status(500).send({ error: 'Multiple file upload failed' });
     }
   });
 
