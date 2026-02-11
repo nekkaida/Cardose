@@ -7,7 +7,10 @@ async function authPlugin(fastify, options) {
     try {
       await request.jwtVerify();
     } catch (err) {
-      return reply.status(401).send({ error: 'Authentication required' });
+      if (err.code === 'FAST_JWT_EXPIRED') {
+        return reply.status(401).send({ error: 'Token expired', code: 'TOKEN_EXPIRED' });
+      }
+      return reply.status(401).send({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
     }
   });
 
@@ -18,10 +21,13 @@ async function authPlugin(fastify, options) {
         await request.jwtVerify();
 
         if (!roles.includes(request.user.role)) {
-          return reply.status(403).send({ error: 'Insufficient permissions' });
+          return reply.status(403).send({ error: 'Insufficient permissions', code: 'FORBIDDEN' });
         }
       } catch (err) {
-        return reply.status(401).send({ error: 'Authentication required' });
+        if (err.code === 'FAST_JWT_EXPIRED') {
+          return reply.status(401).send({ error: 'Token expired', code: 'TOKEN_EXPIRED' });
+        }
+        return reply.status(401).send({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
       }
     };
   });
