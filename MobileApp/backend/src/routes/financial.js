@@ -1,6 +1,6 @@
 // Financial management routes - Using DatabaseService
 const { v4: uuidv4 } = require('uuid');
-const { parsePagination } = require('../utils/pagination');
+const { parsePagination, safeJsonParse } = require('../utils/pagination');
 async function financialRoutes(fastify, options) {
   const db = fastify.db;
   const PPN_RATE = 0.11; // 11% Indonesian VAT
@@ -452,9 +452,7 @@ async function financialRoutes(fastify, options) {
       }
 
       // Parse items if exists
-      if (invoice.items) {
-        invoice.items = JSON.parse(invoice.items);
-      }
+      invoice.items = safeJsonParse(invoice.items, []);
 
       // Get payments for this invoice (payments table may not exist in all deployments)
       let payments = [];
