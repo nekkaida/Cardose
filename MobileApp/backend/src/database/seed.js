@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 
 // Seed logger — silence with SEED_QUIET=1
 const quiet = process.env.SEED_QUIET === '1';
-const log = (...args) => { if (!quiet) log(...args); };
+const log = (...args) => { if (!quiet) console.log(...args); };
 
 // Initialize database
 const dbService = new DatabaseService();
