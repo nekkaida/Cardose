@@ -65,6 +65,7 @@ const UsersPage: React.FC = () => {
       loadUsers();
     } catch (err) {
       console.error('Error updating user status:', err);
+      setError('Failed to update user status. Please try again.');
     }
   };
 
@@ -75,6 +76,7 @@ const UsersPage: React.FC = () => {
       loadUsers();
     } catch (err) {
       console.error('Error deleting user:', err);
+      setError('Failed to delete user. Please try again.');
     }
   };
 
