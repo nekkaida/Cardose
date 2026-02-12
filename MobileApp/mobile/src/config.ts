@@ -18,7 +18,7 @@ export const API_CONFIG = {
   // Base URL - change this based on environment
   BASE_URL: IS_PROD
     ? 'https://api.cardose.com'
-    : 'http://localhost:3000',
+    : 'http://localhost:3001',
 
   // API endpoint
   API_PATH: '/api',
