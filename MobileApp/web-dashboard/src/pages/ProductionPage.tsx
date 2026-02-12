@@ -17,6 +17,7 @@ const ProductionPage: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const { getProductionBoard, getProductionStats } = useApi();
   const { t } = useLanguage();
@@ -30,6 +31,7 @@ const ProductionPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      setWarning(null);
       const [boardData, statsData] = await Promise.allSettled([
         getProductionBoard(),
         getProductionStats(),
@@ -43,6 +45,8 @@ const ProductionPage: React.FC = () => {
       }
       if (boardData.status === 'rejected' && statsData.status === 'rejected') {
         setError('Failed to load production data. Please try again.');
+      } else if (boardData.status === 'rejected' || statsData.status === 'rejected') {
+        setWarning('Some production data could not be loaded.');
       }
     } catch (err) {
       console.error('Error loading production:', err);
@@ -97,6 +101,11 @@ const ProductionPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {warning && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg">
+          <p className="text-sm">{warning}</p>
+        </div>
+      )}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t('production.title')}</h1>
