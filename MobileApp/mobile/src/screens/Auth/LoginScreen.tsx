@@ -38,7 +38,7 @@ export const LoginScreen: React.FC = () => {
     try {
       await dispatch(login({ username, password })).unwrap();
     } catch (error: any) {
-      Alert.alert('Login Failed', error || 'Invalid credentials');
+      Alert.alert('Login Failed', typeof error === 'string' ? error : error?.message || 'Invalid credentials');
     }
   };
 
@@ -63,7 +63,7 @@ export const LoginScreen: React.FC = () => {
       })).unwrap();
       Alert.alert('Success', 'Registration successful!');
     } catch (error: any) {
-      Alert.alert('Registration Failed', error || 'Unable to register');
+      Alert.alert('Registration Failed', typeof error === 'string' ? error : error?.message || 'Unable to register');
     }
   };
 
