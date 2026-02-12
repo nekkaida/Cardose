@@ -85,7 +85,7 @@ const AnalyticsPage: React.FC = () => {
         </div>
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
-          <p className="text-2xl font-bold text-purple-600">{formatCurrency(revenue.average || revenue.avgOrderValue || 0)}</p>
+          <p className="text-2xl font-bold text-accent-600">{formatCurrency(revenue.average || revenue.avgOrderValue || 0)}</p>
         </div>
       </div>
 
@@ -121,7 +121,7 @@ const AnalyticsPage: React.FC = () => {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Customer Segments</h2>
           <div className="space-y-3">
             {[
-              { label: 'Corporate', key: 'corporate', color: 'bg-purple-500' },
+              { label: 'Corporate', key: 'corporate', color: 'bg-accent-500' },
               { label: 'Individual', key: 'individual', color: 'bg-blue-500' },
               { label: 'Wedding', key: 'wedding', color: 'bg-pink-500' },
               { label: 'Event', key: 'event', color: 'bg-green-500' },
