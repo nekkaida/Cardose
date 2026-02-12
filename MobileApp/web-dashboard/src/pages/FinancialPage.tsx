@@ -7,6 +7,7 @@ const FinancialPage: React.FC = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const { getFinancialSummary, getTransactions } = useApi();
   const { t } = useLanguage();
@@ -20,6 +21,7 @@ const FinancialPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      setWarning(null);
       const [summaryData, transData] = await Promise.allSettled([
         getFinancialSummary(),
         getTransactions(),
@@ -33,6 +35,8 @@ const FinancialPage: React.FC = () => {
       }
       if (summaryData.status === 'rejected' && transData.status === 'rejected') {
         setError('Failed to load financial data. Please try again.');
+      } else if (summaryData.status === 'rejected' || transData.status === 'rejected') {
+        setWarning('Some financial data could not be loaded.');
       }
     } catch (err) {
       console.error('Error loading financial data:', err);
@@ -77,6 +81,11 @@ const FinancialPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {warning && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg">
+          <p className="text-sm">{warning}</p>
+        </div>
+      )}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t('financial.title')}</h1>
