@@ -95,7 +95,7 @@ const UsersPage: React.FC = () => {
 
   const getRoleBadge = (role: string) => {
     switch (role) {
-      case 'owner': return 'bg-purple-100 text-purple-800';
+      case 'owner': return 'bg-primary-100 text-primary-800';
       case 'manager': return 'bg-blue-100 text-blue-800';
       case 'employee': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -154,7 +154,7 @@ const UsersPage: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
             <p className="text-sm text-gray-600">By Role</p>
             <div className="flex gap-2 mt-1">
-              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">{stats.byRole?.owner || 0} owners</span>
+              <span className="text-xs bg-primary-100 text-primary-800 px-2 py-0.5 rounded-full">{stats.byRole?.owner || 0} owners</span>
               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{stats.byRole?.manager || 0} mgr</span>
               <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">{stats.byRole?.employee || 0} emp</span>
             </div>
