@@ -432,7 +432,7 @@ async function authRoutes(fastify, options) {
       const saltRounds = 10;
       const passwordHash = await bcrypt.hash(newPassword, saltRounds);
 
-      db.db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(passwordHash, decoded.id);
+      db.db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(passwordHash, decoded.id);
 
       return {
         success: true,
