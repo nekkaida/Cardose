@@ -212,7 +212,15 @@ const translations = {
 };
 
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguageState] = useState<Language>(() => {
+    const saved = localStorage.getItem('app_language');
+    return (saved === 'en' || saved === 'id') ? saved : 'en';
+  });
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem('app_language', lang);
+  };
 
   const t = (key: string): string => {
     return translations[language][key as keyof typeof translations['en']] || key;
