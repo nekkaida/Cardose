@@ -283,8 +283,8 @@ const OrdersPage: React.FC = () => {
 
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
           <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <span className="text-purple-600 text-xl">💰</span>
+            <div className="p-2 bg-accent-100 rounded-lg">
+              <span className="text-accent-600 text-xl">💰</span>
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Value</p>
