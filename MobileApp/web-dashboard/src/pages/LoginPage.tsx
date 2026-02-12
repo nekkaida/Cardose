@@ -29,7 +29,7 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 via-purple-700 to-blue-800">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-800 via-primary-700 to-primary-600">
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           {/* Header */}
