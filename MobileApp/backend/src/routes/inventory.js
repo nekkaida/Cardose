@@ -316,6 +316,11 @@ async function inventoryRoutes(fastify, options) {
         return { success: false, error: 'Type, item_id, and quantity are required' };
       }
 
+      if (type !== 'adjustment' && quantity <= 0) {
+        reply.code(400);
+        return { success: false, error: 'Quantity must be a positive number' };
+      }
+
       const item = db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(item_id);
       if (!item) {
         reply.code(404);
