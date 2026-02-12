@@ -62,8 +62,13 @@ export const initializeAuth = createAsyncThunk(
       ]);
 
       if (token && userJson) {
-        const user = JSON.parse(userJson);
-        return { token, user };
+        try {
+          const user = JSON.parse(userJson);
+          return { token, user };
+        } catch {
+          await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+          return { token: null, user: null };
+        }
       }
 
       return { token: null, user: null };
