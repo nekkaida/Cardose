@@ -549,7 +549,8 @@ async function financialRoutes(fastify, options) {
       } = request.body;
 
       const materialCost = materials.reduce((sum, m) => sum + (m.quantity * m.unitCost), 0);
-      const laborCost = laborHours * 50000; // IDR 50k per hour
+      const laborRate = parseInt(db.db.prepare("SELECT value FROM settings WHERE key = 'labor_rate_per_hour'").pluck().get()) || 50000;
+      const laborCost = laborHours * laborRate;
       const overheadCost = (materialCost + laborCost) * (overheadPercentage / 100);
       const subtotal = materialCost + laborCost + overheadCost;
       const markupAmount = subtotal * (markupPercentage / 100);
@@ -612,6 +613,10 @@ async function financialRoutes(fastify, options) {
         const lastDay = new Date(year, month, 0).getDate();
         end = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
       } else if (startDate && endDate) {
+        if (startDate > endDate) {
+          reply.code(400);
+          return { success: false, error: 'startDate must be before or equal to endDate' };
+        }
         start = startDate;
         end = endDate;
       } else {
