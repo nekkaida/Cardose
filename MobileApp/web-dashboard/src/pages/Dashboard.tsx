@@ -104,9 +104,9 @@ const Dashboard: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">Customers</p>
               <p className="text-2xl font-bold text-gray-900 mt-2">{formatNumber(customers.total_customers)}</p>
-              <p className="text-sm text-purple-600 mt-1">VIP: {formatNumber(customers.vip_customers)}</p>
+              <p className="text-sm text-accent-600 mt-1">VIP: {formatNumber(customers.vip_customers)}</p>
             </div>
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-r from-accent-500 to-accent-600 rounded-lg flex items-center justify-center">
               <span className="text-white text-xl">👥</span>
             </div>
           </div>
@@ -165,7 +165,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-600">Quality Control</span>
-              <span className="text-lg font-bold text-purple-600">{formatNumber(production.quality_control)}</span>
+              <span className="text-lg font-bold text-accent-600">{formatNumber(production.quality_control)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-600">Urgent Orders</span>
@@ -187,7 +187,7 @@ const Dashboard: React.FC = () => {
             <button onClick={() => navigate('/inventory')} className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
               📋 View Inventory
             </button>
-            <button onClick={() => navigate('/analytics')} className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
+            <button onClick={() => navigate('/analytics')} className="w-full bg-accent-600 text-white py-2 px-4 rounded-lg hover:bg-accent-700 transition-colors">
               📊 View Reports
             </button>
           </div>
@@ -210,9 +210,9 @@ const Dashboard: React.FC = () => {
             <p className="text-sm text-blue-700">Avg Order Value</p>
             <p className="text-xl font-bold text-blue-800">{formatCurrency(revenue.average_order_value)}</p>
           </div>
-          <div className="bg-purple-50 rounded-lg p-4">
-            <p className="text-sm text-purple-700">Invoice Count</p>
-            <p className="text-xl font-bold text-purple-800">{formatNumber(revenue.invoice_count)}</p>
+          <div className="bg-accent-50 rounded-lg p-4">
+            <p className="text-sm text-accent-700">Invoice Count</p>
+            <p className="text-xl font-bold text-accent-800">{formatNumber(revenue.invoice_count)}</p>
           </div>
         </div>
       </div>
