@@ -72,7 +72,7 @@ const ProductionPage: React.FC = () => {
   const stages = [
     { key: 'designing', label: 'Designing', color: 'border-blue-400' },
     { key: 'production', label: 'In Production', color: 'border-yellow-400' },
-    { key: 'quality_control', label: 'Quality Control', color: 'border-purple-400' },
+    { key: 'quality_control', label: 'Quality Control', color: 'border-accent-400' },
   ];
 
   if (loading) {
@@ -116,7 +116,7 @@ const ProductionPage: React.FC = () => {
           </div>
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <p className="text-sm font-medium text-gray-600">Quality Control</p>
-            <p className="text-2xl font-bold text-purple-600">{stats.quality_control || 0}</p>
+            <p className="text-2xl font-bold text-accent-600">{stats.quality_control || 0}</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <p className="text-sm font-medium text-gray-600">Urgent Orders</p>
