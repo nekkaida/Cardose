@@ -39,7 +39,7 @@ const BUSINESS_TYPES = [
 const LOYALTY_LEVELS = {
   new: { label: 'New', color: '#ff9800', icon: 'star-outline' },
   regular: { label: 'Regular', color: '#4caf50', icon: 'star-half-full' },
-  vip: { label: 'VIP', color: '#gold', icon: 'star' }
+  vip: { label: 'VIP', color: '#FFD700', icon: 'star' }
 };
 
 export default function CustomersScreen() {
