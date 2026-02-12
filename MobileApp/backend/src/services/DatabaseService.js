@@ -51,7 +51,7 @@ class DatabaseService {
         username TEXT UNIQUE NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        role TEXT DEFAULT 'user',
+        role TEXT DEFAULT 'employee' CHECK (role IN ('owner', 'manager', 'employee')),
         full_name TEXT,
         phone TEXT,
         is_active INTEGER DEFAULT 1,
