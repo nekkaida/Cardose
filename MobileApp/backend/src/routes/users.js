@@ -264,8 +264,8 @@ async function usersRoutes(fastify, options) {
     }
   });
 
-  // Delete user (requires authentication)
-  fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  // Delete user (owner only)
+  fastify.delete('/:id', { preHandler: [fastify.authenticate, fastify.authorize(['owner'])] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
