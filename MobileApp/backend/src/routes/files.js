@@ -24,6 +24,12 @@ async function fileRoutes(fastify, options) {
         return reply.status(400).send({ error: 'No file uploaded' });
       }
 
+      // Validate file type
+      const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+      if (!ALLOWED_TYPES.includes(data.mimetype)) {
+        return reply.status(400).send({ error: 'File type not allowed. Accepted: JPEG, PNG, GIF, WebP, PDF' });
+      }
+
       // Generate unique filename
       const fileId = uuidv4();
       const ext = path.extname(data.filename);
@@ -32,6 +38,13 @@ async function fileRoutes(fastify, options) {
 
       // Save file to disk
       const buffer = await data.toBuffer();
+
+      // Validate file size (max 10MB)
+      const MAX_SIZE = 10 * 1024 * 1024;
+      if (buffer.length > MAX_SIZE) {
+        return reply.status(400).send({ error: 'File too large. Maximum size is 10MB' });
+      }
+
       await fs.writeFile(filepath, buffer);
 
       // Get file stats
