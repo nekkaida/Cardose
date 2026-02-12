@@ -202,8 +202,8 @@ async function invoicesRoutes(fastify, options) {
     }
   });
 
-  // Delete invoice (requires authentication)
-  fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  // Delete invoice (owner/manager only)
+  fastify.delete('/:id', { preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])] }, async (request, reply) => {
     try {
       const { id } = request.params;
 
