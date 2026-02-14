@@ -38,7 +38,9 @@ const ProductionPage: React.FC = () => {
       ]);
 
       if (boardData.status === 'fulfilled') {
-        setBoard(boardData.value.board || boardData.value.orders || []);
+        const val = boardData.value;
+        const arr = Array.isArray(val) ? val : (val.board || val.orders || val.data || []);
+        setBoard(Array.isArray(arr) ? arr : []);
       }
       if (statsData.status === 'fulfilled') {
         setStats(statsData.value.stats || statsData.value);
