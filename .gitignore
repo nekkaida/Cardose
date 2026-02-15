@@ -72,8 +72,8 @@ web-build/
 *.tgz
 *.tar.gz
 
-# Documentation (generated)
-docs/api/generated/
+# Documentation
+docs/
 
 # Reorganization backup
 _BACKUP_*/
