@@ -110,10 +110,10 @@ const Dashboard: React.FC = () => {
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Revenue</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{formatShortCurrency(revenue.total_revenue || 0)}</p>
-              <p className="text-xs text-green-600 mt-1">{formatShortCurrency(revenue.paid_revenue || 0)} paid</p>
+              <p className="text-xs text-accent-600 mt-1">{formatShortCurrency(revenue.paid_revenue || 0)} paid</p>
             </div>
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <div className="w-10 h-10 bg-accent-100 rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-accent-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
           </div>
         </div>
@@ -123,10 +123,10 @@ const Dashboard: React.FC = () => {
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Orders</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{formatNumber(orders.total_orders)}</p>
-              <p className="text-xs text-blue-600 mt-1">{formatNumber(orders.active_orders)} active</p>
+              <p className="text-xs text-primary-500 mt-1">{formatNumber(orders.active_orders)} active</p>
             </div>
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+            <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             </div>
           </div>
         </div>
@@ -229,7 +229,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Total Value</span>
-              <span className="text-lg font-bold text-green-600">{formatShortCurrency(inventory.total_value || 0)}</span>
+              <span className="text-lg font-bold text-gray-900">{formatShortCurrency(inventory.total_value || 0)}</span>
             </div>
           </div>
         </div>
@@ -239,13 +239,13 @@ const Dashboard: React.FC = () => {
           <h3 className="text-base font-semibold text-gray-900 mb-4">Quick Actions</h3>
           <div className="space-y-2.5">
             {[
-              { label: 'View Orders', path: '/orders', color: 'bg-primary-600 hover:bg-primary-700' },
-              { label: 'View Customers', path: '/customers', color: 'bg-green-600 hover:bg-green-700' },
-              { label: 'View Inventory', path: '/inventory', color: 'bg-blue-600 hover:bg-blue-700' },
-              { label: 'View Reports', path: '/analytics', color: 'bg-accent-600 hover:bg-accent-700' },
+              { label: 'View Orders', path: '/orders' },
+              { label: 'View Customers', path: '/customers' },
+              { label: 'View Inventory', path: '/inventory' },
+              { label: 'View Reports', path: '/analytics' },
             ].map(action => (
               <button key={action.path} onClick={() => navigate(action.path)}
-                className={`w-full text-white py-2 px-4 rounded-lg transition-colors text-sm font-medium ${action.color}`}>
+                className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-gray-50 hover:bg-primary-50 hover:text-primary-700 transition-colors border border-gray-100">
                 {action.label}
               </button>
             ))}
@@ -257,21 +257,21 @@ const Dashboard: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
         <h3 className="text-base font-semibold text-gray-900 mb-4">Revenue Summary</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-green-50 rounded-lg p-4">
-            <p className="text-xs text-green-700 font-medium">Paid</p>
-            <p className="text-lg font-bold text-green-800">{formatShortCurrency(revenue.paid_revenue || 0)}</p>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-xs text-gray-500 font-medium">Paid</p>
+            <p className="text-lg font-bold text-gray-900">{formatShortCurrency(revenue.paid_revenue || 0)}</p>
           </div>
-          <div className="bg-yellow-50 rounded-lg p-4">
-            <p className="text-xs text-yellow-700 font-medium">Pending</p>
-            <p className="text-lg font-bold text-yellow-800">{formatShortCurrency(revenue.pending_revenue || 0)}</p>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-xs text-gray-500 font-medium">Pending</p>
+            <p className="text-lg font-bold text-gray-900">{formatShortCurrency(revenue.pending_revenue || 0)}</p>
           </div>
-          <div className="bg-blue-50 rounded-lg p-4">
-            <p className="text-xs text-blue-700 font-medium">Avg Order</p>
-            <p className="text-lg font-bold text-blue-800">{formatShortCurrency(revenue.average_order_value || 0)}</p>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-xs text-gray-500 font-medium">Avg Order</p>
+            <p className="text-lg font-bold text-gray-900">{formatShortCurrency(revenue.average_order_value || 0)}</p>
           </div>
-          <div className="bg-accent-50 rounded-lg p-4">
-            <p className="text-xs text-accent-700 font-medium">Invoices</p>
-            <p className="text-lg font-bold text-accent-800">{formatNumber(revenue.invoice_count)}</p>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-xs text-gray-500 font-medium">Invoices</p>
+            <p className="text-lg font-bold text-gray-900">{formatNumber(revenue.invoice_count)}</p>
           </div>
         </div>
       </div>
