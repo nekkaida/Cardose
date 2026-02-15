@@ -119,7 +119,7 @@ export default function StatusBoardScreen({ navigation }: { navigation: any }) {
   };
 
   const getStatusColor = (status: string): string => {
-    return statuses.find(s => s.value === status)?.color || '#9CA3AF';
+    return statuses.find(s => s.value === status)?.color || theme.colors.disabled;
   };
 
   const getStatusLabel = (status: string): string => {
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   summaryBar: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.backgroundVariant,
     borderRadius: 8,
     marginBottom: 16,
   },
@@ -366,17 +366,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   countText: {
-    color: '#fff',
+    color: theme.colors.surface,
     fontSize: 12,
     fontWeight: '700',
   },
   orderCard: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     borderRadius: 10,
     padding: 14,
     marginBottom: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#E5E7EB',
+    borderLeftColor: theme.colors.divider,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -384,8 +384,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   overdueCard: {
-    borderLeftColor: '#EF4444',
-    backgroundColor: '#FEF2F2',
+    borderLeftColor: theme.colors.errorBorder,
+    backgroundColor: theme.colors.errorLight,
   },
   orderHeader: {
     flexDirection: 'row',
@@ -401,8 +401,8 @@ const styles = StyleSheet.create({
   overdueBadge: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#EF4444',
-    backgroundColor: '#FEE2E2',
+    color: theme.colors.errorBorder,
+    backgroundColor: theme.colors.errorLight,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   boxType: {
     fontSize: 12,
     color: theme.colors.textSecondary,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.backgroundVariant,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: theme.colors.backgroundVariant,
     paddingTop: 10,
   },
   actionButton: {
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: theme.colors.surfaceVariant,
     borderRadius: 6,
     gap: 4,
   },
@@ -475,11 +475,11 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: theme.colors.backdrop,
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 24,
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     borderRadius: 10,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: theme.colors.surfaceVariant,
     borderLeftWidth: 4,
     gap: 10,
   },
