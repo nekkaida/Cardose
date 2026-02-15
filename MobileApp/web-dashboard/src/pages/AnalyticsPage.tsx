@@ -120,22 +120,22 @@ const AnalyticsPage: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Orders</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{orders.total_orders || orders.total || 0}</p>
-          <p className="text-xs text-green-600 mt-1">{orders.completed_orders || orders.completed || 0} completed</p>
+          <p className="text-xs text-gray-400 mt-1">{orders.completed_orders || orders.completed || 0} completed</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Revenue</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{formatShortCurrency(revenue.total_revenue || revenue.total || 0)}</p>
-          <p className="text-xs text-green-600 mt-1">{formatShortCurrency(revenue.paid_revenue || 0)} paid</p>
+          <p className="text-xs text-gray-400 mt-1">{formatShortCurrency(revenue.paid_revenue || 0)} paid</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Customers</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{customers.total_customers || customers.total || 0}</p>
-          <p className="text-xs text-accent-600 mt-1">{customers.vip_customers || customers.vip || 0} VIP</p>
+          <p className="text-xs text-gray-400 mt-1">{customers.vip_customers || customers.vip || 0} VIP</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Avg Order</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{formatShortCurrency(revenue.average_order_value || revenue.average || 0)}</p>
-          <p className="text-xs text-blue-600 mt-1">{revenue.invoice_count || 0} invoices</p>
+          <p className="text-xs text-gray-400 mt-1">{revenue.invoice_count || 0} invoices</p>
         </div>
       </div>
 
@@ -237,17 +237,17 @@ const AnalyticsPage: React.FC = () => {
               <p className="text-xs text-gray-500 uppercase">Total Materials</p>
               <p className="text-2xl font-bold text-gray-900">{inventory.total_materials || 0}</p>
             </div>
-            <div className="rounded-lg bg-red-50 p-4">
-              <p className="text-xs text-red-500 uppercase">Out of Stock</p>
-              <p className="text-2xl font-bold text-red-700">{inventory.out_of_stock || 0}</p>
+            <div className="rounded-lg bg-gray-50 p-4">
+              <p className="text-xs text-gray-500 uppercase">Out of Stock</p>
+              <p className={`text-2xl font-bold ${(inventory.out_of_stock || 0) > 0 ? 'text-red-600' : 'text-gray-900'}`}>{inventory.out_of_stock || 0}</p>
             </div>
-            <div className="rounded-lg bg-yellow-50 p-4">
-              <p className="text-xs text-yellow-600 uppercase">Low Stock</p>
-              <p className="text-2xl font-bold text-yellow-700">{inventory.low_stock || 0}</p>
+            <div className="rounded-lg bg-gray-50 p-4">
+              <p className="text-xs text-gray-500 uppercase">Low Stock</p>
+              <p className={`text-2xl font-bold ${(inventory.low_stock || 0) > 0 ? 'text-orange-600' : 'text-gray-900'}`}>{inventory.low_stock || 0}</p>
             </div>
-            <div className="rounded-lg bg-green-50 p-4">
-              <p className="text-xs text-green-600 uppercase">Total Value</p>
-              <p className="text-2xl font-bold text-green-700">{formatShortCurrency(inventory.total_value || 0)}</p>
+            <div className="rounded-lg bg-gray-50 p-4">
+              <p className="text-xs text-gray-500 uppercase">Total Value</p>
+              <p className="text-2xl font-bold text-gray-900">{formatShortCurrency(inventory.total_value || 0)}</p>
             </div>
           </div>
         </div>
