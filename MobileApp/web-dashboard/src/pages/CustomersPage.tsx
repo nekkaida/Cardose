@@ -199,15 +199,15 @@ const CustomersPage: React.FC = () => {
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase">Corporate</p>
-          <p className="text-2xl font-bold text-blue-600 mt-1">{stats.corporate}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{stats.corporate}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase">VIP</p>
-          <p className="text-2xl font-bold text-accent-600 mt-1">{stats.vip}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{stats.vip}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase">Total Revenue</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{formatCurrency(stats.totalRevenue)}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.totalRevenue)}</p>
         </div>
       </div>
 
