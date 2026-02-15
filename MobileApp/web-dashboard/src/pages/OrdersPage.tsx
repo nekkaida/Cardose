@@ -21,7 +21,7 @@ interface Customer {
   name: string;
 }
 
-const STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'] as const;
+const STATUSES = ['pending', 'designing', 'approved', 'production', 'quality_control', 'completed', 'cancelled'] as const;
 const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
 const BOX_TYPES = ['standard', 'premium', 'luxury', 'custom'] as const;
 
