@@ -32,7 +32,7 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={{
         headerStyle: { backgroundColor: theme.colors.primary },
-        headerTintColor: '#fff',
+        headerTintColor: theme.colors.surface,
         tabBarActiveTintColor: theme.colors.primary,
       }}
     >
@@ -96,7 +96,7 @@ function AppNavigator() {
           options={{
             title: 'Order Photos',
             headerStyle: { backgroundColor: theme.colors.primary },
-            headerTintColor: '#fff',
+            headerTintColor: theme.colors.surface,
           }}
         />
         <Stack.Screen
@@ -105,7 +105,7 @@ function AppNavigator() {
           options={{
             title: 'Quality Check',
             headerStyle: { backgroundColor: theme.colors.primary },
-            headerTintColor: '#fff',
+            headerTintColor: theme.colors.surface,
           }}
         />
       </Stack.Navigator>
