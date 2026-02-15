@@ -28,8 +28,28 @@ interface ApiResponse<T = any> {
 }
 
 export class ApiService {
-  private static readonly BASE_URL = API_CONFIG.API_URL;
   private static readonly DEFAULT_TIMEOUT = API_CONFIG.TIMEOUT;
+
+  /**
+   * Get the current API base URL (reads from mutable API_CONFIG)
+   */
+  private static get BASE_URL(): string {
+    return API_CONFIG.API_URL;
+  }
+
+  /**
+   * Load saved server URL from AsyncStorage (call once on app startup)
+   */
+  static async initialize(): Promise<void> {
+    try {
+      const savedUrl = await AsyncStorage.getItem(API_CONFIG.SERVER_URL_KEY);
+      if (savedUrl) {
+        API_CONFIG.BASE_URL = savedUrl;
+      }
+    } catch (error) {
+      console.error('Error loading server URL:', error);
+    }
+  }
 
   /**
    * Get authentication token from storage
@@ -423,17 +443,28 @@ export class ApiService {
   }
 
   /**
-   * Set base URL (for different environments)
+   * Set and persist server URL (survives app restarts)
    */
-  static setBaseUrl(url: string): void {
-    (this as any).BASE_URL = url;
+  static async setBaseUrl(url: string): Promise<void> {
+    // Strip trailing slash
+    const cleanUrl = url.replace(/\/+$/, '');
+    API_CONFIG.BASE_URL = cleanUrl;
+    await AsyncStorage.setItem(API_CONFIG.SERVER_URL_KEY, cleanUrl);
+  }
+
+  /**
+   * Clear saved server URL (revert to default)
+   */
+  static async clearBaseUrl(): Promise<void> {
+    API_CONFIG._runtimeBaseUrl = '';
+    await AsyncStorage.removeItem(API_CONFIG.SERVER_URL_KEY);
   }
 
   /**
    * Get current base URL
    */
   static getBaseUrl(): string {
-    return this.BASE_URL;
+    return API_CONFIG.BASE_URL;
   }
 
   /**
