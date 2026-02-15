@@ -19,7 +19,21 @@ const FinancialPage: React.FC = () => {
   const [savingTx, setSavingTx] = useState(false);
   const [txForm, setTxForm] = useState({ type: 'income', category: 'sales', amount: '', description: '' });
 
-  const { getFinancialSummary, getTransactions, getInvoices, createTransaction, updateInvoiceStatus } = useApi();
+  // Invoice creation modal
+  const [showInvModal, setShowInvModal] = useState(false);
+  const [savingInv, setSavingInv] = useState(false);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [invForm, setInvForm] = useState({
+    customer_id: '',
+    order_id: '',
+    items: [{ description: '', quantity: 1, unit_price: 0 }] as { description: string; quantity: number; unit_price: number }[],
+    discount: 0,
+    notes: '',
+    due_date: '',
+  });
+
+  const { getFinancialSummary, getTransactions, getInvoices, createTransaction, createInvoice, updateInvoiceStatus, getCustomers, getOrders } = useApi();
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -100,6 +114,79 @@ const FinancialPage: React.FC = () => {
     }
   };
 
+  const openInvoiceModal = async () => {
+    setShowInvModal(true);
+    try {
+      const custData = await getCustomers();
+      setCustomers(custData.customers || []);
+      const ordData = await getOrders();
+      setOrders(ordData.orders || []);
+    } catch (err) {
+      console.error('Error loading customers/orders:', err);
+    }
+  };
+
+  const filteredOrders = invForm.customer_id
+    ? orders.filter((o: any) => o.customer_id === invForm.customer_id)
+    : orders;
+
+  const invSubtotal = invForm.items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  const invDiscount = Number(invForm.discount) || 0;
+  const invAfterDiscount = invSubtotal - invDiscount;
+  const invPPN = Math.round(invAfterDiscount * 0.11);
+  const invTotal = invAfterDiscount + invPPN;
+
+  const addLineItem = () => {
+    setInvForm({ ...invForm, items: [...invForm.items, { description: '', quantity: 1, unit_price: 0 }] });
+  };
+
+  const removeLineItem = (index: number) => {
+    if (invForm.items.length <= 1) return;
+    setInvForm({ ...invForm, items: invForm.items.filter((_, i) => i !== index) });
+  };
+
+  const updateLineItem = (index: number, field: string, value: any) => {
+    const updated = invForm.items.map((item, i) => i === index ? { ...item, [field]: value } : item);
+    setInvForm({ ...invForm, items: updated });
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!invForm.customer_id) return;
+    try {
+      setSavingInv(true);
+      await createInvoice({
+        customer_id: invForm.customer_id,
+        order_id: invForm.order_id || undefined,
+        subtotal: invSubtotal,
+        discount: invDiscount,
+        due_date: invForm.due_date || undefined,
+        notes: invForm.notes || undefined,
+        items: invForm.items.filter(item => item.description),
+      });
+      setShowInvModal(false);
+      setInvForm({ customer_id: '', order_id: '', items: [{ description: '', quantity: 1, unit_price: 0 }], discount: 0, notes: '', due_date: '' });
+      loadFinancialData();
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Failed to create invoice');
+    } finally {
+      setSavingInv(false);
+    }
+  };
+
+  const exportToCSV = (data: any[], filename: string) => {
+    if (!data || data.length === 0) return;
+    const headers = Object.keys(data[0]).join(',');
+    const rows = data.map(row => Object.values(row).map(v => `"${v}"`).join(','));
+    const csv = [headers, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const totalRevenue = summary?.total_revenue || summary?.totalRevenue || 0;
   const totalExpenses = summary?.total_expenses || summary?.totalExpenses || 0;
   const netProfit = totalRevenue - totalExpenses;
@@ -152,9 +239,14 @@ const FinancialPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">{t('financial.title')}</h1>
           <p className="text-gray-500 text-sm">Financial overview and transactions</p>
         </div>
-        <button onClick={() => setShowTxModal(true)} className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium">
-          + Transaction
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowTxModal(true)} className="bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium">
+            + Transaction
+          </button>
+          <button onClick={openInvoiceModal} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+            + Invoice
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -211,6 +303,14 @@ const FinancialPage: React.FC = () => {
 
         {activeTab === 'transactions' && (
           <div className="overflow-x-auto">
+            {transactions.length > 0 && (
+              <div className="px-6 py-3 flex justify-end">
+                <button onClick={() => exportToCSV(transactions, 'transactions.csv')}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors">
+                  Export CSV
+                </button>
+              </div>
+            )}
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -248,6 +348,14 @@ const FinancialPage: React.FC = () => {
 
         {activeTab === 'invoices' && (
           <div className="overflow-x-auto">
+            {invoices.length > 0 && (
+              <div className="px-6 py-3 flex justify-end">
+                <button onClick={() => exportToCSV(invoices, 'invoices.csv')}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors">
+                  Export CSV
+                </button>
+              </div>
+            )}
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -338,6 +446,122 @@ const FinancialPage: React.FC = () => {
               <button onClick={handleCreateTx} disabled={savingTx || !txForm.amount}
                 className="px-4 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
                 {savingTx ? 'Saving...' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Creation Modal */}
+      {showInvModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">New Invoice</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* Customer & Order */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
+                  <select value={invForm.customer_id} onChange={(e) => setInvForm({ ...invForm, customer_id: e.target.value, order_id: '' })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm">
+                    <option value="">Select customer...</option>
+                    {customers.map((c: any) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Order (optional)</label>
+                  <select value={invForm.order_id} onChange={(e) => setInvForm({ ...invForm, order_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm">
+                    <option value="">No linked order</option>
+                    {filteredOrders.map((o: any) => (
+                      <option key={o.id} value={o.id}>{o.order_number || o.id}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Due Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date (optional)</label>
+                <input type="date" value={invForm.due_date} onChange={(e) => setInvForm({ ...invForm, due_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm" />
+              </div>
+
+              {/* Line Items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Line Items</label>
+                  <button type="button" onClick={addLineItem} className="text-xs text-primary-600 hover:text-primary-800 font-medium">
+                    + Add Item
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {invForm.items.map((item, index) => (
+                    <div key={index} className="flex gap-2 items-start">
+                      <input type="text" placeholder="Description" value={item.description}
+                        onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm" />
+                      <input type="number" placeholder="Qty" min={1} value={item.quantity}
+                        onChange={(e) => updateLineItem(index, 'quantity', Number(e.target.value))}
+                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm" />
+                      <input type="number" placeholder="Unit Price" min={0} value={item.unit_price || ''}
+                        onChange={(e) => updateLineItem(index, 'unit_price', Number(e.target.value))}
+                        className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm" />
+                      <span className="py-2 text-sm text-gray-600 w-28 text-right">{formatCurrency(item.quantity * item.unit_price)}</span>
+                      <button type="button" onClick={() => removeLineItem(index)} disabled={invForm.items.length <= 1}
+                        className="px-2 py-2 text-red-500 hover:text-red-700 disabled:opacity-30 text-sm">
+                        X
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Discount */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Discount (Rp, optional)</label>
+                <input type="number" min={0} value={invForm.discount || ''} onChange={(e) => setInvForm({ ...invForm, discount: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm" placeholder="0" />
+              </div>
+
+              {/* Summary */}
+              <div className="bg-gray-50 rounded-lg p-4 space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="font-medium">{formatCurrency(invSubtotal)}</span>
+                </div>
+                {invDiscount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Discount</span>
+                    <span className="font-medium text-red-600">-{formatCurrency(invDiscount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">PPN (11%)</span>
+                  <span className="font-medium">{formatCurrency(invPPN)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold border-t border-gray-200 pt-2 mt-2">
+                  <span>Total</span>
+                  <span>{formatCurrency(invTotal)}</span>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <textarea value={invForm.notes} onChange={(e) => setInvForm({ ...invForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm" rows={2} placeholder="Additional notes..." />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+              <button onClick={() => setShowInvModal(false)} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+              <button onClick={handleCreateInvoice} disabled={savingInv || !invForm.customer_id}
+                className="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50">
+                {savingInv ? 'Saving...' : 'Create Invoice'}
               </button>
             </div>
           </div>
