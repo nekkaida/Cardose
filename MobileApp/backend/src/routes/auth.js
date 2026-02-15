@@ -1,5 +1,6 @@
 // Authentication routes for Premium Gift Box backend - Using DatabaseService
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const EmailService = require('../services/EmailService');
 
@@ -9,13 +10,19 @@ async function authRoutes(fastify, options) {
 
   // Register route
   fastify.post('/register', {
+    config: {
+      rateLimit: {
+        max: 3,
+        timeWindow: '1 minute'
+      }
+    },
     schema: {
       body: {
         type: 'object',
         required: ['username', 'password', 'email', 'fullName'],
         properties: {
           username: { type: 'string', minLength: 3 },
-          password: { type: 'string', minLength: 6 },
+          password: { type: 'string', minLength: 8 },
           email: { type: 'string', format: 'email' },
           fullName: { type: 'string', minLength: 1 },
           phone: { type: 'string' }
@@ -25,7 +32,7 @@ async function authRoutes(fastify, options) {
     }
   }, async (request, reply) => {
     try {
-      const { username, password, email, fullName, phone, role = 'employee' } = request.body;
+      const { username, password, email, fullName, phone } = request.body;
 
       // Validation
       if (!username || !password || !email || !fullName) {
@@ -34,9 +41,14 @@ async function authRoutes(fastify, options) {
         });
       }
 
-      if (password.length < 6) {
+      if (password.length < 8) {
         return reply.status(400).send({
-          error: 'Password must be at least 6 characters long'
+          error: 'Password must be at least 8 characters long'
+        });
+      }
+      if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+        return reply.status(400).send({
+          error: 'Password must contain uppercase, lowercase, and a number'
         });
       }
 
@@ -89,6 +101,12 @@ async function authRoutes(fastify, options) {
 
   // Login route
   fastify.post('/login', {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '1 minute'
+      }
+    },
     schema: {
       body: {
         type: 'object',
@@ -134,7 +152,8 @@ async function authRoutes(fastify, options) {
         id: user.id,
         username: user.username,
         email: user.email,
-        role: user.role
+        role: user.role,
+        jti: crypto.randomUUID()
       }, { expiresIn: '24h' });
 
       return {
@@ -155,44 +174,19 @@ async function authRoutes(fastify, options) {
     }
   });
 
-  // Logout route (client-side token removal, optional server-side tracking)
+  // Logout route (server-side token blacklisting)
   fastify.post('/logout', {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
+    try {
+      db.db.prepare('INSERT OR IGNORE INTO revoked_tokens (token_jti, user_id, expires_at) VALUES (?, ?, datetime(?, \'unixepoch\'))').run(request.user.jti, request.user.id, request.user.exp);
+    } catch (error) {
+      fastify.log.error('Failed to revoke token:', error);
+    }
     return {
       success: true,
       message: 'Logged out successfully'
     };
-  });
-
-  // Get current user profile (/me endpoint for test compatibility)
-  fastify.get('/me', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const user = db.db.prepare('SELECT * FROM users WHERE id = ?').get(request.user.id);
-
-      if (!user) {
-        return reply.status(404).send({ error: 'User not found' });
-      }
-
-      return {
-        success: true,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          fullName: user.full_name,
-          phone: user.phone,
-          role: user.role,
-          isActive: user.is_active === 1,
-          createdAt: user.created_at
-        }
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch profile' });
-    }
   });
 
   // Get current user profile
@@ -200,7 +194,7 @@ async function authRoutes(fastify, options) {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
-      const user = db.db.prepare('SELECT * FROM users WHERE id = ?').get(request.user.id);
+      const user = db.db.prepare('SELECT id, username, email, full_name, phone, role, avatar_url, is_active, created_at, updated_at FROM users WHERE id = ?').get(request.user.id);
 
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
@@ -231,7 +225,7 @@ async function authRoutes(fastify, options) {
         type: 'object',
         properties: {
           fullName: { type: 'string' },
-          email: { type: 'string' },
+          email: { type: 'string', format: 'email' },
           phone: { type: 'string' }
         },
         additionalProperties: false
@@ -242,6 +236,13 @@ async function authRoutes(fastify, options) {
     try {
       const { fullName, email, phone } = request.body;
       const userId = request.user.id;
+
+      if (email) {
+        const existing = db.db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email, userId);
+        if (existing) {
+          return reply.status(409).send({ error: 'Email is already in use' });
+        }
+      }
 
       const fields = [];
       const values = [];
@@ -277,7 +278,7 @@ async function authRoutes(fastify, options) {
         required: ['currentPassword', 'newPassword'],
         properties: {
           currentPassword: { type: 'string' },
-          newPassword: { type: 'string', minLength: 6 }
+          newPassword: { type: 'string', minLength: 8 }
         },
         additionalProperties: false
       }
@@ -293,9 +294,14 @@ async function authRoutes(fastify, options) {
         });
       }
 
-      if (newPassword.length < 6) {
+      if (newPassword.length < 8) {
         return reply.status(400).send({
-          error: 'New password must be at least 6 characters long'
+          error: 'Password must be at least 8 characters long'
+        });
+      }
+      if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+        return reply.status(400).send({
+          error: 'Password must contain uppercase, lowercase, and a number'
         });
       }
 
@@ -344,7 +350,7 @@ async function authRoutes(fastify, options) {
         return reply.status(400).send({ error: 'Email is required' });
       }
 
-      const user = db.db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+      const user = db.db.prepare('SELECT id, email, full_name FROM users WHERE email = ?').get(email);
 
       if (!user) {
         // Don't reveal if email exists for security
@@ -359,6 +365,10 @@ async function authRoutes(fastify, options) {
         { id: user.id, email: user.email, type: 'reset' },
         { expiresIn: '1h' }
       );
+
+      // Store token hash in database for verification
+      const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+      db.db.prepare('UPDATE users SET reset_token = ?, reset_token_expires = datetime(\'now\', \'+1 hour\'), updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(tokenHash, user.id);
 
       // Send reset token via email
       try {
@@ -400,7 +410,7 @@ async function authRoutes(fastify, options) {
         required: ['resetToken', 'newPassword'],
         properties: {
           resetToken: { type: 'string' },
-          newPassword: { type: 'string', minLength: 6 }
+          newPassword: { type: 'string', minLength: 8 }
         },
         additionalProperties: false
       }
@@ -415,9 +425,14 @@ async function authRoutes(fastify, options) {
         });
       }
 
-      if (newPassword.length < 6) {
+      if (newPassword.length < 8) {
         return reply.status(400).send({
-          error: 'Password must be at least 6 characters long'
+          error: 'Password must be at least 8 characters long'
+        });
+      }
+      if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+        return reply.status(400).send({
+          error: 'Password must contain uppercase, lowercase, and a number'
         });
       }
 
@@ -428,11 +443,18 @@ async function authRoutes(fastify, options) {
         return reply.status(400).send({ error: 'Invalid reset token' });
       }
 
+      // Verify token exists in DB and hasn't expired
+      const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+      const user = db.db.prepare('SELECT * FROM users WHERE id = ? AND reset_token = ? AND reset_token_expires > datetime(\'now\')').get(decoded.id, tokenHash);
+      if (!user) {
+        return reply.status(400).send({ error: 'Invalid or expired reset token' });
+      }
+
       // Hash new password
       const saltRounds = 10;
       const passwordHash = await bcrypt.hash(newPassword, saltRounds);
 
-      db.db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(passwordHash, decoded.id);
+      db.db.prepare('UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(passwordHash, decoded.id);
 
       return {
         success: true,
