@@ -1,0 +1,14 @@
+{$DOMAIN} {
+    # Automatic HTTPS via Let's Encrypt
+    tls {$LETSENCRYPT_EMAIL}
+
+    # Web dashboard
+    handle {
+        reverse_proxy web-dashboard:80
+    }
+
+    # API requests proxied to backend
+    handle /api/* {
+        reverse_proxy backend:3001
+    }
+}

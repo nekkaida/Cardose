@@ -1,0 +1,44 @@
+version: '3.8'
+
+# Production override: adds Caddy reverse proxy for automatic HTTPS.
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Requires DOMAIN and LETSENCRYPT_EMAIL in .env file.
+
+services:
+  # Override: backend no longer exposed to the internet directly
+  backend:
+    ports: !reset []
+    expose:
+      - "3001"
+
+  # Override: web-dashboard no longer exposed directly either
+  web-dashboard:
+    ports: !reset []
+    expose:
+      - "80"
+
+  # Caddy reverse proxy with automatic HTTPS
+  caddy:
+    image: caddy:2-alpine
+    container_name: cardose-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      - DOMAIN=${DOMAIN:?DOMAIN is required for HTTPS. Set it in .env}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-}
+    depends_on:
+      - web-dashboard
+      - backend
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:
