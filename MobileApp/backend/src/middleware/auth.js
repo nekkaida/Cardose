@@ -6,6 +6,19 @@ async function authPlugin(fastify, options) {
   fastify.decorate('authenticate', async function (request, reply) {
     try {
       await request.jwtVerify();
+
+      // Check if token has been revoked (logout blacklist)
+      const db = fastify.db;
+      const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
+      if (revoked) {
+        return reply.status(401).send({ error: 'Token has been revoked' });
+      }
+
+      // Check if user account is still active
+      const user = db.db.prepare('SELECT is_active FROM users WHERE id = ?').get(request.user.id);
+      if (!user || !user.is_active) {
+        return reply.status(401).send({ error: 'Account is deactivated' });
+      }
     } catch (err) {
       if (err.code === 'FAST_JWT_EXPIRED') {
         return reply.status(401).send({ error: 'Token expired', code: 'TOKEN_EXPIRED' });
@@ -19,6 +32,19 @@ async function authPlugin(fastify, options) {
     return async function (request, reply) {
       try {
         await request.jwtVerify();
+
+        // Check if token has been revoked (logout blacklist)
+        const db = fastify.db;
+        const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
+        if (revoked) {
+          return reply.status(401).send({ error: 'Token has been revoked' });
+        }
+
+        // Check if user account is still active
+        const user = db.db.prepare('SELECT is_active FROM users WHERE id = ?').get(request.user.id);
+        if (!user || !user.is_active) {
+          return reply.status(401).send({ error: 'Account is deactivated' });
+        }
 
         if (!roles.includes(request.user.role)) {
           return reply.status(403).send({ error: 'Insufficient permissions', code: 'FORBIDDEN' });
