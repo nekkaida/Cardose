@@ -76,6 +76,7 @@ fastify.register(require('./routes/users'), { prefix: '/api/users' });
 fastify.register(require('./routes/quality-checks'), { prefix: '/api/quality-checks' });
 fastify.register(require('./routes/purchase-orders'), { prefix: '/api/purchase-orders' });
 fastify.register(require('./routes/audit-logs'), { prefix: '/api/audit-logs' });
+fastify.register(require('./routes/config'), { prefix: '/api/config' });
 
 // Backup service setup (logger injected after fastify is ready)
 const BackupService = require('./services/BackupService');
