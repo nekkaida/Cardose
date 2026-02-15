@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
     full_name TEXT NOT NULL,
     phone TEXT,
     is_active INTEGER DEFAULT 1,
+    reset_token TEXT,
+    reset_token_expires DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -465,6 +467,16 @@ CREATE INDEX IF NOT EXISTS idx_webhooks_is_active ON webhooks(is_active);
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_webhook_id ON webhook_logs(webhook_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_delivered_at ON webhook_logs(delivered_at);
 
+-- Revoked tokens table (for JWT token blacklisting on logout)
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_jti TEXT NOT NULL UNIQUE,
+    user_id TEXT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    revoked_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_revoked_tokens_jti ON revoked_tokens(token_jti);
+
 -- Insert default settings
 INSERT OR IGNORE INTO settings (key, value, description) VALUES
 ('business_name', 'Premium Gift Box', 'Business name'),
@@ -474,6 +486,3 @@ INSERT OR IGNORE INTO settings (key, value, description) VALUES
 ('backup_frequency', '4', 'Backup frequency in hours'),
 ('sync_enabled', '1', 'Enable automatic synchronization');
 
--- Insert default admin user (password: admin123 - CHANGE THIS!)
-INSERT OR IGNORE INTO users (id, username, email, password_hash, role, full_name) VALUES
-('admin-001', 'admin', 'admin@premiumgiftbox.com', '$2a$10$rQZ4nQRz9.ZYBzJhw4rWBOF7GhVQBQjTJhFwZLhf4tRKlNYf4tYK6', 'owner', 'Administrator');
