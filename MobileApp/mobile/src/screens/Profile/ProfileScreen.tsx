@@ -64,8 +64,7 @@ export default function ProfileScreen() {
 
       if (response.ok) {
         await dispatch(updateProfile({
-          ...user!,
-          fullName,
+          full_name: fullName,
           email,
           phone,
         }));
