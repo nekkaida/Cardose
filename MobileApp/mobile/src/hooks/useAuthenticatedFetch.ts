@@ -16,9 +16,9 @@ export const useAuthenticatedFetch = () => {
     }
 
     const headers = {
-      ...options.headers,
-      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers,
     };
 
     const response = await fetch(`${API_CONFIG.API_URL}${url}`, {
