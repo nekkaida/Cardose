@@ -248,15 +248,15 @@ const OrdersPage: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase">Pending</p>
-          <p className="text-2xl font-bold text-yellow-600 mt-1">{stats.pending}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{stats.pending}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase">In Progress</p>
-          <p className="text-2xl font-bold text-blue-600 mt-1">{stats.in_progress}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{stats.in_progress}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase">Completed</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{stats.completed}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{stats.completed}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase">Total Value</p>
