@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Text, View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { Provider as ReduxProvider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
@@ -9,32 +10,60 @@ import { store, persistor } from './src/store';
 import { theme } from './src/theme/theme';
 import { useAppSelector, useAppDispatch } from './src/store/hooks';
 import {
-  selectUser,
   selectIsAuthenticated,
   selectAuthLoading,
   initializeAuth,
 } from './src/store/slices/authSlice';
-import { DatabaseService } from './src/services/DatabaseService';
 import { ApiService } from './src/services/ApiService';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 
-// Screen and Navigator imports
+// Screens
 import { LoginScreen } from './src/screens/Auth/LoginScreen';
-import DashboardScreen from './src/screens/Dashboard/DashboardScreen';
-import OrdersNavigator from './src/navigation/OrdersNavigator';
-import CustomersNavigator from './src/navigation/CustomersNavigator';
-import InventoryNavigator from './src/navigation/InventoryNavigator';
-import ProductionNavigator from './src/navigation/ProductionNavigator';
-import FinancialNavigator from './src/navigation/FinancialNavigator';
+import StatusBoardScreen from './src/screens/StatusBoard/StatusBoardScreen';
+import OrderPhotosScreen from './src/screens/OrderPhotos/OrderPhotosScreen';
+import { QualityControlScreen } from './src/screens/Production/QualityControlScreen';
 import ProfileScreen from './src/screens/Profile/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
+
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: theme.colors.primary },
+        headerTintColor: '#fff',
+        tabBarActiveTintColor: theme.colors.primary,
+      }}
+    >
+      <Tab.Screen
+        name="Orders"
+        component={StatusBoardScreen}
+        options={{
+          title: 'Cardose',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 18 }}>📋</Text>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: 'My Profile',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 18 }}>👤</Text>
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
 
 function AppNavigator() {
   const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const isLoading = useAppSelector(selectAuthLoading);
-  const user = useAppSelector(selectUser);
 
   useEffect(() => {
     dispatch(initializeAuth());
@@ -55,97 +84,40 @@ function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: theme.colors.primary,
-          },
-          headerTintColor: '#fff',
-          tabBarActiveTintColor: theme.colors.primary,
-        }}
-      >
-        <Tab.Screen
-          name="Dashboard"
-          component={DashboardScreen}
+      <Stack.Navigator>
+        <Stack.Screen
+          name="Main"
+          component={MainTabs}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="OrderPhotos"
+          component={OrderPhotosScreen}
           options={{
-            title: `Premium Gift Box - ${user?.fullName || user?.full_name || 'User'}`,
-            tabBarIcon: ({ color }) => (
-              <Text style={{ color, fontSize: 18 }}>📊</Text>
-            ),
+            title: 'Order Photos',
+            headerStyle: { backgroundColor: theme.colors.primary },
+            headerTintColor: '#fff',
           }}
         />
-        <Tab.Screen
-          name="Orders"
-          component={OrdersNavigator}
+        <Stack.Screen
+          name="QualityCheck"
+          component={QualityControlScreen}
           options={{
-            headerShown: false,
-            tabBarIcon: ({ color }) => (
-              <Text style={{ color, fontSize: 18 }}>📦</Text>
-            ),
+            title: 'Quality Check',
+            headerStyle: { backgroundColor: theme.colors.primary },
+            headerTintColor: '#fff',
           }}
         />
-        <Tab.Screen
-          name="Customers"
-          component={CustomersNavigator}
-          options={{
-            headerShown: false,
-            tabBarIcon: ({ color }) => (
-              <Text style={{ color, fontSize: 18 }}>👥</Text>
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Inventory"
-          component={InventoryNavigator}
-          options={{
-            headerShown: false,
-            tabBarIcon: ({ color }) => (
-              <Text style={{ color, fontSize: 18 }}>📋</Text>
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Production"
-          component={ProductionNavigator}
-          options={{
-            headerShown: false,
-            tabBarIcon: ({ color }) => (
-              <Text style={{ color, fontSize: 18 }}>🏭</Text>
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Financial"
-          component={FinancialNavigator}
-          options={{
-            headerShown: false,
-            tabBarIcon: ({ color }) => (
-              <Text style={{ color, fontSize: 18 }}>💰</Text>
-            ),
-          }}
-        />
-        <Tab.Screen
-          name="Profile"
-          component={ProfileScreen}
-          options={{
-            title: 'My Profile',
-            tabBarIcon: ({ color }) => (
-              <Text style={{ color, fontSize: 18 }}>👤</Text>
-            ),
-          }}
-        />
-      </Tab.Navigator>
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
 export default function App() {
-  // Initialize database on app start
   useEffect(() => {
     const initializeApp = async () => {
       try {
         await ApiService.initialize();
-        await DatabaseService.initialize();
         console.log('App services initialized successfully');
       } catch (error) {
         console.error('Failed to initialize app services:', error);
@@ -168,7 +140,6 @@ export default function App() {
   );
 }
 
-// Loading screen component for PersistGate
 function LoadingScreen() {
   return (
     <View style={styles.loadingContainer}>
