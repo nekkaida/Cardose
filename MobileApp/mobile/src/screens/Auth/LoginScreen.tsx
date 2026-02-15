@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
 import { theme } from '../../theme/theme';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { login, register, selectAuthLoading, selectAuthError, clearError } from '../../store/slices/authSlice';
+import { ApiService } from '../../services/ApiService';
+import { API_CONFIG } from '../../config';
 
 export const LoginScreen: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -28,6 +30,40 @@ export const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+
+  // Server settings
+  const [showServerConfig, setShowServerConfig] = useState(false);
+  const [serverUrl, setServerUrl] = useState(ApiService.getBaseUrl());
+  const [serverStatus, setServerStatus] = useState<'unknown' | 'checking' | 'online' | 'offline'>('unknown');
+
+  useEffect(() => {
+    setServerUrl(ApiService.getBaseUrl());
+  }, []);
+
+  const handleTestConnection = async () => {
+    if (!serverUrl.trim()) {
+      Alert.alert('Error', 'Please enter a server URL');
+      return;
+    }
+    setServerStatus('checking');
+    try {
+      await ApiService.setBaseUrl(serverUrl.trim());
+      const reachable = await ApiService.ping();
+      setServerStatus(reachable ? 'online' : 'offline');
+      if (!reachable) {
+        Alert.alert('Connection Failed', 'Could not reach the server. Check the URL and make sure the server is running.');
+      }
+    } catch {
+      setServerStatus('offline');
+      Alert.alert('Connection Failed', 'Could not reach the server.');
+    }
+  };
+
+  const handleResetServer = async () => {
+    await ApiService.clearBaseUrl();
+    setServerUrl(API_CONFIG.DEFAULT_BASE_URL);
+    setServerStatus('unknown');
+  };
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -187,6 +223,60 @@ export const LoginScreen: React.FC = () => {
             )}
           </View>
 
+          {/* Server Configuration */}
+          <TouchableOpacity
+            style={styles.serverToggle}
+            onPress={() => setShowServerConfig(!showServerConfig)}
+          >
+            <Text style={styles.serverToggleText}>
+              {showServerConfig ? 'Hide Server Settings' : 'Server Settings'}
+            </Text>
+            <View style={[
+              styles.serverDot,
+              { backgroundColor: serverStatus === 'online' ? '#10B981' : serverStatus === 'offline' ? '#EF4444' : '#9CA3AF' }
+            ]} />
+          </TouchableOpacity>
+
+          {showServerConfig && (
+            <View style={styles.serverConfig}>
+              <Text style={styles.serverLabel}>Server URL</Text>
+              <TextInput
+                style={styles.input}
+                value={serverUrl}
+                onChangeText={setServerUrl}
+                placeholder="http://192.168.1.100:3001"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+              />
+              <View style={styles.serverActions}>
+                <TouchableOpacity
+                  style={[styles.serverButton, styles.serverTestButton]}
+                  onPress={handleTestConnection}
+                  disabled={serverStatus === 'checking'}
+                >
+                  {serverStatus === 'checking' ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.serverButtonText}>Test Connection</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.serverButton, styles.serverResetButton]}
+                  onPress={handleResetServer}
+                >
+                  <Text style={[styles.serverButtonText, { color: theme.colors.textSecondary }]}>Reset</Text>
+                </TouchableOpacity>
+              </View>
+              {serverStatus === 'online' && (
+                <Text style={styles.serverOnline}>Connected to server</Text>
+              )}
+              {serverStatus === 'offline' && (
+                <Text style={styles.serverOffline}>Server unreachable</Text>
+              )}
+            </View>
+          )}
+
           <View style={styles.footer}>
             <Text style={styles.footerText}>Self-hosted • Secure • Private</Text>
           </View>
@@ -288,6 +378,70 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     color: theme.colors.textSecondary,
     fontSize: 14,
+  },
+  serverToggle: {
+    marginTop: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  serverToggleText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+  },
+  serverDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  serverConfig: {
+    marginTop: 12,
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  serverLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: theme.colors.textSecondary,
+    marginBottom: 8,
+  },
+  serverActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  serverButton: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  serverTestButton: {
+    backgroundColor: theme.colors.primary,
+  },
+  serverResetButton: {
+    backgroundColor: '#F3F4F6',
+  },
+  serverButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  serverOnline: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#10B981',
+    textAlign: 'center',
+  },
+  serverOffline: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#EF4444',
+    textAlign: 'center',
   },
   footer: {
     marginTop: 32,
