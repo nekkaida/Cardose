@@ -27,7 +27,9 @@ const UsersPage: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const pageSize = 25;
 
-  const { getUsers, createUser, updateUserStatus, deleteUser } = useApi();
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  const { getUsers, createUser, updateUser, updateUserStatus, deleteUser } = useApi();
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -84,15 +86,40 @@ const UsersPage: React.FC = () => {
     e.preventDefault();
     try {
       setCreating(true);
-      await createUser(newUser);
+      if (editingUser) {
+        const updates: Record<string, any> = {
+          full_name: newUser.full_name,
+          email: newUser.email,
+          phone: newUser.phone,
+          role: newUser.role,
+        };
+        if (newUser.password) updates.password = newUser.password;
+        await updateUser(editingUser.id, updates);
+      } else {
+        await createUser(newUser);
+      }
       setShowCreateModal(false);
+      setEditingUser(null);
       setNewUser({ username: '', email: '', password: '', full_name: '', phone: '', role: 'employee' });
       loadUsers();
     } catch (err) {
-      console.error('Error creating user:', err);
+      console.error('Error saving user:', err);
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setNewUser({
+      username: user.username,
+      email: user.email,
+      password: '',
+      full_name: user.full_name,
+      phone: user.phone || '',
+      role: user.role,
+    });
+    setShowCreateModal(true);
   };
 
   const getRoleBadge = (role: string) => {
@@ -234,6 +261,12 @@ const UsersPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button
+                      onClick={() => handleEditUser(user)}
+                      className="mr-2 px-2 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200"
+                    >
+                      Edit
+                    </button>
+                    <button
                       onClick={() => handleToggleStatus(user)}
                       className={`mr-2 px-2 py-1 text-xs rounded ${user.is_active ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
                     >
@@ -265,7 +298,7 @@ const UsersPage: React.FC = () => {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Create New User</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">{editingUser ? 'Edit User' : 'Create New User'}</h2>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
@@ -275,9 +308,9 @@ const UsersPage: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                <input type="text" required value={newUser.username}
+                <input type="text" required value={newUser.username} disabled={!!editingUser}
                   onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600" />
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600 ${editingUser ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -286,8 +319,8 @@ const UsersPage: React.FC = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input type="password" required value={newUser.password}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password{editingUser ? ' (leave blank to keep current)' : ''}</label>
+                <input type="password" required={!editingUser} value={newUser.password}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600" />
               </div>
@@ -308,11 +341,11 @@ const UsersPage: React.FC = () => {
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setShowCreateModal(false)}
+                <button type="button" onClick={() => { setShowCreateModal(false); setEditingUser(null); setNewUser({ username: '', email: '', password: '', full_name: '', phone: '', role: 'employee' }); }}
                   className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
                 <button type="submit" disabled={creating}
                   className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
-                  {creating ? 'Creating...' : 'Create User'}
+                  {creating ? 'Saving...' : editingUser ? 'Save Changes' : 'Create User'}
                 </button>
               </div>
             </form>
