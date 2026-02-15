@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../contexts/ApiContext';
-import { useLanguage } from '../contexts/LanguageContext';
 import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -16,7 +15,6 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState('');
 
   const { getDashboardAnalytics, getRevenueAnalytics } = useApi();
-  useLanguage();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -85,9 +83,9 @@ const Dashboard: React.FC = () => {
   const production = data.production || {};
 
   const orderStatusData = [
-    { name: 'Pending', value: orders.pending_orders || 0 },
     { name: 'Active', value: orders.active_orders || 0 },
     { name: 'Completed', value: orders.completed_orders || 0 },
+    { name: 'Cancelled', value: orders.cancelled_orders || 0 },
   ].filter(d => d.value > 0);
 
   const revenueTrend = (revenueData?.trend || revenueData?.analytics?.revenue?.monthlyRevenue || []).map((m: any) => ({
@@ -199,7 +197,14 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Production Pipeline */}
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h3 className="text-base font-semibold text-gray-900 mb-4">Production Pipeline</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-semibold text-gray-900">Production Pipeline</h3>
+            {production.urgent_orders > 0 && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                {production.urgent_orders} urgent
+              </span>
+            )}
+          </div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={productionData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
