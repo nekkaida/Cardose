@@ -67,6 +67,46 @@ const ReportsPage: React.FC = () => {
     return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  const exportToCSV = (data: any, filename: string) => {
+    // Flatten report data into exportable rows
+    let rows: any[] = [];
+    if (Array.isArray(data)) {
+      rows = data;
+    } else if (typeof data === 'object' && data !== null) {
+      // Collect all array sections and scalar values
+      const scalarRow: Record<string, any> = {};
+      Object.entries(data).forEach(([key, value]) => {
+        if (Array.isArray(value) && value.length > 0) {
+          rows = rows.concat(value.map((item: any) => ({ _section: key, ...item })));
+        } else if (typeof value === 'object' && value !== null) {
+          Object.entries(value as Record<string, any>).forEach(([k, v]) => {
+            if (Array.isArray(v) && v.length > 0) {
+              rows = rows.concat(v.map((item: any) => ({ _section: `${key}_${k}`, ...item })));
+            } else if (typeof v !== 'object') {
+              scalarRow[`${key}_${k}`] = v;
+            }
+          });
+        } else {
+          scalarRow[key] = value;
+        }
+      });
+      if (rows.length === 0 && Object.keys(scalarRow).length > 0) {
+        rows = [scalarRow];
+      }
+    }
+    if (rows.length === 0) return;
+    const headers = Object.keys(rows[0]).join(',');
+    const csvRows = rows.map(row => Object.values(row).map(v => `"${v}"`).join(','));
+    const csv = [headers, ...csvRows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const reportTypes = [
     { key: 'sales', label: 'Sales Report', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
     { key: 'inventory', label: 'Inventory Report', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
@@ -208,7 +248,15 @@ const ReportsPage: React.FC = () => {
           <h2 className="text-lg font-semibold text-gray-900">
             {reportTypes.find(rt => rt.key === reportType)?.label}
           </h2>
-          <span className="text-xs text-gray-400">Generated at {new Date().toLocaleString('id-ID')}</span>
+          <div className="flex items-center gap-3">
+            {reportData && (
+              <button onClick={() => exportToCSV(reportData, `${reportType}_report.csv`)}
+                className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors">
+                Export CSV
+              </button>
+            )}
+            <span className="text-xs text-gray-400">Generated at {new Date().toLocaleString('id-ID')}</span>
+          </div>
         </div>
         {reportData ? (
           <div>
