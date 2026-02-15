@@ -1,33 +1,6 @@
 /**
  * Central Export for All Type Definitions
  *
- * Provides a single import point for all types used throughout the app.
- * Usage: import { Order, Customer, InventoryItem } from '@/types';
+ * Types are kept minimal for the slim mobile companion app.
+ * Full type definitions live in the web dashboard and backend.
  */
-
-// Order Types
-export * from './Order';
-
-// Customer Types
-export * from './Customer';
-
-// Inventory Types
-export * from './Inventory';
-
-// Production Types
-export * from './Production';
-
-// Financial Types
-export * from './Financial';
-
-// Communication Types
-export * from './Communication';
-
-// Analytics Types
-export * from './Analytics';
-
-// Design Types (if needed)
-export * from './Design';
-
-// Indonesian Business Types
-export * from './Indonesian';
