@@ -51,29 +51,6 @@ export const API_CONFIG = {
   RETRY_DELAY: 1000, // 1 second
 };
 
-// Database Configuration
-export const DB_CONFIG = {
-  NAME: 'cardose.db',
-  VERSION: 1,
-
-  // Cache settings
-  CACHE_EXPIRY: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
-};
-
-// Sync Configuration
-export const SYNC_CONFIG = {
-  // Auto-sync settings
-  AUTO_SYNC_ENABLED: true,
-  AUTO_SYNC_INTERVAL: 15 * 60 * 1000, // 15 minutes in milliseconds
-
-  // Sync retry settings
-  MAX_SYNC_RETRIES: 3,
-  SYNC_RETRY_DELAY: 5000, // 5 seconds
-
-  // Batch sync settings
-  BATCH_SIZE: 50, // Number of items to sync at once
-};
-
 // App Configuration
 export const APP_CONFIG = {
   // App info
@@ -82,12 +59,8 @@ export const APP_CONFIG = {
 
   // Feature flags
   FEATURES: {
-    OFFLINE_MODE: true,
     PUSH_NOTIFICATIONS: true,
-    ANALYTICS: false,
     DARK_MODE: true,
-    WHATSAPP_INTEGRATION: true,
-    PDF_GENERATION: true,
   },
 
   // UI settings
@@ -112,48 +85,39 @@ export const BUSINESS_CONFIG = {
   // Number formatting
   LOCALE: 'id-ID',
 
-  // Invoice settings
-  INVOICE_PREFIX: 'INV',
-  INVOICE_NUMBER_LENGTH: 6,
-
-  // Order settings
+  // Prefixes
   ORDER_PREFIX: 'ORD',
-  ORDER_NUMBER_LENGTH: 6,
-
-  // Payment terms (in days)
-  DEFAULT_PAYMENT_TERMS: 30,
+  INVOICE_PREFIX: 'INV',
 
   // WhatsApp settings
   WHATSAPP_COUNTRY_CODE: '62', // Indonesia
 };
 
-// Status Options
+// Status Options — aligned with backend validation (source of truth: GET /api/config)
 export const STATUS_OPTIONS = {
   ORDER: [
     { value: 'pending', label: 'Pending', color: '#FFA500' },
-    { value: 'confirmed', label: 'Dikonfirmasi', color: '#4169E1' },
-    { value: 'in_production', label: 'Dalam Produksi', color: '#9370DB' },
-    { value: 'ready', label: 'Siap', color: '#32CD32' },
-    { value: 'delivered', label: 'Terkirim', color: '#228B22' },
-    { value: 'completed', label: 'Selesai', color: '#006400' },
-    { value: 'cancelled', label: 'Dibatalkan', color: '#DC143C' },
+    { value: 'designing', label: 'Designing', color: '#4169E1' },
+    { value: 'approved', label: 'Approved', color: '#9370DB' },
+    { value: 'production', label: 'In Production', color: '#FF8C00' },
+    { value: 'quality_control', label: 'Quality Control', color: '#FFD700' },
+    { value: 'completed', label: 'Completed', color: '#228B22' },
+    { value: 'cancelled', label: 'Cancelled', color: '#DC143C' },
   ],
 
   INVOICE: [
     { value: 'draft', label: 'Draft', color: '#808080' },
-    { value: 'sent', label: 'Terkirim', color: '#4169E1' },
-    { value: 'paid', label: 'Lunas', color: '#228B22' },
-    { value: 'overdue', label: 'Jatuh Tempo', color: '#DC143C' },
-    { value: 'cancelled', label: 'Dibatalkan', color: '#696969' },
+    { value: 'sent', label: 'Sent', color: '#4169E1' },
+    { value: 'paid', label: 'Paid', color: '#228B22' },
+    { value: 'overdue', label: 'Overdue', color: '#DC143C' },
+    { value: 'cancelled', label: 'Cancelled', color: '#696969' },
   ],
 
   TASK: [
     { value: 'pending', label: 'Pending', color: '#FFA500' },
-    { value: 'assigned', label: 'Ditugaskan', color: '#4169E1' },
-    { value: 'in_progress', label: 'Dalam Proses', color: '#9370DB' },
-    { value: 'review', label: 'Review', color: '#FFD700' },
-    { value: 'completed', label: 'Selesai', color: '#228B22' },
-    { value: 'cancelled', label: 'Dibatalkan', color: '#DC143C' },
+    { value: 'in_progress', label: 'In Progress', color: '#9370DB' },
+    { value: 'completed', label: 'Completed', color: '#228B22' },
+    { value: 'cancelled', label: 'Cancelled', color: '#DC143C' },
   ],
 };
 
@@ -262,8 +226,6 @@ export default {
   IS_DEV,
   IS_PROD,
   API_CONFIG,
-  DB_CONFIG,
-  SYNC_CONFIG,
   APP_CONFIG,
   BUSINESS_CONFIG,
   STATUS_OPTIONS,
