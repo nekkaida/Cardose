@@ -226,11 +226,11 @@ export const QualityControlScreen: React.FC = ({ navigation, route }: any) => {
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'passed':
-        return '#4CAF50';
+        return theme.colors.success;
       case 'needs_review':
-        return '#FF9800';
+        return theme.colors.warning;
       case 'failed':
-        return '#F44336';
+        return theme.colors.error;
       default:
         return theme.colors.textSecondary;
     }
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   },
   progressContainer: {
     padding: 16,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: theme.colors.background,
     borderRadius: 8,
     marginBottom: 16,
   },
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modal: {
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.surface,
     padding: 20,
     margin: 20,
     borderRadius: 8,
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statusBadge: {
-    color: '#FFFFFF',
+    color: theme.colors.surface,
     fontSize: 12,
     fontWeight: 'bold',
     paddingHorizontal: 12,
