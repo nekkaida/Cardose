@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,15 @@ import {
 } from 'react-native';
 import { theme } from '../../theme/theme';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { login, register, selectAuthLoading, selectAuthError, clearError } from '../../store/slices/authSlice';
+import { login, register, selectAuthLoading, clearError } from '../../store/slices/authSlice';
 import { ApiService } from '../../services/ApiService';
 import { API_CONFIG } from '../../config';
 
 export const LoginScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const isLoading = useAppSelector(selectAuthLoading);
-  const authError = useAppSelector(selectAuthError);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -35,6 +35,12 @@ export const LoginScreen: React.FC = () => {
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrl] = useState(ApiService.getBaseUrl());
   const [serverStatus, setServerStatus] = useState<'unknown' | 'checking' | 'online' | 'offline'>('unknown');
+
+  // Input refs for keyboard flow
+  const passwordRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const fullNameRef = useRef<TextInput>(null);
+  const phoneRef = useRef<TextInput>(null);
 
   useEffect(() => {
     setServerUrl(ApiService.getBaseUrl());
@@ -66,8 +72,12 @@ export const LoginScreen: React.FC = () => {
   };
 
   const handleLogin = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     if (!username || !password) {
       Alert.alert('Error', 'Please enter username and password');
+      setIsSubmitting(false);
       return;
     }
 
@@ -75,17 +85,36 @@ export const LoginScreen: React.FC = () => {
       await dispatch(login({ username, password })).unwrap();
     } catch (error: any) {
       Alert.alert('Login Failed', typeof error === 'string' ? error : error?.message || 'Invalid credentials');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleRegister = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     if (!username || !password || !email || !fullName) {
       Alert.alert('Error', 'Please fill in all required fields');
+      setIsSubmitting(false);
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (password.length < 8) {
+      Alert.alert('Error', 'Password must be at least 8 characters long');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+      Alert.alert('Error', 'Password must contain uppercase, lowercase, and a number');
+      setIsSubmitting(false);
       return;
     }
 
@@ -100,6 +129,8 @@ export const LoginScreen: React.FC = () => {
       Alert.alert('Success', 'Registration successful!');
     } catch (error: any) {
       Alert.alert('Registration Failed', typeof error === 'string' ? error : error?.message || 'Unable to register');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -135,6 +166,15 @@ export const LoginScreen: React.FC = () => {
                 placeholder="Enter username"
                 autoCapitalize="none"
                 autoCorrect={false}
+                maxLength={50}
+                returnKeyType="next"
+                onSubmitEditing={() => {
+                  if (mode === 'register') {
+                    fullNameRef.current?.focus();
+                  } else {
+                    passwordRef.current?.focus();
+                  }
+                }}
               />
             </View>
 
@@ -143,17 +183,22 @@ export const LoginScreen: React.FC = () => {
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Full Name *</Text>
                   <TextInput
+                    ref={fullNameRef}
                     style={styles.input}
                     value={fullName}
                     onChangeText={setFullName}
                     placeholder="Enter full name"
                     autoCapitalize="words"
+                    maxLength={100}
+                    returnKeyType="next"
+                    onSubmitEditing={() => emailRef.current?.focus()}
                   />
                 </View>
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Email *</Text>
                   <TextInput
+                    ref={emailRef}
                     style={styles.input}
                     value={email}
                     onChangeText={setEmail}
@@ -161,17 +206,24 @@ export const LoginScreen: React.FC = () => {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
+                    maxLength={254}
+                    returnKeyType="next"
+                    onSubmitEditing={() => phoneRef.current?.focus()}
                   />
                 </View>
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Phone Number</Text>
                   <TextInput
+                    ref={phoneRef}
                     style={styles.input}
                     value={phone}
                     onChangeText={setPhone}
                     placeholder="Enter phone number"
                     keyboardType="phone-pad"
+                    maxLength={20}
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordRef.current?.focus()}
                   />
                 </View>
               </>
@@ -180,6 +232,7 @@ export const LoginScreen: React.FC = () => {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
               <TextInput
+                ref={passwordRef}
                 style={styles.input}
                 value={password}
                 onChangeText={setPassword}
@@ -187,16 +240,19 @@ export const LoginScreen: React.FC = () => {
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
+                maxLength={128}
+                returnKeyType="done"
+                onSubmitEditing={mode === 'login' ? handleLogin : handleRegister}
               />
             </View>
 
             <TouchableOpacity
-              style={[styles.button, isLoading && styles.buttonDisabled]}
+              style={[styles.button, (isSubmitting || isLoading) && styles.buttonDisabled]}
               onPress={mode === 'login' ? handleLogin : handleRegister}
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={theme.colors.surface} />
               ) : (
                 <Text style={styles.buttonText}>
                   {mode === 'login' ? 'Login' : 'Register'}
@@ -215,12 +271,6 @@ export const LoginScreen: React.FC = () => {
                   : 'Already have an account? Login'}
               </Text>
             </TouchableOpacity>
-
-            {mode === 'login' && (
-              <TouchableOpacity style={styles.forgotPasswordButton} disabled={isLoading}>
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-              </TouchableOpacity>
-            )}
           </View>
 
           {/* Server Configuration */}
@@ -233,7 +283,7 @@ export const LoginScreen: React.FC = () => {
             </Text>
             <View style={[
               styles.serverDot,
-              { backgroundColor: serverStatus === 'online' ? '#10B981' : serverStatus === 'offline' ? '#EF4444' : '#9CA3AF' }
+              { backgroundColor: serverStatus === 'online' ? theme.colors.success : serverStatus === 'offline' ? theme.colors.error : theme.colors.disabled }
             ]} />
           </TouchableOpacity>
 
@@ -248,6 +298,7 @@ export const LoginScreen: React.FC = () => {
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
+                maxLength={200}
               />
               <View style={styles.serverActions}>
                 <TouchableOpacity
@@ -256,7 +307,7 @@ export const LoginScreen: React.FC = () => {
                   disabled={serverStatus === 'checking'}
                 >
                   {serverStatus === 'checking' ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color={theme.colors.surface} />
                   ) : (
                     <Text style={styles.serverButtonText}>Test Connection</Text>
                   )}
@@ -314,7 +365,7 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   form: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     padding: 24,
     borderRadius: 12,
     shadowColor: '#000',
@@ -341,11 +392,11 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.borderDark,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
   },
   button: {
     backgroundColor: theme.colors.primary,
@@ -358,7 +409,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#fff',
+    color: theme.colors.surface,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -370,14 +421,6 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontSize: 14,
     fontWeight: '500',
-  },
-  forgotPasswordButton: {
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  forgotPasswordText: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
   },
   serverToggle: {
     marginTop: 24,
@@ -397,11 +440,11 @@ const styles = StyleSheet.create({
   },
   serverConfig: {
     marginTop: 12,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: theme.colors.divider,
   },
   serverLabel: {
     fontSize: 13,
@@ -424,23 +467,23 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   serverResetButton: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: theme.colors.backgroundVariant,
   },
   serverButtonText: {
-    color: '#fff',
+    color: theme.colors.surface,
     fontSize: 13,
     fontWeight: '600',
   },
   serverOnline: {
     marginTop: 8,
     fontSize: 12,
-    color: '#10B981',
+    color: theme.colors.success,
     textAlign: 'center',
   },
   serverOffline: {
     marginTop: 8,
     fontSize: 12,
-    color: '#EF4444',
+    color: theme.colors.error,
     textAlign: 'center',
   },
   footer: {
