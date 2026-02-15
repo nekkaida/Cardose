@@ -211,7 +211,7 @@ export default function ProfileScreen() {
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={theme.colors.surface} />
               ) : (
                 <Text style={styles.saveButtonText}>Save</Text>
               )}
@@ -284,7 +284,7 @@ export default function ProfileScreen() {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={theme.colors.surface} />
                 ) : (
                   <Text style={styles.saveButtonText}>Update</Text>
                 )}
@@ -317,9 +317,9 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: theme.colors.border,
   },
   avatarContainer: {
     width: 80,
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#fff',
+    color: theme.colors.surface,
   },
   name: {
     fontSize: 24,
@@ -355,10 +355,10 @@ const styles = StyleSheet.create({
   roleText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#fff',
+    color: theme.colors.surface,
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     padding: 16,
     marginTop: 16,
   },
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.borderDark,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#eee',
+    backgroundColor: theme.colors.border,
   },
   cancelButtonText: {
     color: theme.colors.text,
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   saveButtonText: {
-    color: '#fff',
+    color: theme.colors.surface,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -439,12 +439,12 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     padding: 16,
-    backgroundColor: '#ff4444',
+    backgroundColor: theme.colors.error,
     borderRadius: 8,
     alignItems: 'center',
   },
   logoutButtonText: {
-    color: '#fff',
+    color: theme.colors.surface,
     fontSize: 16,
     fontWeight: '600',
   },
