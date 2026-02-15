@@ -146,6 +146,59 @@ export class FileService {
   }
 
   /**
+   * Get files attached to a specific order
+   */
+  async getOrderFiles(orderId: string): Promise<any[]> {
+    try {
+      const response = await fetch(`${getApiUrl()}/files/order/${orderId}`, {
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch order files');
+      }
+
+      const data = await response.json();
+      return data.files;
+    } catch (error) {
+      console.error('Get order files error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload a file and attach it to an order
+   */
+  async uploadOrderFile(uri: string, filename: string, orderId: string): Promise<UploadedFile> {
+    try {
+      // First upload the file
+      const uploadedFile = await this.uploadFile(uri, filename);
+
+      // Then attach it to the order
+      const response = await fetch(
+        `${getApiUrl()}/files/order/${orderId}/attach/${uploadedFile.id}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to attach file to order');
+      }
+
+      return uploadedFile;
+    } catch (error) {
+      console.error('Upload order file error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get file statistics
    */
   async getFileStats(): Promise<{ totalFiles: number; totalSize: number; totalSizeMB: string }> {
