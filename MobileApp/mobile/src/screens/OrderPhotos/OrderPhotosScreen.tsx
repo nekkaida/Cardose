@@ -41,9 +41,7 @@ export default function OrderPhotosScreen({ route }: OrderPhotosScreenProps) {
 
     try {
       setIsLoading(true);
-      // In a real implementation, you'd fetch order-specific photos
-      // For now, we'll get user files as an example
-      const files = await fileService.getUserFiles(token!);
+      const files = await fileService.getOrderFiles(orderId);
       setImages(files);
     } catch (error) {
       console.error('Error loading photos:', error);
@@ -64,8 +62,8 @@ export default function OrderPhotosScreen({ route }: OrderPhotosScreenProps) {
       // Extract filename from URI
       const filename = uri.split('/').pop() || `photo_${Date.now()}.jpg`;
 
-      // Upload file
-      const uploadedFile = await fileService.uploadFile(uri, filename);
+      // Upload file and attach to order
+      const uploadedFile = await fileService.uploadOrderFile(uri, filename, orderId);
 
       // Add to images list
       setImages((prev) => [uploadedFile, ...prev]);
@@ -113,7 +111,7 @@ export default function OrderPhotosScreen({ route }: OrderPhotosScreenProps) {
 
       {isUploading && (
         <View style={styles.uploadingBanner}>
-          <ActivityIndicator size="small" color="#fff" />
+          <ActivityIndicator size="small" color={theme.colors.surface} />
           <Text style={styles.uploadingText}>Uploading photo...</Text>
         </View>
       )}
@@ -153,9 +151,9 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: theme.colors.border,
   },
   title: {
     fontSize: 20,
@@ -175,7 +173,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   uploadingText: {
-    color: '#fff',
+    color: theme.colors.surface,
     fontSize: 14,
     fontWeight: '500',
   },
