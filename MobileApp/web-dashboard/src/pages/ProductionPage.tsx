@@ -18,8 +18,10 @@ const ProductionPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [draggedOrder, setDraggedOrder] = useState<ProductionOrder | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
-  const { getProductionBoard, getProductionStats } = useApi();
+  const { getProductionBoard, getProductionStats, updateOrderStatus } = useApi();
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -81,6 +83,73 @@ const ProductionPage: React.FC = () => {
     { key: 'quality_control', label: 'Quality Control', color: 'border-accent-400' },
   ];
 
+  // --- Drag-and-drop handlers ---
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, order: ProductionOrder) => {
+    setDraggedOrder(order);
+    e.dataTransfer.effectAllowed = 'move';
+    // Set minimal data for the drag operation
+    e.dataTransfer.setData('text/plain', order.id);
+    // Apply opacity after a short delay so the drag image captures the full card
+    requestAnimationFrame(() => {
+      (e.target as HTMLDivElement).style.opacity = '0.4';
+    });
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    (e.target as HTMLDivElement).style.opacity = '1';
+    setDraggedOrder(null);
+    setDragOverColumn(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, stageKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverColumn !== stageKey) {
+      setDragOverColumn(stageKey);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>, stageKey: string) => {
+    // Only clear highlight if we're actually leaving the column (not entering a child)
+    const relatedTarget = e.relatedTarget as Node | null;
+    if (!e.currentTarget.contains(relatedTarget)) {
+      if (dragOverColumn === stageKey) {
+        setDragOverColumn(null);
+      }
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, targetStageKey: string) => {
+    e.preventDefault();
+    setDragOverColumn(null);
+
+    if (!draggedOrder || draggedOrder.status === targetStageKey) {
+      setDraggedOrder(null);
+      return;
+    }
+
+    const previousStatus = draggedOrder.status;
+    const orderId = draggedOrder.id;
+
+    // Optimistic update: move the card immediately in local state
+    setBoard(prev =>
+      prev.map(o => o.id === orderId ? { ...o, status: targetStageKey } : o)
+    );
+    setDraggedOrder(null);
+
+    try {
+      await updateOrderStatus(orderId, targetStageKey);
+    } catch (err) {
+      console.error('Failed to update order status:', err);
+      // Revert the optimistic update on failure
+      setBoard(prev =>
+        prev.map(o => o.id === orderId ? { ...o, status: previousStatus } : o)
+      );
+      setWarning('Failed to move order. The change has been reverted.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -140,16 +209,36 @@ const ProductionPage: React.FC = () => {
         {stages.map(stage => {
           const stageOrders = board.filter(o => o.status === stage.key);
           return (
-            <div key={stage.key} className={`bg-white rounded-xl shadow-sm border-t-4 ${stage.color} border border-gray-100`}>
+            <div
+              key={stage.key}
+              className={`bg-white rounded-xl shadow-sm border-t-4 ${stage.color} border border-gray-100 transition-all duration-200 ${
+                dragOverColumn === stage.key ? 'ring-2 ring-blue-400 bg-blue-50' : ''
+              }`}
+              onDragOver={(e) => handleDragOver(e, stage.key)}
+              onDragLeave={(e) => handleDragLeave(e, stage.key)}
+              onDrop={(e) => handleDrop(e, stage.key)}
+            >
               <div className="p-4 border-b border-gray-100">
                 <h3 className="font-semibold text-gray-900">{stage.label}</h3>
                 <span className="text-sm text-gray-500">{stageOrders.length} orders</span>
               </div>
-              <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+              <div className={`p-4 space-y-3 max-h-96 overflow-y-auto min-h-[80px] ${
+                dragOverColumn === stage.key ? 'bg-blue-50/50' : ''
+              }`}>
                 {stageOrders.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">No orders in this stage</p>
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    {draggedOrder ? 'Drop here' : 'No orders in this stage'}
+                  </p>
                 ) : stageOrders.map(order => (
-                  <div key={order.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div
+                    key={order.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, order)}
+                    onDragEnd={handleDragEnd}
+                    className={`bg-gray-50 rounded-lg p-3 border border-gray-200 cursor-grab active:cursor-grabbing transition-opacity duration-200 ${
+                      draggedOrder?.id === order.id ? 'opacity-40' : 'opacity-100'
+                    }`}
+                  >
                     <div className="flex justify-between items-start">
                       <div className="text-sm font-medium text-gray-900">{order.order_number}</div>
                       <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getPriorityColor(order.priority)}`}>
