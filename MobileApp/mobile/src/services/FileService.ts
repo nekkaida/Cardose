@@ -1,7 +1,8 @@
 import * as FileSystem from 'expo-file-system';
 import { API_CONFIG } from '../config';
 
-const API_BASE_URL = API_CONFIG.API_URL;
+// Use a getter so the URL is always current (supports runtime URL changes)
+const getApiUrl = () => API_CONFIG.API_URL;
 
 export interface UploadedFile {
   id: string;
@@ -25,7 +26,7 @@ export class FileService {
   async uploadFile(uri: string, filename: string): Promise<UploadedFile> {
     try {
       const uploadResult = await FileSystem.uploadAsync(
-        `${API_BASE_URL}/files/upload`,
+        `${getApiUrl()}/files/upload`,
         uri,
         {
           fieldName: 'file',
@@ -76,7 +77,7 @@ export class FileService {
    */
   async getFileMetadata(fileId: string): Promise<any> {
     try {
-      const response = await fetch(`${API_BASE_URL}/files/${fileId}/metadata`, {
+      const response = await fetch(`${getApiUrl()}/files/${fileId}/metadata`, {
         headers: {
           Authorization: `Bearer ${this.token}`,
         },
@@ -99,7 +100,7 @@ export class FileService {
    */
   async deleteFile(fileId: string): Promise<void> {
     try {
-      const response = await fetch(`${API_BASE_URL}/files/${fileId}`, {
+      const response = await fetch(`${getApiUrl()}/files/${fileId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${this.token}`,
@@ -126,7 +127,7 @@ export class FileService {
    */
   async getUserFiles(userId: string): Promise<any[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/files/user/${userId}`, {
+      const response = await fetch(`${getApiUrl()}/files/user/${userId}`, {
         headers: {
           Authorization: `Bearer ${this.token}`,
         },
@@ -149,7 +150,7 @@ export class FileService {
    */
   async getFileStats(): Promise<{ totalFiles: number; totalSize: number; totalSizeMB: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/files/stats/summary`, {
+      const response = await fetch(`${getApiUrl()}/files/stats/summary`, {
         headers: {
           Authorization: `Bearer ${this.token}`,
         },
@@ -172,7 +173,7 @@ export class FileService {
   async downloadFile(fileId: string, filename: string): Promise<string> {
     try {
       const downloadResumable = FileSystem.createDownloadResumable(
-        `${API_BASE_URL}/files/${fileId}`,
+        `${getApiUrl()}/files/${fileId}`,
         FileSystem.documentDirectory + filename,
         {
           headers: {
@@ -198,14 +199,14 @@ export class FileService {
    * Get full file URL
    */
   getFileUrl(fileId: string): string {
-    return `${API_BASE_URL}/files/${fileId}`;
+    return `${getApiUrl()}/files/${fileId}`;
   }
 
   /**
    * Get thumbnail URL
    */
   getThumbnailUrl(fileId: string): string {
-    return `${API_BASE_URL}/files/${fileId}/thumbnail`;
+    return `${getApiUrl()}/files/${fileId}/thumbnail`;
   }
 }
 
