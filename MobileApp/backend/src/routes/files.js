@@ -314,6 +314,52 @@ async function fileRoutes(fastify, options) {
     }
   });
 
+  // List files by order
+  fastify.get('/order/:orderId', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { orderId } = request.params;
+
+      const files = await db.getOrderFiles(orderId);
+
+      return {
+        success: true,
+        files: files.map(f => ({
+          id: f.id,
+          filename: f.filename,
+          mimetype: f.mimetype,
+          size: f.size,
+          uploadedAt: f.created_at,
+          url: `/api/files/${f.id}`,
+          thumbnailUrl: f.has_thumbnail ? `/api/files/${f.id}/thumbnail` : null
+        }))
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to retrieve order files' });
+    }
+  });
+
+  // Attach a file to an order
+  fastify.post('/order/:orderId/attach/:fileId', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
+    try {
+      const { orderId, fileId } = request.params;
+
+      await db.attachFileToOrder(orderId, fileId);
+
+      return {
+        success: true,
+        message: 'File attached to order successfully'
+      };
+    } catch (error) {
+      fastify.log.error(error);
+      reply.status(500).send({ error: 'Failed to attach file to order' });
+    }
+  });
+
   // List files by user
   fastify.get('/user/:userId', {
     preHandler: [fastify.authenticate]
