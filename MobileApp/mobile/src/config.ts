@@ -15,18 +15,32 @@ const IS_PROD = ENV === 'production';
 
 // API Configuration
 export const API_CONFIG = {
-  // Base URL - change this based on environment
-  BASE_URL: IS_PROD
+  // Default Base URL (compile-time fallback)
+  DEFAULT_BASE_URL: IS_PROD
     ? 'https://api.cardose.com'
     : 'http://localhost:3001',
 
-  // API endpoint
+  // Runtime base URL (set from AsyncStorage on app startup)
+  _runtimeBaseUrl: '',
+
+  get BASE_URL(): string {
+    return this._runtimeBaseUrl || this.DEFAULT_BASE_URL;
+  },
+
+  set BASE_URL(url: string) {
+    this._runtimeBaseUrl = url;
+  },
+
+  // API endpoint path
   API_PATH: '/api',
 
-  // Full API URL
+  // Full API URL (computed)
   get API_URL() {
     return `${this.BASE_URL}${this.API_PATH}`;
   },
+
+  // AsyncStorage key for user-configured server URL
+  SERVER_URL_KEY: '@cardose_server_url',
 
   // Timeout settings
   TIMEOUT: 30000, // 30 seconds
