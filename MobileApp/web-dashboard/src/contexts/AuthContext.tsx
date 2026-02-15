@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 
+export const apiClient = axios.create({
+  timeout: 15000, // 15 seconds
+});
+
 interface User {
   id: string;
   username: string;
@@ -45,14 +49,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (savedToken && savedUser) {
         try {
-          const response = await axios.get(`${API_BASE_URL}/auth/verify`, {
+          const response = await apiClient.get(`${API_BASE_URL}/auth/verify`, {
             headers: { Authorization: `Bearer ${savedToken}` }
           });
 
           if (response.data.valid) {
+            const parsed = JSON.parse(savedUser);
+            if (!parsed || !parsed.id || !parsed.username) {
+              throw new Error('Invalid stored user data');
+            }
             setToken(savedToken);
-            setUser(JSON.parse(savedUser));
-            axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+            setUser(parsed);
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
           } else {
             localStorage.removeItem('auth_token');
             localStorage.removeItem('auth_user');
@@ -71,44 +79,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
+      const response = await apiClient.post(`${API_BASE_URL}/auth/login`, {
         username,
         password
       });
 
       if (response.data.success) {
         const { token: authToken, user: userData } = response.data;
-        
+
+        if (!authToken || typeof authToken !== 'string' || !userData || !userData.id) {
+          console.error('Login failed');
+          return false;
+        }
+
         setToken(authToken);
         setUser(userData);
-        
+
         // Save to localStorage
         localStorage.setItem('auth_token', authToken);
         localStorage.setItem('auth_user', JSON.stringify(userData));
-        
+
         // Set default authorization header
-        axios.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
-        
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+
         return true;
       }
-      
+
       return false;
-    } catch (error) {
-      console.error('Login error:', error);
-      return false;
+    } catch (error: any) {
+      console.error('Login failed');
+      if (error.response) {
+        // Server responded with error status
+        return false;
+      } else if (error.request) {
+        // No response received (network error)
+        throw new Error('Unable to connect to server. Please check your connection.');
+      } else {
+        throw new Error('An unexpected error occurred.');
+      }
     }
   };
 
   const logout = () => {
     setUser(null);
     setToken(null);
-    
+
     // Remove from localStorage
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_user');
-    
+
     // Remove authorization header
-    delete axios.defaults.headers.common['Authorization'];
+    delete apiClient.defaults.headers.common['Authorization'];
   };
 
   const value: AuthContextType = {
