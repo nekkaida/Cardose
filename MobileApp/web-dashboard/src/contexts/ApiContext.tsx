@@ -243,7 +243,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   };
 
   const getRevenueAnalytics = async () => {
-    const response = await api.get(`/analytics/revenue`);
+    const response = await api.get(`/analytics/revenue-trend`);
     return response.data;
   };
 
