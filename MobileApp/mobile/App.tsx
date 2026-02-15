@@ -15,6 +15,7 @@ import {
   initializeAuth,
 } from './src/store/slices/authSlice';
 import { DatabaseService } from './src/services/DatabaseService';
+import { ApiService } from './src/services/ApiService';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 // Screen and Navigator imports
@@ -143,10 +144,11 @@ export default function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
+        await ApiService.initialize();
         await DatabaseService.initialize();
-        console.log('DatabaseService initialized successfully');
+        console.log('App services initialized successfully');
       } catch (error) {
-        console.error('Failed to initialize DatabaseService:', error);
+        console.error('Failed to initialize app services:', error);
       }
     };
 
