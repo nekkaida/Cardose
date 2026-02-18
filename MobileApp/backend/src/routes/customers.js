@@ -8,7 +8,7 @@ async function customerRoutes(fastify, options) {
   // Get all customers (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { search, business_type, loyalty_status } = request.query;
+      const { search, business_type, loyalty_status, sort_by, sort_order } = request.query;
       const { limit, page, offset } = parsePagination(request.query);
 
       let query = 'SELECT * FROM customers WHERE 1=1';
@@ -29,7 +29,19 @@ async function customerRoutes(fastify, options) {
         params.push(loyalty_status);
       }
 
-      query += ' ORDER BY created_at DESC';
+      // Dynamic sorting with whitelist to prevent SQL injection
+      const allowedSortColumns = {
+        name: 'name',
+        email: 'email',
+        business_type: 'business_type',
+        loyalty_status: 'loyalty_status',
+        total_orders: 'total_orders',
+        total_spent: 'total_spent',
+        created_at: 'created_at'
+      };
+      const sortColumn = allowedSortColumns[sort_by] || 'created_at';
+      const sortDirection = sort_order === 'asc' ? 'ASC' : 'DESC';
+      query += ` ORDER BY ${sortColumn} ${sortDirection}`;
 
       // Get total count
       const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total');
@@ -50,7 +62,10 @@ async function customerRoutes(fastify, options) {
           SUM(CASE WHEN business_type = 'wedding' THEN 1 ELSE 0 END) as wedding,
           SUM(CASE WHEN business_type = 'individual' THEN 1 ELSE 0 END) as individual,
           SUM(CASE WHEN business_type = 'event' THEN 1 ELSE 0 END) as event,
-          COALESCE(SUM(total_spent), 0) as totalValue
+          COALESCE(SUM(total_spent), 0) as totalValue,
+          SUM(CASE WHEN loyalty_status = 'new' THEN 1 ELSE 0 END) as loyalty_new,
+          SUM(CASE WHEN loyalty_status = 'regular' THEN 1 ELSE 0 END) as loyalty_regular,
+          SUM(CASE WHEN loyalty_status = 'vip' THEN 1 ELSE 0 END) as loyalty_vip
         FROM customers
       `).get();
       const stats = {
@@ -58,7 +73,10 @@ async function customerRoutes(fastify, options) {
         wedding: statsRow.wedding,
         individual: statsRow.individual,
         event: statsRow.event,
-        totalValue: statsRow.totalValue
+        totalValue: statsRow.totalValue,
+        loyalty_new: statsRow.loyalty_new,
+        loyalty_regular: statsRow.loyalty_regular,
+        loyalty_vip: statsRow.loyalty_vip
       };
 
       return {
@@ -97,7 +115,7 @@ async function customerRoutes(fastify, options) {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
-      const { name, email, phone, business_type, loyalty_status = 'new' } = request.body;
+      const { name, email, phone, address, business_type, loyalty_status = 'new' } = request.body;
 
       if (!name) {
         reply.code(400);
@@ -106,10 +124,10 @@ async function customerRoutes(fastify, options) {
 
       const id = uuidv4();
       const stmt = db.db.prepare(`
-        INSERT INTO customers (id, name, email, phone, business_type, loyalty_status, total_orders, total_spent)
-        VALUES (?, ?, ?, ?, ?, ?, 0, 0)
+        INSERT INTO customers (id, name, email, phone, address, business_type, loyalty_status, total_orders, total_spent)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
       `);
-      stmt.run(id, name, email, phone, business_type, loyalty_status);
+      stmt.run(id, name, email, phone, address, business_type, loyalty_status);
 
       const customer = db.db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
 
@@ -163,6 +181,7 @@ async function customerRoutes(fastify, options) {
           name: { type: 'string' },
           email: { type: 'string' },
           phone: { type: 'string' },
+          address: { type: 'string' },
           business_type: { type: 'string' },
           loyalty_status: { type: 'string' }
         },
@@ -187,6 +206,7 @@ async function customerRoutes(fastify, options) {
       if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
       if (updates.email !== undefined) { fields.push('email = ?'); values.push(updates.email); }
       if (updates.phone !== undefined) { fields.push('phone = ?'); values.push(updates.phone); }
+      if (updates.address !== undefined) { fields.push('address = ?'); values.push(updates.address); }
       if (updates.business_type !== undefined) { fields.push('business_type = ?'); values.push(updates.business_type); }
       if (updates.loyalty_status !== undefined) { fields.push('loyalty_status = ?'); values.push(updates.loyalty_status); }
 
@@ -223,6 +243,12 @@ async function customerRoutes(fastify, options) {
       if (!existing) {
         reply.code(404);
         return { success: false, error: 'Customer not found' };
+      }
+
+      const relatedOrders = db.db.prepare('SELECT COUNT(*) as count FROM orders WHERE customer_id = ?').get(id);
+      if (relatedOrders.count > 0) {
+        reply.code(409);
+        return { success: false, error: `Cannot delete customer with ${relatedOrders.count} existing order(s). Delete or reassign orders first.` };
       }
 
       db.db.prepare('DELETE FROM customers WHERE id = ?').run(id);
