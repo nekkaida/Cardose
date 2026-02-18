@@ -24,7 +24,7 @@ interface DashboardOrders {
   active_orders: number;
   cancelled_orders: number;
   average_value: number;
-  completion_rate: number;
+  completion_rate: number | string;
 }
 
 interface DashboardCustomers {
@@ -501,13 +501,13 @@ const AnalyticsPage: React.FC = () => {
               {tr('analytics.completionRate', 'Completion Rate')}
             </p>
             <p className="text-2xl font-bold text-gray-900 mt-1">
-              {(orders?.completion_rate ?? 0).toFixed(1)}%
+              {Number(orders?.completion_rate ?? 0).toFixed(1)}%
             </p>
           </div>
           <div className="w-48 bg-gray-200 rounded-full h-3">
             <div
               className="bg-[#2C5530] h-3 rounded-full transition-all"
-              style={{ width: `${Math.min(orders?.completion_rate ?? 0, 100)}%` }}
+              style={{ width: `${Math.min(Number(orders?.completion_rate ?? 0), 100)}%` }}
             />
           </div>
         </div>
