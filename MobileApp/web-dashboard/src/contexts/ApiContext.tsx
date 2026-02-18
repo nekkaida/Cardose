@@ -1,32 +1,5 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import axios from 'axios';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-});
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('auth_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
+import { apiClient } from './AuthContext';
 
 interface ApiContextType {
   // Orders
@@ -114,255 +87,255 @@ interface ApiProviderProps {
 export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Orders API
   const getOrders = async (params?: Record<string, any>) => {
-    const response = await api.get(`/orders`, { params });
+    const response = await apiClient.get(`/orders`, { params });
     return response.data;
   };
 
   const getOrderStats = async () => {
-    const response = await api.get(`/orders/stats`);
+    const response = await apiClient.get(`/orders/stats`);
     return response.data;
   };
 
   const createOrder = async (orderData: any) => {
-    const response = await api.post(`/orders`, orderData);
+    const response = await apiClient.post(`/orders`, orderData);
     return response.data;
   };
 
   const updateOrder = async (id: string, updates: any) => {
-    const response = await api.put(`/orders/${id}`, updates);
+    const response = await apiClient.put(`/orders/${id}`, updates);
     return response.data;
   };
 
   const updateOrderStatus = async (id: string, status: string) => {
-    const response = await api.patch(`/orders/${id}/status`, { status });
+    const response = await apiClient.patch(`/orders/${id}/status`, { status });
     return response.data;
   };
 
   const deleteOrder = async (id: string) => {
-    const response = await api.delete(`/orders/${id}`);
+    const response = await apiClient.delete(`/orders/${id}`);
     return response.data;
   };
 
   // Customers API
   const getCustomers = async (params?: Record<string, any>) => {
-    const response = await api.get(`/customers`, { params });
+    const response = await apiClient.get(`/customers`, { params });
     return response.data;
   };
 
   const createCustomer = async (customerData: any) => {
-    const response = await api.post(`/customers`, customerData);
+    const response = await apiClient.post(`/customers`, customerData);
     return response.data;
   };
 
   const updateCustomer = async (id: string, updates: any) => {
-    const response = await api.put(`/customers/${id}`, updates);
+    const response = await apiClient.put(`/customers/${id}`, updates);
     return response.data;
   };
 
   const deleteCustomer = async (id: string) => {
-    const response = await api.delete(`/customers/${id}`);
+    const response = await apiClient.delete(`/customers/${id}`);
     return response.data;
   };
 
   // Inventory API
   const getInventory = async (params?: Record<string, any>) => {
-    const response = await api.get(`/inventory`, { params });
+    const response = await apiClient.get(`/inventory`, { params });
     return response.data;
   };
 
   const getInventoryStats = async () => {
-    const response = await api.get(`/inventory/stats`);
+    const response = await apiClient.get(`/inventory/stats`);
     return response.data;
   };
 
   const createInventoryItem = async (itemData: any) => {
-    const response = await api.post(`/inventory`, itemData);
+    const response = await apiClient.post(`/inventory`, itemData);
     return response.data;
   };
 
   const updateInventoryItem = async (id: string, updates: any) => {
-    const response = await api.put(`/inventory/${id}`, updates);
+    const response = await apiClient.put(`/inventory/${id}`, updates);
     return response.data;
   };
 
   const updateInventoryStock = async (id: string, stockData: any) => {
-    const response = await api.put(`/inventory/${id}/stock`, stockData);
+    const response = await apiClient.put(`/inventory/${id}/stock`, stockData);
     return response.data;
   };
 
   const deleteInventoryItem = async (id: string) => {
-    const response = await api.delete(`/inventory/${id}`);
+    const response = await apiClient.delete(`/inventory/${id}`);
     return response.data;
   };
 
   const createInventoryMovement = async (movementData: any) => {
-    const response = await api.post(`/inventory/movements`, movementData);
+    const response = await apiClient.post(`/inventory/movements`, movementData);
     return response.data;
   };
 
   // Financial API
   const getFinancialSummary = async () => {
-    const response = await api.get(`/financial/summary`);
+    const response = await apiClient.get(`/financial/summary`);
     return response.data;
   };
 
   const getTransactions = async () => {
-    const response = await api.get(`/financial/transactions`);
+    const response = await apiClient.get(`/financial/transactions`);
     return response.data;
   };
 
   const createTransaction = async (transactionData: any) => {
-    const response = await api.post(`/financial/transactions`, transactionData);
+    const response = await apiClient.post(`/financial/transactions`, transactionData);
     return response.data;
   };
 
   const calculatePricing = async (pricingData: any) => {
-    const response = await api.post(`/financial/calculate-price`, pricingData);
+    const response = await apiClient.post(`/financial/calculate-price`, pricingData);
     return response.data;
   };
 
   const getInvoices = async (params?: Record<string, any>) => {
-    const response = await api.get(`/financial/invoices`, { params });
+    const response = await apiClient.get(`/financial/invoices`, { params });
     return response.data;
   };
 
   const createInvoice = async (invoiceData: any) => {
-    const response = await api.post(`/financial/invoices`, invoiceData);
+    const response = await apiClient.post(`/financial/invoices`, invoiceData);
     return response.data;
   };
 
   const updateInvoiceStatus = async (id: string, status: string) => {
-    const response = await api.patch(`/financial/invoices/${id}/status`, { status });
+    const response = await apiClient.patch(`/financial/invoices/${id}/status`, { status });
     return response.data;
   };
 
   // Analytics API
   const getDashboardAnalytics = async () => {
-    const response = await api.get(`/analytics/dashboard`);
+    const response = await apiClient.get(`/analytics/dashboard`);
     return response.data;
   };
 
   const getRevenueAnalytics = async () => {
-    const response = await api.get(`/analytics/revenue-trend`);
+    const response = await apiClient.get(`/analytics/revenue-trend`);
     return response.data;
   };
 
   const getCustomerAnalytics = async () => {
-    const response = await api.get(`/analytics/customers`);
+    const response = await apiClient.get(`/analytics/customers`);
     return response.data;
   };
 
   const getInventoryAnalytics = async () => {
-    const response = await api.get(`/analytics/inventory`);
+    const response = await apiClient.get(`/analytics/inventory`);
     return response.data;
   };
 
   const getProductionAnalytics = async () => {
-    const response = await api.get(`/analytics/production`);
+    const response = await apiClient.get(`/analytics/production`);
     return response.data;
   };
 
   // Production API
   const getProductionBoard = async () => {
-    const response = await api.get(`/production/board`);
+    const response = await apiClient.get(`/production/board`);
     return response.data;
   };
 
   const getProductionTasks = async (params?: Record<string, any>) => {
-    const response = await api.get(`/production/tasks`, { params });
+    const response = await apiClient.get(`/production/tasks`, { params });
     return response.data;
   };
 
   const getProductionStats = async () => {
-    const response = await api.get(`/production/stats`);
+    const response = await apiClient.get(`/production/stats`);
     return response.data;
   };
 
   const createProductionTask = async (taskData: any) => {
-    const response = await api.post(`/production/tasks`, taskData);
+    const response = await apiClient.post(`/production/tasks`, taskData);
     return response.data;
   };
 
   const updateProductionTask = async (id: string, updates: any) => {
-    const response = await api.put(`/production/tasks/${id}`, updates);
+    const response = await apiClient.put(`/production/tasks/${id}`, updates);
     return response.data;
   };
 
   const updateTaskStatus = async (id: string, status: string) => {
-    const response = await api.patch(`/production/tasks/${id}/status`, { status });
+    const response = await apiClient.patch(`/production/tasks/${id}/status`, { status });
     return response.data;
   };
 
   const deleteProductionTask = async (id: string) => {
-    const response = await api.delete(`/production/tasks/${id}`);
+    const response = await apiClient.delete(`/production/tasks/${id}`);
     return response.data;
   };
 
   // Reports API
   const getSalesReport = async (params?: Record<string, any>) => {
-    const response = await api.get(`/reports/sales`, { params });
+    const response = await apiClient.get(`/reports/sales`, { params });
     return response.data;
   };
 
   const getInventoryReport = async () => {
-    const response = await api.get(`/reports/inventory`);
+    const response = await apiClient.get(`/reports/inventory`);
     return response.data;
   };
 
   const getProductionReport = async () => {
-    const response = await api.get(`/reports/production`);
+    const response = await apiClient.get(`/reports/production`);
     return response.data;
   };
 
   const getCustomerReport = async () => {
-    const response = await api.get(`/reports/customers`);
+    const response = await apiClient.get(`/reports/customers`);
     return response.data;
   };
 
   const getFinancialReport = async () => {
-    const response = await api.get(`/reports/financial`);
+    const response = await apiClient.get(`/reports/financial`);
     return response.data;
   };
 
   // Users API
   const getUsers = async (params?: Record<string, any>) => {
-    const response = await api.get(`/users`, { params });
+    const response = await apiClient.get(`/users`, { params });
     return response.data;
   };
 
   const createUser = async (userData: any) => {
-    const response = await api.post(`/users`, userData);
+    const response = await apiClient.post(`/users`, userData);
     return response.data;
   };
 
   const updateUser = async (id: string, updates: any) => {
-    const response = await api.put(`/users/${id}`, updates);
+    const response = await apiClient.put(`/users/${id}`, updates);
     return response.data;
   };
 
   const updateUserStatus = async (id: string, status: any) => {
-    const response = await api.patch(`/users/${id}/status`, status);
+    const response = await apiClient.patch(`/users/${id}/status`, status);
     return response.data;
   };
 
   const deleteUser = async (id: string) => {
-    const response = await api.delete(`/users/${id}`);
+    const response = await apiClient.delete(`/users/${id}`);
     return response.data;
   };
 
   // Settings API
   const getSettings = async () => {
-    const response = await api.get(`/settings`);
+    const response = await apiClient.get(`/settings`);
     return response.data;
   };
 
   const updateSetting = async (key: string, data: any) => {
-    const response = await api.put(`/settings/${key}`, data);
+    const response = await apiClient.put(`/settings/${key}`, data);
     return response.data;
   };
 
   const deleteSetting = async (key: string) => {
-    const response = await api.delete(`/settings/${key}`);
+    const response = await apiClient.delete(`/settings/${key}`);
     return response.data;
   };
 
