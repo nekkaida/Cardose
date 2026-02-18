@@ -45,6 +45,20 @@ const db = new Database(fastify.log);
 // Make database available in all routes
 fastify.decorate('db', db);
 
+// Ensure revoked_tokens table exists (migration for existing databases)
+fastify.addHook('onReady', async () => {
+  db.db.exec(`
+    CREATE TABLE IF NOT EXISTS revoked_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token_jti TEXT NOT NULL UNIQUE,
+      user_id TEXT NOT NULL,
+      expires_at DATETIME NOT NULL,
+      revoked_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_revoked_tokens_jti ON revoked_tokens(token_jti);
+  `);
+});
+
 // Register authentication middleware globally
 fastify.register(require('./middleware/auth'));
 
