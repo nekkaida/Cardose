@@ -54,9 +54,9 @@ interface ApiContextType {
   // Reports
   getSalesReport: (params?: Record<string, any>) => Promise<any>;
   getInventoryReport: () => Promise<any>;
-  getProductionReport: () => Promise<any>;
+  getProductionReport: (params?: Record<string, any>) => Promise<any>;
   getCustomerReport: () => Promise<any>;
-  getFinancialReport: () => Promise<any>;
+  getFinancialReport: (params?: Record<string, any>) => Promise<any>;
 
   // Users
   getUsers: (params?: Record<string, any>) => Promise<any>;
@@ -288,8 +288,8 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
     return response.data;
   };
 
-  const getProductionReport = async () => {
-    const response = await apiClient.get(`/reports/production`);
+  const getProductionReport = async (params?: Record<string, any>) => {
+    const response = await apiClient.get(`/reports/production`, { params });
     return response.data;
   };
 
@@ -298,8 +298,8 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
     return response.data;
   };
 
-  const getFinancialReport = async () => {
-    const response = await apiClient.get(`/reports/financial`);
+  const getFinancialReport = async (params?: Record<string, any>) => {
+    const response = await apiClient.get(`/reports/financial`, { params });
     return response.data;
   };
 
