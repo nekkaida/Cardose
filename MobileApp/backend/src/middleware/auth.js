@@ -7,20 +7,28 @@ async function authPlugin(fastify, options) {
     try {
       await request.jwtVerify();
 
-      // Check if token has been revoked (logout blacklist)
-      // Only check if jti exists - old tokens issued before jti was added won't have it
       const db = fastify.db;
+
+      // Check if token has been revoked (logout blacklist)
       if (request.user.jti) {
-        const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
-        if (revoked) {
-          return reply.status(401).send({ error: 'Token has been revoked' });
+        try {
+          const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
+          if (revoked) {
+            return reply.status(401).send({ error: 'Token has been revoked' });
+          }
+        } catch (e) {
+          // Table may not exist yet — skip check
         }
       }
 
       // Check if user account is still active
-      const user = db.db.prepare('SELECT is_active FROM users WHERE id = ?').get(request.user.id);
-      if (!user || !user.is_active) {
-        return reply.status(401).send({ error: 'Account is deactivated' });
+      try {
+        const user = db.db.prepare('SELECT is_active FROM users WHERE id = ?').get(request.user.id);
+        if (!user || !user.is_active) {
+          return reply.status(401).send({ error: 'Account is deactivated' });
+        }
+      } catch (e) {
+        // Skip if query fails
       }
     } catch (err) {
       if (err.code === 'FAST_JWT_EXPIRED') {
@@ -36,20 +44,28 @@ async function authPlugin(fastify, options) {
       try {
         await request.jwtVerify();
 
-        // Check if token has been revoked (logout blacklist)
-        // Only check if jti exists - old tokens issued before jti was added won't have it
         const db = fastify.db;
+
+        // Check if token has been revoked (logout blacklist)
         if (request.user.jti) {
-          const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
-          if (revoked) {
-            return reply.status(401).send({ error: 'Token has been revoked' });
+          try {
+            const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
+            if (revoked) {
+              return reply.status(401).send({ error: 'Token has been revoked' });
+            }
+          } catch (e) {
+            // Table may not exist yet — skip check
           }
         }
 
         // Check if user account is still active
-        const user = db.db.prepare('SELECT is_active FROM users WHERE id = ?').get(request.user.id);
-        if (!user || !user.is_active) {
-          return reply.status(401).send({ error: 'Account is deactivated' });
+        try {
+          const user = db.db.prepare('SELECT is_active FROM users WHERE id = ?').get(request.user.id);
+          if (!user || !user.is_active) {
+            return reply.status(401).send({ error: 'Account is deactivated' });
+          }
+        } catch (e) {
+          // Skip if query fails
         }
 
         if (!roles.includes(request.user.role)) {
