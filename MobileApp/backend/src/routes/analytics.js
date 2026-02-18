@@ -94,8 +94,8 @@ async function analyticsRoutes(fastify, options) {
           active_orders: orderStats.active_orders || 0,
           cancelled_orders: orderStats.cancelled_orders || 0,
           average_value: orderStats.average_order_value || 0,
-          completion_rate: orderStats.total_orders > 0
-            ? ((orderStats.completed_orders / orderStats.total_orders) * 100).toFixed(2)
+          completion_rate: (orderStats.total_orders - orderStats.cancelled_orders) > 0
+            ? ((orderStats.completed_orders / (orderStats.total_orders - orderStats.cancelled_orders)) * 100).toFixed(2)
             : 0
         },
         customers: {
