@@ -8,10 +8,13 @@ async function authPlugin(fastify, options) {
       await request.jwtVerify();
 
       // Check if token has been revoked (logout blacklist)
+      // Only check if jti exists - old tokens issued before jti was added won't have it
       const db = fastify.db;
-      const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
-      if (revoked) {
-        return reply.status(401).send({ error: 'Token has been revoked' });
+      if (request.user.jti) {
+        const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
+        if (revoked) {
+          return reply.status(401).send({ error: 'Token has been revoked' });
+        }
       }
 
       // Check if user account is still active
@@ -34,10 +37,13 @@ async function authPlugin(fastify, options) {
         await request.jwtVerify();
 
         // Check if token has been revoked (logout blacklist)
+        // Only check if jti exists - old tokens issued before jti was added won't have it
         const db = fastify.db;
-        const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
-        if (revoked) {
-          return reply.status(401).send({ error: 'Token has been revoked' });
+        if (request.user.jti) {
+          const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
+          if (revoked) {
+            return reply.status(401).send({ error: 'Token has been revoked' });
+          }
         }
 
         // Check if user account is still active
