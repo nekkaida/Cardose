@@ -35,7 +35,7 @@ interface ApiContextType {
   updateInvoiceStatus: (id: string, status: string) => Promise<any>;
 
   // Analytics
-  getDashboardAnalytics: () => Promise<any>;
+  getDashboardAnalytics: (params?: Record<string, any>) => Promise<any>;
   getRevenueAnalytics: () => Promise<any>;
   getCustomerAnalytics: () => Promise<any>;
   getInventoryAnalytics: () => Promise<any>;
@@ -210,8 +210,8 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   };
 
   // Analytics API
-  const getDashboardAnalytics = async () => {
-    const response = await apiClient.get(`/analytics/dashboard`);
+  const getDashboardAnalytics = async (params?: Record<string, any>) => {
+    const response = await apiClient.get(`/analytics/dashboard`, { params });
     return response.data;
   };
 
