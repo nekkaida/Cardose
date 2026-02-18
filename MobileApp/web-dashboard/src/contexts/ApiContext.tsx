@@ -27,7 +27,7 @@ interface ApiContextType {
 
   // Financial
   getFinancialSummary: () => Promise<any>;
-  getTransactions: () => Promise<any>;
+  getTransactions: (params?: Record<string, any>) => Promise<any>;
   createTransaction: (transactionData: any) => Promise<any>;
   calculatePricing: (pricingData: any) => Promise<any>;
   getInvoices: (params?: Record<string, any>) => Promise<any>;
@@ -179,8 +179,8 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
     return response.data;
   };
 
-  const getTransactions = async () => {
-    const response = await apiClient.get(`/financial/transactions`);
+  const getTransactions = async (params?: Record<string, any>) => {
+    const response = await apiClient.get(`/financial/transactions`, { params });
     return response.data;
   };
 
