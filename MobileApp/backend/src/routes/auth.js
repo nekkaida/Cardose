@@ -78,7 +78,8 @@ async function authRoutes(fastify, options) {
         id: userId,
         username,
         email,
-        role: userRole
+        role: userRole,
+        jti: crypto.randomUUID()
       }, { expiresIn: '24h' });
 
       return {
