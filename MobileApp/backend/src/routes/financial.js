@@ -8,7 +8,7 @@ async function financialRoutes(fastify, options) {
   // Get all transactions (requires authentication)
   fastify.get('/transactions', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { type, category, startDate, endDate } = request.query;
+      const { type, category, startDate, endDate, search, sort_by, sort_order } = request.query;
       const { limit, page, offset } = parsePagination(request.query);
 
       let query = 'SELECT * FROM financial_transactions WHERE 1=1';
@@ -31,7 +31,16 @@ async function financialRoutes(fastify, options) {
         params.push(endDate);
       }
 
-      query += ' ORDER BY payment_date DESC, created_at DESC';
+      if (search) {
+        query += ' AND (description LIKE ? OR category LIKE ? OR reference_number LIKE ?)';
+        const searchPattern = `%${search}%`;
+        params.push(searchPattern, searchPattern, searchPattern);
+      }
+
+      const allowedSortColumns = ['payment_date', 'amount', 'category', 'type', 'created_at', 'description'];
+      const sortColumn = allowedSortColumns.includes(sort_by) ? sort_by : 'payment_date';
+      const sortDirection = sort_order === 'asc' ? 'ASC' : 'DESC';
+      query += ` ORDER BY ${sortColumn} ${sortDirection}, created_at DESC`;
 
       // Get total count
       const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total');
@@ -61,6 +70,14 @@ async function financialRoutes(fastify, options) {
         totalPpnPaid: txStats.totalPpnPaid
       };
 
+      // Category breakdown for chart
+      const categoryBreakdown = db.db.prepare(`
+        SELECT category, type, SUM(amount) as total, COUNT(*) as count
+        FROM financial_transactions
+        GROUP BY category, type
+        ORDER BY total DESC
+      `).all();
+
       return {
         success: true,
         transactions,
@@ -68,7 +85,8 @@ async function financialRoutes(fastify, options) {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
-        summary
+        summary,
+        categoryBreakdown
       };
     } catch (error) {
       fastify.log.error(error);
@@ -314,7 +332,7 @@ async function financialRoutes(fastify, options) {
   // Get all invoices (requires authentication)
   fastify.get('/invoices', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { status, customer_id, startDate, endDate } = request.query;
+      const { status, customer_id, startDate, endDate, search, sort_by, sort_order } = request.query;
       const { limit, page, offset } = parsePagination(request.query);
 
       let query = `
@@ -343,7 +361,18 @@ async function financialRoutes(fastify, options) {
         params.push(endDate);
       }
 
-      query += ' ORDER BY i.issue_date DESC, i.created_at DESC';
+      if (search) {
+        query += ' AND (i.invoice_number LIKE ? OR c.name LIKE ?)';
+        const searchPattern = `%${search}%`;
+        params.push(searchPattern, searchPattern);
+      }
+
+      const allowedSortColumns = ['issue_date', 'total_amount', 'status', 'invoice_number', 'due_date', 'created_at'];
+      const sortColumnMap = { customer_name: 'c.name' };
+      let sortColumn = allowedSortColumns.includes(sort_by) ? `i.${sort_by}` : 'i.issue_date';
+      if (sort_by === 'customer_name') sortColumn = 'c.name';
+      const sortDirection = sort_order === 'asc' ? 'ASC' : 'DESC';
+      query += ` ORDER BY ${sortColumn} ${sortDirection}, i.created_at DESC`;
 
       // Get total count
       const countQuery = query.replace(/SELECT i\.\*, c\.name as customer_name, o\.order_number/, 'SELECT COUNT(*) as total');
@@ -414,9 +443,9 @@ async function financialRoutes(fastify, options) {
       const totalAmount = afterDiscount + ppnAmount;
 
       db.db.prepare(`
-        INSERT INTO invoices (id, invoice_number, order_id, customer_id, subtotal, discount, ppn_rate, ppn_amount, total_amount, status, issue_date, due_date, notes, items)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', DATE('now'), ?, ?, ?)
-      `).run(id, invoiceNumber, order_id, customer_id, subtotal || 0, discount, PPN_RATE * 100, ppnAmount, totalAmount, due_date, notes, items ? JSON.stringify(items) : null);
+        INSERT INTO invoices (id, invoice_number, order_id, customer_id, subtotal, discount, ppn_rate, ppn_amount, total_amount, status, issue_date, due_date, notes, items, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', DATE('now'), ?, ?, ?, ?)
+      `).run(id, invoiceNumber, order_id, customer_id, subtotal || 0, discount, PPN_RATE * 100, ppnAmount, totalAmount, due_date, notes, items ? JSON.stringify(items) : null, request.user?.id || 'system');
 
       const invoice = db.db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
 
@@ -471,7 +500,7 @@ async function financialRoutes(fastify, options) {
   });
 
   // Update invoice status (requires authentication)
-  fastify.patch('/invoices/:id/status', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['draft', 'sent', 'paid', 'overdue', 'cancelled'] }, paid_date: { type: 'string' }, payment_method: { type: 'string' } } } } }, async (request, reply) => {
+  fastify.patch('/invoices/:id/status', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['unpaid', 'paid', 'overdue', 'cancelled'] }, paid_date: { type: 'string' }, payment_method: { type: 'string' } } } } }, async (request, reply) => {
     try {
       const { id } = request.params;
       const { status, paid_date, payment_method } = request.body;
@@ -481,7 +510,7 @@ async function financialRoutes(fastify, options) {
         return { success: false, error: 'Status is required' };
       }
 
-      const validStatuses = ['unpaid', 'paid', 'overdue', 'cancelled', 'partial'];
+      const validStatuses = ['unpaid', 'paid', 'overdue', 'cancelled'];
       if (!validStatuses.includes(status)) {
         reply.code(400);
         return { success: false, error: 'Invalid status value' };
@@ -514,8 +543,8 @@ async function financialRoutes(fastify, options) {
       if (status === 'paid') {
         const transactionId = uuidv4();
         db.db.prepare(`
-          INSERT INTO financial_transactions (id, type, category, amount, description, order_id, payment_method, payment_date, ppn_amount, base_amount, invoice_number)
-          VALUES (?, 'income', 'sales', ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO financial_transactions (id, type, category, amount, description, order_id, payment_method, payment_date, ppn_amount, base_amount, invoice_number, created_by)
+          VALUES (?, 'income', 'sales', ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           transactionId,
           existing.total_amount,
@@ -525,7 +554,8 @@ async function financialRoutes(fastify, options) {
           paid_date || new Date().toISOString().split('T')[0],
           existing.ppn_amount,
           existing.subtotal - existing.discount,
-          existing.invoice_number
+          existing.invoice_number,
+          request.user.id
         );
       }
 
