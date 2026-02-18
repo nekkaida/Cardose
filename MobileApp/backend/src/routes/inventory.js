@@ -7,7 +7,7 @@ async function inventoryRoutes(fastify, options) {
   // Get all inventory items (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { category, lowStock, search } = request.query;
+      const { category, lowStock, search, sort_by, sort_order } = request.query;
       const { limit, page, offset } = parsePagination(request.query);
 
       let query = 'SELECT * FROM inventory_materials WHERE 1=1';
@@ -27,7 +27,18 @@ async function inventoryRoutes(fastify, options) {
         params.push(`%${search}%`, `%${search}%`);
       }
 
-      query += ' ORDER BY name ASC';
+      // Dynamic sorting with whitelist
+      const allowedSortColumns = {
+        name: 'name',
+        category: 'category',
+        current_stock: 'current_stock',
+        reorder_level: 'reorder_level',
+        unit_cost: 'unit_cost',
+        created_at: 'created_at'
+      };
+      const sortColumn = allowedSortColumns[sort_by] || 'name';
+      const sortDirection = sort_order === 'desc' ? 'DESC' : 'ASC';
+      query += ` ORDER BY ${sortColumn} ${sortDirection}`;
 
       // Get total count
       const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total');
@@ -44,11 +55,12 @@ async function inventoryRoutes(fastify, options) {
       const statsRow = db.db.prepare(`
         SELECT
           COUNT(*) as total,
-          SUM(CASE WHEN category = 'paper' THEN 1 ELSE 0 END) as paper,
+          SUM(CASE WHEN category = 'cardboard' THEN 1 ELSE 0 END) as cardboard,
+          SUM(CASE WHEN category = 'fabric' THEN 1 ELSE 0 END) as fabric,
           SUM(CASE WHEN category = 'ribbon' THEN 1 ELSE 0 END) as ribbon,
           SUM(CASE WHEN category = 'accessories' THEN 1 ELSE 0 END) as accessories,
           SUM(CASE WHEN category = 'packaging' THEN 1 ELSE 0 END) as packaging,
-          SUM(CASE WHEN category = 'printing' THEN 1 ELSE 0 END) as printing,
+          SUM(CASE WHEN category = 'tools' THEN 1 ELSE 0 END) as tools,
           SUM(CASE WHEN current_stock <= reorder_level THEN 1 ELSE 0 END) as lowStock,
           SUM(CASE WHEN current_stock <= 0 THEN 1 ELSE 0 END) as outOfStock,
           COALESCE(SUM(current_stock * unit_cost), 0) as totalValue
@@ -56,11 +68,12 @@ async function inventoryRoutes(fastify, options) {
       `).get();
       const stats = {
         total: statsRow.total,
-        paper: statsRow.paper,
+        cardboard: statsRow.cardboard,
+        fabric: statsRow.fabric,
         ribbon: statsRow.ribbon,
         accessories: statsRow.accessories,
         packaging: statsRow.packaging,
-        printing: statsRow.printing,
+        tools: statsRow.tools,
         lowStock: statsRow.lowStock,
         outOfStock: statsRow.outOfStock,
         totalValue: statsRow.totalValue
@@ -307,7 +320,25 @@ async function inventoryRoutes(fastify, options) {
   });
 
   // Record inventory movement (requires authentication)
-  fastify.post('/movements', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/movements', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['type', 'item_id', 'quantity'],
+        properties: {
+          type: { type: 'string' },
+          item_id: { type: 'string' },
+          quantity: { type: 'number' },
+          unit_cost: { type: 'number' },
+          reason: { type: 'string' },
+          order_id: { type: 'string' },
+          notes: { type: 'string' }
+        },
+        additionalProperties: false
+      }
+    },
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const { type, item_id, quantity, unit_cost, reason, order_id, notes } = request.body;
 
@@ -337,7 +368,7 @@ async function inventoryRoutes(fastify, options) {
 
       // Update stock level
       let newStock = item.current_stock;
-      if (type === 'purchase' || type === 'return') {
+      if (type === 'purchase') {
         newStock += quantity;
       } else if (type === 'usage' || type === 'sale' || type === 'waste') {
         newStock -= quantity;
