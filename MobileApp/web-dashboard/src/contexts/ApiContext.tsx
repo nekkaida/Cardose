@@ -49,6 +49,7 @@ interface ApiContextType {
   updateProductionTask: (id: string, updates: any) => Promise<any>;
   updateTaskStatus: (id: string, status: string) => Promise<any>;
   deleteProductionTask: (id: string) => Promise<any>;
+  updateProductionStage: (id: string, stage: string, notes?: string) => Promise<any>;
 
   // Reports
   getSalesReport: (params?: Record<string, any>) => Promise<any>;
@@ -271,6 +272,11 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
     return response.data;
   };
 
+  const updateProductionStage = async (id: string, stage: string, notes?: string) => {
+    const response = await apiClient.patch(`/production/orders/${id}/stage`, { stage, notes });
+    return response.data;
+  };
+
   // Reports API
   const getSalesReport = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/reports/sales`, { params });
@@ -387,6 +393,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
     updateProductionTask,
     updateTaskStatus,
     deleteProductionTask,
+    updateProductionStage,
 
     // Reports
     getSalesReport,
