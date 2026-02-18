@@ -400,19 +400,19 @@ const CustomersPage: React.FC = () => {
                 <th onClick={() => handleSort('email')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none">
                   Contact <SortIcon column="email" />
                 </th>
-                <th onClick={() => handleSort('business_type')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none">
+                <th onClick={() => handleSort('business_type')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none whitespace-nowrap">
                   Type <SortIcon column="business_type" />
                 </th>
-                <th onClick={() => handleSort('loyalty_status')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none">
+                <th onClick={() => handleSort('loyalty_status')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none whitespace-nowrap">
                   Status <SortIcon column="loyalty_status" />
                 </th>
-                <th onClick={() => handleSort('total_orders')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none">
+                <th onClick={() => handleSort('total_orders')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none whitespace-nowrap">
                   Orders <SortIcon column="total_orders" />
                 </th>
-                <th onClick={() => handleSort('total_spent')} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none">
-                  Total Spent <SortIcon column="total_spent" />
+                <th onClick={() => handleSort('total_spent')} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700 select-none whitespace-nowrap">
+                  Spent <SortIcon column="total_spent" />
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -441,38 +441,38 @@ const CustomersPage: React.FC = () => {
                 </tr>
               ) : customers.map((customer) => (
                 <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center max-w-[260px]">
+                      <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-semibold flex-shrink-0">
                         {(customer.name || '?')[0].toUpperCase()}
                       </div>
-                      <div className="ml-3">
-                        <div className="text-sm font-medium text-gray-900">{customer.name}</div>
+                      <div className="ml-3 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 truncate" title={customer.name}>{customer.name}</div>
                         <div className="text-xs text-gray-500">{formatDate(customer.created_at)}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-600">{customer.email || '-'}</div>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-600 truncate max-w-[180px]">{customer.email || '-'}</div>
                     <div className="text-xs text-gray-400">{customer.phone || '-'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBusinessColor(customer.business_type)}`}>
                       {BUSINESS_TYPE_LABELS[customer.business_type] || customer.business_type || '-'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLoyaltyColor(customer.loyalty_status)}`}>
                       {LOYALTY_LABELS[customer.loyalty_status] || customer.loyalty_status || 'New'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{customer.total_orders}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{formatCurrency(customer.total_spent)}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                  <td className="px-4 py-4 whitespace-nowrap text-right space-x-2">
                     <button onClick={() => openEdit(customer)} className="text-primary-600 hover:text-primary-800 text-sm font-medium">
                       {t('common.edit')}
                     </button>
