@@ -7,7 +7,7 @@ async function ordersRoutes(fastify, options) {
   // Get all orders (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { status, priority, customer_id } = request.query;
+      const { status, priority, customer_id, search, sort_by, sort_order } = request.query;
       const { limit, page, offset } = parsePagination(request.query);
 
       let query = 'SELECT o.*, c.name as customer_name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id WHERE 1=1';
@@ -25,8 +25,24 @@ async function ordersRoutes(fastify, options) {
         query += ' AND o.customer_id = ?';
         params.push(customer_id);
       }
+      if (search) {
+        query += ' AND (o.order_number LIKE ? OR c.name LIKE ?)';
+        params.push(`%${search}%`, `%${search}%`);
+      }
 
-      query += ' ORDER BY o.created_at DESC';
+      // Dynamic sorting with whitelist to prevent SQL injection
+      const allowedSortColumns = {
+        order_number: 'o.order_number',
+        customer_name: 'c.name',
+        status: 'o.status',
+        priority: 'o.priority',
+        total_amount: 'o.total_amount',
+        due_date: 'o.due_date',
+        created_at: 'o.created_at'
+      };
+      const sortColumn = allowedSortColumns[sort_by] || 'o.created_at';
+      const sortDirection = sort_order === 'asc' ? 'ASC' : 'DESC';
+      query += ` ORDER BY ${sortColumn} ${sortDirection}`;
 
       // Get total count
       const countQuery = query.replace('SELECT o.*, c.name as customer_name', 'SELECT COUNT(*) as total');
@@ -50,7 +66,8 @@ async function ordersRoutes(fastify, options) {
           SUM(CASE WHEN status = 'quality_control' THEN 1 ELSE 0 END) as quality_control,
           SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
           SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
-          COALESCE(SUM(total_amount), 0) as totalValue
+          COALESCE(SUM(total_amount), 0) as totalValue,
+          SUM(CASE WHEN due_date IS NOT NULL AND DATE(due_date) < DATE('now') AND status NOT IN ('completed', 'cancelled') THEN 1 ELSE 0 END) as overdue
         FROM orders
       `).get();
       const stats = {
@@ -62,7 +79,8 @@ async function ordersRoutes(fastify, options) {
         quality_control: statsRow.quality_control,
         completed: statsRow.completed,
         cancelled: statsRow.cancelled,
-        totalValue: statsRow.totalValue
+        totalValue: statsRow.totalValue,
+        overdue: statsRow.overdue
       };
 
       return {
@@ -187,7 +205,8 @@ async function ordersRoutes(fastify, options) {
           total_amount: { type: 'number' },
           items: { type: 'array' },
           due_date: { type: 'string' },
-          box_type: { type: 'string' }
+          box_type: { type: 'string' },
+          special_requests: { type: 'string' }
         },
         additionalProperties: false
       }
@@ -195,7 +214,7 @@ async function ordersRoutes(fastify, options) {
     preHandler: [fastify.authenticate]
   }, async (request, reply) => {
     try {
-      const { customer_id, total_amount, priority = 'normal', due_date, box_type } = request.body;
+      const { customer_id, total_amount, priority = 'normal', due_date, box_type, special_requests } = request.body;
 
       if (!customer_id) {
         reply.code(400);
@@ -206,9 +225,9 @@ async function ordersRoutes(fastify, options) {
       const orderNumber = await generateOrderNumber(db);
 
       db.db.prepare(`
-        INSERT INTO orders (id, order_number, customer_id, status, priority, total_amount, due_date, box_type)
-        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
-      `).run(id, orderNumber, customer_id, priority, total_amount || 0, due_date, box_type);
+        INSERT INTO orders (id, order_number, customer_id, status, priority, total_amount, due_date, box_type, special_requests)
+        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)
+      `).run(id, orderNumber, customer_id, priority, total_amount || 0, due_date, box_type, special_requests);
 
       const order = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
 
@@ -236,7 +255,8 @@ async function ordersRoutes(fastify, options) {
           total_amount: { type: 'number' },
           items: { type: 'array' },
           due_date: { type: 'string' },
-          box_type: { type: 'string' }
+          box_type: { type: 'string' },
+          special_requests: { type: 'string' }
         },
         additionalProperties: false
       }
@@ -261,6 +281,7 @@ async function ordersRoutes(fastify, options) {
       if (updates.total_amount !== undefined) { fields.push('total_amount = ?'); values.push(updates.total_amount); }
       if (updates.due_date !== undefined) { fields.push('due_date = ?'); values.push(updates.due_date); }
       if (updates.box_type !== undefined) { fields.push('box_type = ?'); values.push(updates.box_type); }
+      if (updates.special_requests !== undefined) { fields.push('special_requests = ?'); values.push(updates.special_requests); }
 
       if (fields.length === 0) {
         return { success: true, message: 'No changes made' };
