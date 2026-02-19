@@ -8,6 +8,7 @@ on:
 
 jobs:
   backend-tests:
+    name: Backend Tests & Lint
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,12 +25,20 @@ jobs:
 
       - run: npm ci
 
-      - name: Security audit
-        run: npm audit --audit-level=high
+      - name: Lint
+        run: npm run lint
 
-      - run: npm test
+      - name: Format check
+        run: npx prettier --check .
+
+      - name: Tests
+        run: npm test
+        env:
+          JWT_SECRET: ci-test-secret-must-be-at-least-32-chars-long
+          NODE_ENV: test
 
   web-build:
+    name: Frontend Build & Lint
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -46,9 +55,16 @@ jobs:
 
       - run: npm ci
 
-      - name: Security audit (critical only - CRA has unfixable transitive high vulns)
-        run: npm audit --audit-level=critical
+      - name: Lint
+        run: npm run lint
 
-      - run: npx react-scripts test --watchAll=false --ci
+      - name: Format check
+        run: npx prettier --check .
 
-      - run: npm run build
+      - name: Tests
+        run: npx react-scripts test --watchAll=false --ci
+
+      - name: Build
+        run: npm run build
+        env:
+          CI: true
