@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -7,6 +7,23 @@ export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000, // 15 seconds
 });
+
+// Module-level ref so the 401 interceptor can call logout without circular deps
+let logoutFn: (() => void) | null = null;
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (
+      error.response?.status === 401 &&
+      !error.config?.url?.includes('/auth/login') &&
+      !error.config?.url?.includes('/auth/verify')
+    ) {
+      logoutFn?.();
+    }
+    return Promise.reject(error);
+  }
+);
 
 interface User {
   id: string;
@@ -121,7 +138,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     setToken(null);
 
@@ -131,7 +148,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Remove authorization header
     delete apiClient.defaults.headers.common['Authorization'];
-  };
+  }, []);
+
+  // Keep module-level ref in sync so the 401 interceptor can trigger logout
+  useEffect(() => {
+    logoutFn = logout;
+    return () => { logoutFn = null; };
+  }, [logout]);
 
   const value: AuthContextType = {
     user,
