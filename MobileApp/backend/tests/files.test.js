@@ -25,9 +25,10 @@ describe('Files API', () => {
         method: 'POST',
         url: '/api/files/upload',
         headers: {
-          'content-type': 'multipart/form-data; boundary=boundary'
+          'content-type': 'multipart/form-data; boundary=boundary',
         },
-        payload: '--boundary\r\nContent-Disposition: form-data; name="file"; filename="test.txt"\r\nContent-Type: text/plain\r\n\r\nhello\r\n--boundary--'
+        payload:
+          '--boundary\r\nContent-Disposition: form-data; name="file"; filename="test.txt"\r\nContent-Type: text/plain\r\n\r\nhello\r\n--boundary--',
       });
 
       expect(response.statusCode).toBe(401);
@@ -42,7 +43,7 @@ describe('Files API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files/some-file-id'
+        url: '/api/files/some-file-id',
       });
 
       expect(response.statusCode).toBe(401);
@@ -53,7 +54,10 @@ describe('Files API', () => {
 
     test('should return 404 for non-existent file', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET', '/api/files/non-existent-file-id', authToken
+        app,
+        'GET',
+        '/api/files/non-existent-file-id',
+        authToken
       );
 
       expect(response.statusCode).toBe(404);
@@ -67,7 +71,7 @@ describe('Files API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files/some-file-id/thumbnail'
+        url: '/api/files/some-file-id/thumbnail',
       });
 
       expect(response.statusCode).toBe(401);
@@ -78,7 +82,10 @@ describe('Files API', () => {
 
     test('should return 404 for non-existent file', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET', '/api/files/non-existent-file-id/thumbnail', authToken
+        app,
+        'GET',
+        '/api/files/non-existent-file-id/thumbnail',
+        authToken
       );
 
       expect(response.statusCode).toBe(404);
@@ -92,7 +99,7 @@ describe('Files API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files/some-file-id/metadata'
+        url: '/api/files/some-file-id/metadata',
       });
 
       expect(response.statusCode).toBe(401);
@@ -103,7 +110,10 @@ describe('Files API', () => {
 
     test('should return 404 for non-existent file', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET', '/api/files/non-existent-file-id/metadata', authToken
+        app,
+        'GET',
+        '/api/files/non-existent-file-id/metadata',
+        authToken
       );
 
       expect(response.statusCode).toBe(404);
@@ -117,7 +127,7 @@ describe('Files API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: '/api/files/some-file-id'
+        url: '/api/files/some-file-id',
       });
 
       expect(response.statusCode).toBe(401);
@@ -128,7 +138,10 @@ describe('Files API', () => {
 
     test('should return 404 for non-existent file', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'DELETE', '/api/files/non-existent-file-id', authToken
+        app,
+        'DELETE',
+        '/api/files/non-existent-file-id',
+        authToken
       );
 
       expect(response.statusCode).toBe(404);
@@ -142,7 +155,7 @@ describe('Files API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files/user/some-user-id'
+        url: '/api/files/user/some-user-id',
       });
 
       expect(response.statusCode).toBe(401);
@@ -153,7 +166,10 @@ describe('Files API', () => {
 
     test('should return files list for own user (owner role)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET', `/api/files/user/${authUser.id}`, authToken
+        app,
+        'GET',
+        `/api/files/user/${authUser.id}`,
+        authToken
       );
 
       expect(response.statusCode).toBe(200);
@@ -164,7 +180,10 @@ describe('Files API', () => {
 
     test('should allow owner role to view other user files', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET', '/api/files/user/some-other-user-id', authToken
+        app,
+        'GET',
+        '/api/files/user/some-other-user-id',
+        authToken
       );
 
       // Owner role should be allowed to see other users' files
@@ -176,11 +195,16 @@ describe('Files API', () => {
 
     test('should reject non-owner viewing other user files', async () => {
       // Create an employee user
-      const { token: employeeToken, user: employeeUser } = await createTestUserAndGetToken(app, { role: 'employee' });
+      const { token: employeeToken, user: employeeUser } = await createTestUserAndGetToken(app, {
+        role: 'employee',
+      });
 
       // Employee trying to view another user's files
       const response = await makeAuthenticatedRequest(
-        app, 'GET', `/api/files/user/${authUser.id}`, employeeToken
+        app,
+        'GET',
+        `/api/files/user/${authUser.id}`,
+        employeeToken
       );
 
       expect(response.statusCode).toBe(403);
@@ -194,7 +218,7 @@ describe('Files API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/files/stats/summary'
+        url: '/api/files/stats/summary',
       });
 
       expect(response.statusCode).toBe(401);
@@ -205,7 +229,10 @@ describe('Files API', () => {
 
     test('should return file statistics', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET', '/api/files/stats/summary', authToken
+        app,
+        'GET',
+        '/api/files/stats/summary',
+        authToken
       );
 
       expect(response.statusCode).toBe(200);
