@@ -54,7 +54,17 @@ async function backupRoutes(fastify, options) {
   });
 
   // Create backup (requires authentication)
-  fastify.post('/create', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/create', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          description: { type: 'string', maxLength: 500 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { description } = request.body;
 
@@ -162,7 +172,9 @@ async function backupRoutes(fastify, options) {
   });
 
   // Export to SQL (requires authentication)
-  fastify.post('/export-sql', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/export-sql', {
+    preHandler: [fastify.authenticate]
+  }, async (request, reply) => {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `export_${timestamp}.sql`;
@@ -220,7 +232,17 @@ async function backupRoutes(fastify, options) {
   });
 
   // Cleanup old backups (keep last N) (requires authentication)
-  fastify.post('/cleanup', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/cleanup', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          keep: { type: 'integer', minimum: 1, maximum: 100, default: 5 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { keep = 5 } = request.body;
 
