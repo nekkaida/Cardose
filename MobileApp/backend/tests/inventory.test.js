@@ -31,10 +31,16 @@ describe('Inventory API', () => {
         current_stock: 100,
         reorder_level: 20,
         unit: 'sheets',
-        notes: 'Test material'
+        notes: 'Test material',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory', authToken, itemData);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory',
+        authToken,
+        itemData
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -47,7 +53,7 @@ describe('Inventory API', () => {
     test('should reject item creation without name', async () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory', authToken, {
         category: 'paper',
-        current_stock: 100
+        current_stock: 100,
       });
 
       expect(response.statusCode).toBe(400);
@@ -56,7 +62,7 @@ describe('Inventory API', () => {
     test('should reject item creation without category', async () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory', authToken, {
         name: 'Test Material',
-        current_stock: 100
+        current_stock: 100,
       });
 
       expect(response.statusCode).toBe(400);
@@ -68,8 +74,8 @@ describe('Inventory API', () => {
         url: '/api/inventory',
         payload: {
           name: 'Test Material',
-          category: 'paper'
-        }
+          category: 'paper',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -78,7 +84,7 @@ describe('Inventory API', () => {
     test('should create item with minimal data', async () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory', authToken, {
         name: 'Minimal Material ' + Date.now(),
-        category: 'ribbon'
+        category: 'ribbon',
       });
 
       expect(response.statusCode).toBe(200);
@@ -99,7 +105,12 @@ describe('Inventory API', () => {
     });
 
     test('should filter by category', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory?category=paper', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory?category=paper',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -107,7 +118,12 @@ describe('Inventory API', () => {
     });
 
     test('should filter low stock items', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory?lowStock=true', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory?lowStock=true',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -115,7 +131,12 @@ describe('Inventory API', () => {
     });
 
     test('should search inventory items', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory?search=Material', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory?search=Material',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -123,7 +144,12 @@ describe('Inventory API', () => {
     });
 
     test('should support pagination', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory?page=1&limit=10', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory?page=1&limit=10',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -133,7 +159,7 @@ describe('Inventory API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/inventory'
+        url: '/api/inventory',
       });
 
       expect(response.statusCode).toBe(401);
@@ -143,7 +169,12 @@ describe('Inventory API', () => {
   // ==================== LOW STOCK ENDPOINT TESTS ====================
   describe('GET /api/inventory/low-stock', () => {
     test('should get low stock items', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory/low-stock', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory/low-stock',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -155,7 +186,12 @@ describe('Inventory API', () => {
   // ==================== INVENTORY STATS TESTS ====================
   describe('GET /api/inventory/stats', () => {
     test('should get inventory statistics', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory/stats', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory/stats',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -167,7 +203,12 @@ describe('Inventory API', () => {
   // ==================== GET SINGLE ITEM TESTS ====================
   describe('GET /api/inventory/:id', () => {
     test('should get item by valid ID', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', `/api/inventory/${testItemId}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        `/api/inventory/${testItemId}`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -176,7 +217,12 @@ describe('Inventory API', () => {
     });
 
     test('should return 404 for non-existent item', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory/non-existent-id-123', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory/non-existent-id-123',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -185,10 +231,16 @@ describe('Inventory API', () => {
   // ==================== UPDATE ITEM TESTS ====================
   describe('PUT /api/inventory/:id', () => {
     test('should update item with valid data', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PUT', `/api/inventory/${testItemId}`, authToken, {
-        name: 'Updated Material Name',
-        current_stock: 150
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PUT',
+        `/api/inventory/${testItemId}`,
+        authToken,
+        {
+          name: 'Updated Material Name',
+          current_stock: 150,
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -196,9 +248,15 @@ describe('Inventory API', () => {
     });
 
     test('should return 404 for non-existent item', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PUT', '/api/inventory/non-existent-id-123', authToken, {
-        name: 'Updated Name'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PUT',
+        '/api/inventory/non-existent-id-123',
+        authToken,
+        {
+          name: 'Updated Name',
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -207,13 +265,19 @@ describe('Inventory API', () => {
   // ==================== INVENTORY MOVEMENTS TESTS ====================
   describe('POST /api/inventory/movements', () => {
     test('should record purchase movement', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory/movements', authToken, {
-        type: 'purchase',
-        item_id: testItemId,
-        quantity: 50,
-        reason: 'Restocking',
-        notes: 'Regular purchase'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory/movements',
+        authToken,
+        {
+          type: 'purchase',
+          item_id: testItemId,
+          quantity: 50,
+          reason: 'Restocking',
+          notes: 'Regular purchase',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -222,12 +286,18 @@ describe('Inventory API', () => {
     });
 
     test('should record usage movement', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory/movements', authToken, {
-        type: 'usage',
-        item_id: testItemId,
-        quantity: 10,
-        reason: 'Order production'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory/movements',
+        authToken,
+        {
+          type: 'usage',
+          item_id: testItemId,
+          quantity: 10,
+          reason: 'Order production',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -235,12 +305,18 @@ describe('Inventory API', () => {
     });
 
     test('should record adjustment movement', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory/movements', authToken, {
-        type: 'adjustment',
-        item_id: testItemId,
-        quantity: 100,
-        reason: 'Stock count correction'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory/movements',
+        authToken,
+        {
+          type: 'adjustment',
+          item_id: testItemId,
+          quantity: 100,
+          reason: 'Stock count correction',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -248,19 +324,31 @@ describe('Inventory API', () => {
     });
 
     test('should reject movement without required fields', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory/movements', authToken, {
-        type: 'purchase'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory/movements',
+        authToken,
+        {
+          type: 'purchase',
+        }
+      );
 
       expect(response.statusCode).toBe(400);
     });
 
     test('should reject movement for non-existent item', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory/movements', authToken, {
-        type: 'purchase',
-        item_id: 'non-existent-id-123',
-        quantity: 10
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory/movements',
+        authToken,
+        {
+          type: 'purchase',
+          item_id: 'non-existent-id-123',
+          quantity: 10,
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -268,7 +356,12 @@ describe('Inventory API', () => {
 
   describe('GET /api/inventory/movements', () => {
     test('should get all movements', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory/movements', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory/movements',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -277,7 +370,12 @@ describe('Inventory API', () => {
     });
 
     test('should filter movements by item_id', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', `/api/inventory/movements?item_id=${testItemId}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        `/api/inventory/movements?item_id=${testItemId}`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -285,7 +383,12 @@ describe('Inventory API', () => {
     });
 
     test('should filter movements by type', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory/movements?type=purchase', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory/movements?type=purchase',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -296,7 +399,12 @@ describe('Inventory API', () => {
   // ==================== REORDER ALERTS TESTS ====================
   describe('GET /api/inventory/reorder-alerts', () => {
     test('should get all reorder alerts', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory/reorder-alerts', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory/reorder-alerts',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -305,7 +413,12 @@ describe('Inventory API', () => {
     });
 
     test('should filter alerts by status', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/inventory/reorder-alerts?status=pending', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/inventory/reorder-alerts?status=pending',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -316,20 +429,32 @@ describe('Inventory API', () => {
   describe('POST /api/inventory/reorder-alerts', () => {
     test('should create reorder alert', async () => {
       // First create a low stock item
-      const itemResponse = await makeAuthenticatedRequest(app, 'POST', '/api/inventory', authToken, {
-        name: 'Low Stock Item ' + Date.now(),
-        category: 'paper',
-        current_stock: 5,
-        reorder_level: 20
-      });
+      const itemResponse = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory',
+        authToken,
+        {
+          name: 'Low Stock Item ' + Date.now(),
+          category: 'paper',
+          current_stock: 5,
+          reorder_level: 20,
+        }
+      );
       const itemData = JSON.parse(itemResponse.body);
       const lowStockItemId = itemData.itemId || itemData.item?.id;
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory/reorder-alerts', authToken, {
-        item_id: lowStockItemId,
-        priority: 'high',
-        notes: 'Stock is critically low'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory/reorder-alerts',
+        authToken,
+        {
+          item_id: lowStockItemId,
+          priority: 'high',
+          notes: 'Stock is critically low',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -342,44 +467,68 @@ describe('Inventory API', () => {
       // Try to create another alert for the same item (if testAlertId exists)
       if (testAlertId) {
         // Get the item_id from the existing alert by creating another low stock item
-        const itemResponse = await makeAuthenticatedRequest(app, 'POST', '/api/inventory', authToken, {
-          name: 'Duplicate Alert Item ' + Date.now(),
-          category: 'paper',
-          current_stock: 3,
-          reorder_level: 15
-        });
+        const itemResponse = await makeAuthenticatedRequest(
+          app,
+          'POST',
+          '/api/inventory',
+          authToken,
+          {
+            name: 'Duplicate Alert Item ' + Date.now(),
+            category: 'paper',
+            current_stock: 3,
+            reorder_level: 15,
+          }
+        );
         const itemData = JSON.parse(itemResponse.body);
         const duplicateItemId = itemData.itemId || itemData.item?.id;
 
         // Create first alert
         await makeAuthenticatedRequest(app, 'POST', '/api/inventory/reorder-alerts', authToken, {
           item_id: duplicateItemId,
-          priority: 'normal'
+          priority: 'normal',
         });
 
         // Try to create duplicate
-        const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory/reorder-alerts', authToken, {
-          item_id: duplicateItemId,
-          priority: 'high'
-        });
+        const response = await makeAuthenticatedRequest(
+          app,
+          'POST',
+          '/api/inventory/reorder-alerts',
+          authToken,
+          {
+            item_id: duplicateItemId,
+            priority: 'high',
+          }
+        );
 
         expect(response.statusCode).toBe(409);
       }
     });
 
     test('should reject alert without item_id', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory/reorder-alerts', authToken, {
-        priority: 'high'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory/reorder-alerts',
+        authToken,
+        {
+          priority: 'high',
+        }
+      );
 
       expect(response.statusCode).toBe(400);
     });
 
     test('should reject alert for non-existent item', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory/reorder-alerts', authToken, {
-        item_id: 'non-existent-id-123',
-        priority: 'normal'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory/reorder-alerts',
+        authToken,
+        {
+          item_id: 'non-existent-id-123',
+          priority: 'normal',
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -388,10 +537,16 @@ describe('Inventory API', () => {
   describe('PUT /api/inventory/reorder-alerts/:alertId', () => {
     test('should update alert status', async () => {
       if (testAlertId) {
-        const response = await makeAuthenticatedRequest(app, 'PUT', `/api/inventory/reorder-alerts/${testAlertId}`, authToken, {
-          status: 'acknowledged',
-          notes: 'Order placed with supplier'
-        });
+        const response = await makeAuthenticatedRequest(
+          app,
+          'PUT',
+          `/api/inventory/reorder-alerts/${testAlertId}`,
+          authToken,
+          {
+            status: 'acknowledged',
+            notes: 'Order placed with supplier',
+          }
+        );
 
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
@@ -401,18 +556,30 @@ describe('Inventory API', () => {
 
     test('should reject invalid status', async () => {
       if (testAlertId) {
-        const response = await makeAuthenticatedRequest(app, 'PUT', `/api/inventory/reorder-alerts/${testAlertId}`, authToken, {
-          status: 'invalid_status'
-        });
+        const response = await makeAuthenticatedRequest(
+          app,
+          'PUT',
+          `/api/inventory/reorder-alerts/${testAlertId}`,
+          authToken,
+          {
+            status: 'invalid_status',
+          }
+        );
 
         expect(response.statusCode).toBe(400);
       }
     });
 
     test('should return 404 for non-existent alert', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PUT', '/api/inventory/reorder-alerts/non-existent-id-123', authToken, {
-        status: 'resolved'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PUT',
+        '/api/inventory/reorder-alerts/non-existent-id-123',
+        authToken,
+        {
+          status: 'resolved',
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -426,14 +593,19 @@ describe('Inventory API', () => {
       // Create an item to delete
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/inventory', authToken, {
         name: 'Item To Delete ' + Date.now(),
-        category: 'accessories'
+        category: 'accessories',
       });
       const data = JSON.parse(response.body);
       itemToDelete = data.itemId || data.item?.id;
     });
 
     test('should delete inventory item', async () => {
-      const response = await makeAuthenticatedRequest(app, 'DELETE', `/api/inventory/${itemToDelete}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'DELETE',
+        `/api/inventory/${itemToDelete}`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -441,7 +613,12 @@ describe('Inventory API', () => {
     });
 
     test('should return 404 for non-existent item', async () => {
-      const response = await makeAuthenticatedRequest(app, 'DELETE', '/api/inventory/non-existent-id-123', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'DELETE',
+        '/api/inventory/non-existent-id-123',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -449,7 +626,7 @@ describe('Inventory API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/inventory/${testItemId}`
+        url: `/api/inventory/${testItemId}`,
       });
 
       expect(response.statusCode).toBe(401);
