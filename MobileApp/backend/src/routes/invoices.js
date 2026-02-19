@@ -225,7 +225,7 @@ async function invoicesRoutes(fastify, options) {
           type: 'object',
           required: ['status'],
           properties: {
-            status: { type: 'string', enum: ['draft', 'sent', 'paid', 'overdue', 'cancelled'] },
+            status: { type: 'string', enum: ['unpaid', 'paid', 'overdue', 'cancelled', 'partial'] },
             paid_date: { type: 'string' },
             payment_method: { type: 'string' },
           },
