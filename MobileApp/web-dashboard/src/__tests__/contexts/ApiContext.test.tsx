@@ -201,7 +201,9 @@ describe('ApiContext', () => {
         expect(screen.getByTestId('result').textContent).toBe(JSON.stringify(mockData));
       });
 
-      expect(mockGet).toHaveBeenCalledWith('/analytics/dashboard');
+      // getDashboardAnalytics(params?) calls apiClient.get('/analytics/dashboard', { params })
+      // When called with no args, params is undefined
+      expect(mockGet).toHaveBeenCalledWith('/analytics/dashboard', { params: undefined });
     });
   });
 
