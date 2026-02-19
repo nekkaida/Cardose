@@ -28,10 +28,16 @@ describe('Customers API', () => {
         phone: '08123456789',
         business_type: 'corporate',
         address: 'Jl. Test No. 123',
-        notes: 'Test customer'
+        notes: 'Test customer',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/customers', authToken, customerData);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/customers',
+        authToken,
+        customerData
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -44,7 +50,7 @@ describe('Customers API', () => {
     test('should reject customer creation without name', async () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/customers', authToken, {
         email: 'test@example.com',
-        phone: '08123456789'
+        phone: '08123456789',
       });
 
       expect(response.statusCode).toBe(400);
@@ -56,8 +62,8 @@ describe('Customers API', () => {
         url: '/api/customers',
         payload: {
           name: 'Test Customer',
-          email: 'test@example.com'
-        }
+          email: 'test@example.com',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -65,7 +71,7 @@ describe('Customers API', () => {
 
     test('should create customer with minimal data (only name)', async () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/customers', authToken, {
-        name: 'Minimal Customer ' + Date.now()
+        name: 'Minimal Customer ' + Date.now(),
       });
 
       expect(response.statusCode).toBe(200);
@@ -89,10 +95,15 @@ describe('Customers API', () => {
       // First create a customer with specific name
       await makeAuthenticatedRequest(app, 'POST', '/api/customers', authToken, {
         name: 'UniqueSearchName123',
-        email: 'unique@example.com'
+        email: 'unique@example.com',
       });
 
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/customers?search=UniqueSearchName', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/customers?search=UniqueSearchName',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -100,7 +111,12 @@ describe('Customers API', () => {
     });
 
     test('should filter customers by business_type', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/customers?business_type=corporate', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/customers?business_type=corporate',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -108,7 +124,12 @@ describe('Customers API', () => {
     });
 
     test('should support pagination', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/customers?page=1&limit=5', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/customers?page=1&limit=5',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -119,7 +140,7 @@ describe('Customers API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/customers'
+        url: '/api/customers',
       });
 
       expect(response.statusCode).toBe(401);
@@ -129,7 +150,12 @@ describe('Customers API', () => {
   // ==================== GET SINGLE CUSTOMER TESTS ====================
   describe('GET /api/customers/:id', () => {
     test('should get customer by valid ID', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', `/api/customers/${testCustomerId}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        `/api/customers/${testCustomerId}`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -138,7 +164,12 @@ describe('Customers API', () => {
     });
 
     test('should return 404 for non-existent customer', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/customers/non-existent-id-123', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/customers/non-existent-id-123',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -146,7 +177,7 @@ describe('Customers API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/customers/${testCustomerId}`
+        url: `/api/customers/${testCustomerId}`,
       });
 
       expect(response.statusCode).toBe(401);
@@ -156,10 +187,16 @@ describe('Customers API', () => {
   // ==================== UPDATE CUSTOMER TESTS ====================
   describe('PUT /api/customers/:id', () => {
     test('should update customer with valid data', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PUT', `/api/customers/${testCustomerId}`, authToken, {
-        name: 'Updated Customer Name',
-        phone: '08198765432'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PUT',
+        `/api/customers/${testCustomerId}`,
+        authToken,
+        {
+          name: 'Updated Customer Name',
+          phone: '08198765432',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -167,9 +204,15 @@ describe('Customers API', () => {
     });
 
     test('should return 404 for non-existent customer', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PUT', '/api/customers/non-existent-id-123', authToken, {
-        name: 'Updated Name'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PUT',
+        '/api/customers/non-existent-id-123',
+        authToken,
+        {
+          name: 'Updated Name',
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -179,8 +222,8 @@ describe('Customers API', () => {
         method: 'PUT',
         url: `/api/customers/${testCustomerId}`,
         payload: {
-          name: 'Updated Name'
-        }
+          name: 'Updated Name',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -190,7 +233,12 @@ describe('Customers API', () => {
   // ==================== CUSTOMER COMMUNICATIONS TESTS ====================
   describe('GET /api/customers/:id/communications', () => {
     test('should get customer communications', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', `/api/customers/${testCustomerId}/communications`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        `/api/customers/${testCustomerId}/communications`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -199,7 +247,12 @@ describe('Customers API', () => {
     });
 
     test('should return 404 for non-existent customer', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/customers/non-existent-id-123/communications', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/customers/non-existent-id-123/communications',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -207,12 +260,18 @@ describe('Customers API', () => {
 
   describe('POST /api/customers/:id/communications', () => {
     test('should create email communication', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', `/api/customers/${testCustomerId}/communications`, authToken, {
-        type: 'email',
-        direction: 'outbound',
-        subject: 'Test Email Subject',
-        content: 'Test email content'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        `/api/customers/${testCustomerId}/communications`,
+        authToken,
+        {
+          type: 'email',
+          direction: 'outbound',
+          subject: 'Test Email Subject',
+          content: 'Test email content',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -220,11 +279,17 @@ describe('Customers API', () => {
     });
 
     test('should create whatsapp communication', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', `/api/customers/${testCustomerId}/communications`, authToken, {
-        type: 'whatsapp',
-        direction: 'outbound',
-        content: 'Test WhatsApp message'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        `/api/customers/${testCustomerId}/communications`,
+        authToken,
+        {
+          type: 'whatsapp',
+          direction: 'outbound',
+          content: 'Test WhatsApp message',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -232,11 +297,17 @@ describe('Customers API', () => {
     });
 
     test('should create sms communication', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', `/api/customers/${testCustomerId}/communications`, authToken, {
-        type: 'sms',
-        direction: 'inbound',
-        content: 'Customer texted about order status'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        `/api/customers/${testCustomerId}/communications`,
+        authToken,
+        {
+          type: 'sms',
+          direction: 'inbound',
+          content: 'Customer texted about order status',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -244,18 +315,30 @@ describe('Customers API', () => {
     });
 
     test('should reject communication without type', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', `/api/customers/${testCustomerId}/communications`, authToken, {
-        content: 'Test content'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        `/api/customers/${testCustomerId}/communications`,
+        authToken,
+        {
+          content: 'Test content',
+        }
+      );
 
       expect(response.statusCode).toBe(400);
     });
 
     test('should reject for non-existent customer', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/customers/non-existent-id-123/communications', authToken, {
-        type: 'email',
-        content: 'Test content'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/customers/non-existent-id-123/communications',
+        authToken,
+        {
+          type: 'email',
+          content: 'Test content',
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -269,14 +352,19 @@ describe('Customers API', () => {
       // Create a customer to delete
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/customers', authToken, {
         name: 'Customer To Delete ' + Date.now(),
-        email: `delete${Date.now()}@example.com`
+        email: `delete${Date.now()}@example.com`,
       });
       const data = JSON.parse(response.body);
       customerToDelete = data.customerId || data.customer?.id;
     });
 
     test('should delete customer', async () => {
-      const response = await makeAuthenticatedRequest(app, 'DELETE', `/api/customers/${customerToDelete}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'DELETE',
+        `/api/customers/${customerToDelete}`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -284,7 +372,12 @@ describe('Customers API', () => {
     });
 
     test('should return 404 for non-existent customer', async () => {
-      const response = await makeAuthenticatedRequest(app, 'DELETE', '/api/customers/non-existent-id-123', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'DELETE',
+        '/api/customers/non-existent-id-123',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -292,7 +385,7 @@ describe('Customers API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/customers/${testCustomerId}`
+        url: `/api/customers/${testCustomerId}`,
       });
 
       expect(response.statusCode).toBe(401);
@@ -302,7 +395,12 @@ describe('Customers API', () => {
   // ==================== CUSTOMER STATS TESTS ====================
   describe('GET /api/customers/stats', () => {
     test('should get customer statistics', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/customers/stats', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/customers/stats',
+        authToken
+      );
 
       // Stats endpoint might not exist, so we check if it returns 200 or 404
       if (response.statusCode === 200) {
