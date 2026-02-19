@@ -31,7 +31,12 @@ describe('Users API', () => {
     });
 
     test('should filter users by role', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/users?role=owner', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/users?role=owner',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -39,7 +44,12 @@ describe('Users API', () => {
     });
 
     test('should filter users by active status', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/users?is_active=true', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/users?is_active=true',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -47,7 +57,12 @@ describe('Users API', () => {
     });
 
     test('should search users', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/users?search=test', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/users?search=test',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -55,7 +70,12 @@ describe('Users API', () => {
     });
 
     test('should support pagination', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/users?page=1&limit=10', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/users?page=1&limit=10',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -78,7 +98,7 @@ describe('Users API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/users'
+        url: '/api/users',
       });
 
       expect(response.statusCode).toBe(401);
@@ -94,10 +114,16 @@ describe('Users API', () => {
         password: 'Test123!',
         full_name: 'New Test User',
         phone: '08123456789',
-        role: 'employee'
+        role: 'employee',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/users', authToken, userData);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/users',
+        authToken,
+        userData
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -112,7 +138,7 @@ describe('Users API', () => {
         username: 'duplicate_user_' + Date.now(),
         email: `duplicate1${Date.now()}@example.com`,
         password: 'Test123!',
-        full_name: 'Duplicate User'
+        full_name: 'Duplicate User',
       };
 
       // Create first user
@@ -121,7 +147,7 @@ describe('Users API', () => {
       // Try to create duplicate
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/users', authToken, {
         ...userData,
-        email: `different${Date.now()}@example.com`
+        email: `different${Date.now()}@example.com`,
       });
 
       expect(response.statusCode).toBe(409);
@@ -135,7 +161,7 @@ describe('Users API', () => {
         username: 'user1_' + Date.now(),
         email,
         password: 'Test123!',
-        full_name: 'User 1'
+        full_name: 'User 1',
       });
 
       // Try to create with same email
@@ -143,7 +169,7 @@ describe('Users API', () => {
         username: 'user2_' + Date.now(),
         email,
         password: 'Test123!',
-        full_name: 'User 2'
+        full_name: 'User 2',
       });
 
       expect(response.statusCode).toBe(409);
@@ -153,7 +179,7 @@ describe('Users API', () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/users', authToken, {
         email: 'test@example.com',
         password: 'Test123!',
-        full_name: 'Test User'
+        full_name: 'Test User',
       });
 
       expect(response.statusCode).toBe(400);
@@ -163,7 +189,7 @@ describe('Users API', () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/users', authToken, {
         username: 'testuser',
         password: 'Test123!',
-        full_name: 'Test User'
+        full_name: 'Test User',
       });
 
       expect(response.statusCode).toBe(400);
@@ -173,7 +199,7 @@ describe('Users API', () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/users', authToken, {
         username: 'testuser',
         email: 'test@example.com',
-        full_name: 'Test User'
+        full_name: 'Test User',
       });
 
       expect(response.statusCode).toBe(400);
@@ -183,7 +209,7 @@ describe('Users API', () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/users', authToken, {
         username: 'testuser',
         email: 'test@example.com',
-        password: 'Test123!'
+        password: 'Test123!',
       });
 
       expect(response.statusCode).toBe(400);
@@ -194,7 +220,12 @@ describe('Users API', () => {
   describe('GET /api/users/:id', () => {
     test('should get user by valid ID', async () => {
       if (testUserId) {
-        const response = await makeAuthenticatedRequest(app, 'GET', `/api/users/${testUserId}`, authToken);
+        const response = await makeAuthenticatedRequest(
+          app,
+          'GET',
+          `/api/users/${testUserId}`,
+          authToken
+        );
 
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
@@ -205,14 +236,24 @@ describe('Users API', () => {
     });
 
     test('should return 404 for non-existent user', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/users/non-existent-id-123', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/users/non-existent-id-123',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
 
     test('should not return password hash', async () => {
       if (testUserId) {
-        const response = await makeAuthenticatedRequest(app, 'GET', `/api/users/${testUserId}`, authToken);
+        const response = await makeAuthenticatedRequest(
+          app,
+          'GET',
+          `/api/users/${testUserId}`,
+          authToken
+        );
 
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
@@ -225,10 +266,16 @@ describe('Users API', () => {
   describe('PUT /api/users/:id', () => {
     test('should update user with valid data', async () => {
       if (testUserId) {
-        const response = await makeAuthenticatedRequest(app, 'PUT', `/api/users/${testUserId}`, authToken, {
-          full_name: 'Updated Name',
-          phone: '08198765432'
-        });
+        const response = await makeAuthenticatedRequest(
+          app,
+          'PUT',
+          `/api/users/${testUserId}`,
+          authToken,
+          {
+            full_name: 'Updated Name',
+            phone: '08198765432',
+          }
+        );
 
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
@@ -239,9 +286,15 @@ describe('Users API', () => {
 
     test('should update user role', async () => {
       if (testUserId) {
-        const response = await makeAuthenticatedRequest(app, 'PUT', `/api/users/${testUserId}`, authToken, {
-          role: 'manager'
-        });
+        const response = await makeAuthenticatedRequest(
+          app,
+          'PUT',
+          `/api/users/${testUserId}`,
+          authToken,
+          {
+            role: 'manager',
+          }
+        );
 
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
@@ -251,9 +304,15 @@ describe('Users API', () => {
 
     test('should update user password', async () => {
       if (testUserId) {
-        const response = await makeAuthenticatedRequest(app, 'PUT', `/api/users/${testUserId}`, authToken, {
-          password: 'NewPassword123!'
-        });
+        const response = await makeAuthenticatedRequest(
+          app,
+          'PUT',
+          `/api/users/${testUserId}`,
+          authToken,
+          {
+            password: 'NewPassword123!',
+          }
+        );
 
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
@@ -262,16 +321,28 @@ describe('Users API', () => {
     });
 
     test('should return 404 for non-existent user', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PUT', '/api/users/non-existent-id-123', authToken, {
-        full_name: 'Updated Name'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PUT',
+        '/api/users/non-existent-id-123',
+        authToken,
+        {
+          full_name: 'Updated Name',
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
 
     test('should handle no changes gracefully', async () => {
       if (testUserId) {
-        const response = await makeAuthenticatedRequest(app, 'PUT', `/api/users/${testUserId}`, authToken, {});
+        const response = await makeAuthenticatedRequest(
+          app,
+          'PUT',
+          `/api/users/${testUserId}`,
+          authToken,
+          {}
+        );
 
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
@@ -284,9 +355,15 @@ describe('Users API', () => {
   describe('PATCH /api/users/:id/status', () => {
     test('should deactivate user', async () => {
       if (testUserId) {
-        const response = await makeAuthenticatedRequest(app, 'PATCH', `/api/users/${testUserId}/status`, authToken, {
-          is_active: false
-        });
+        const response = await makeAuthenticatedRequest(
+          app,
+          'PATCH',
+          `/api/users/${testUserId}/status`,
+          authToken,
+          {
+            is_active: false,
+          }
+        );
 
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
@@ -297,9 +374,15 @@ describe('Users API', () => {
 
     test('should activate user', async () => {
       if (testUserId) {
-        const response = await makeAuthenticatedRequest(app, 'PATCH', `/api/users/${testUserId}/status`, authToken, {
-          is_active: true
-        });
+        const response = await makeAuthenticatedRequest(
+          app,
+          'PATCH',
+          `/api/users/${testUserId}/status`,
+          authToken,
+          {
+            is_active: true,
+          }
+        );
 
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
@@ -309,9 +392,15 @@ describe('Users API', () => {
     });
 
     test('should return 404 for non-existent user', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PATCH', '/api/users/non-existent-id-123/status', authToken, {
-        is_active: false
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        '/api/users/non-existent-id-123/status',
+        authToken,
+        {
+          is_active: false,
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -327,7 +416,7 @@ describe('Users API', () => {
         username: 'user_to_delete_' + Date.now(),
         email: `delete${Date.now()}@example.com`,
         password: 'Test123!',
-        full_name: 'User To Delete'
+        full_name: 'User To Delete',
       });
       const data = JSON.parse(response.body);
       userToDelete = data.userId;
@@ -335,7 +424,12 @@ describe('Users API', () => {
 
     test('should delete user', async () => {
       if (userToDelete) {
-        const response = await makeAuthenticatedRequest(app, 'DELETE', `/api/users/${userToDelete}`, authToken);
+        const response = await makeAuthenticatedRequest(
+          app,
+          'DELETE',
+          `/api/users/${userToDelete}`,
+          authToken
+        );
 
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
@@ -344,7 +438,12 @@ describe('Users API', () => {
     });
 
     test('should return 404 for non-existent user', async () => {
-      const response = await makeAuthenticatedRequest(app, 'DELETE', '/api/users/non-existent-id-123', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'DELETE',
+        '/api/users/non-existent-id-123',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -352,7 +451,7 @@ describe('Users API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: '/api/users/some-id'
+        url: '/api/users/some-id',
       });
 
       expect(response.statusCode).toBe(401);
