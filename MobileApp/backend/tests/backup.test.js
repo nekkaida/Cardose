@@ -32,7 +32,7 @@ describe('Backup API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/backup'
+        url: '/api/backup',
       });
 
       expect(response.statusCode).toBe(401);
@@ -42,9 +42,15 @@ describe('Backup API', () => {
   // ==================== CREATE BACKUP TESTS ====================
   describe('POST /api/backup/create', () => {
     test('should attempt to create a backup and respond', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/backup/create', authToken, {
-        description: 'Test backup'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/backup/create',
+        authToken,
+        {
+          description: 'Test backup',
+        }
+      );
 
       const data = JSON.parse(response.body);
 
@@ -70,8 +76,8 @@ describe('Backup API', () => {
         method: 'POST',
         url: '/api/backup/create',
         payload: {
-          description: 'Unauthorized backup'
-        }
+          description: 'Unauthorized backup',
+        },
       });
 
       expect(response.statusCode).toBe(401);
