@@ -138,9 +138,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       } else if (error.request) {
         // No response received (network error)
-        throw new Error('Unable to connect to server. Please check your connection.');
+        throw new Error('Unable to connect to server. Please check your connection.', {
+          cause: error,
+        });
       } else {
-        throw new Error('An unexpected error occurred.');
+        throw new Error('An unexpected error occurred.', { cause: error });
       }
     }
   };
