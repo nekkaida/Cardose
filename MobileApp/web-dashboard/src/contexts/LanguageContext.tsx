@@ -32,11 +32,11 @@ const translations = {
     'nav.financial': 'Financial',
     'nav.analytics': 'Analytics',
     'nav.logout': 'Logout',
-    
+
     // Dashboard
     'dashboard.title': 'Premium Gift Box Dashboard',
     'dashboard.welcome': 'Welcome to your business management system',
-    
+
     // Metrics
     'metrics.revenue': 'Total Revenue',
     'metrics.orders': 'Orders',
@@ -44,7 +44,7 @@ const translations = {
     'metrics.inventory': 'Items',
     'metrics.growth': 'Growth',
     'metrics.thisMonth': 'This Month',
-    
+
     // Login
     'login.title': 'Welcome Back',
     'login.subtitle': 'Sign in to your Premium Gift Box account',
@@ -52,7 +52,7 @@ const translations = {
     'login.password': 'Password',
     'login.signin': 'Sign In',
     'login.error': 'Invalid username or password',
-    
+
     // Common
     'common.loading': 'Loading...',
     'common.error': 'Error',
@@ -65,7 +65,7 @@ const translations = {
     'common.search': 'Search',
     'common.filter': 'Filter',
     'common.export': 'Export',
-    
+
     // Orders
     'orders.title': 'Order Management',
     'orders.new': 'New Order',
@@ -88,10 +88,11 @@ const translations = {
     'orders.noOrders': 'No orders found',
     'orders.createFirst': 'Create your first order to get started.',
     'orders.adjustFilters': 'Try adjusting your filters.',
-    'orders.confirmDelete': 'Are you sure? This will permanently delete this order and its stage history.',
+    'orders.confirmDelete':
+      'Are you sure? This will permanently delete this order and its stage history.',
     'orders.allStatus': 'All Status',
     'orders.allPriority': 'All Priority',
-    
+
     // Customers
     'customers.title': 'Customer Database',
     'customers.new': 'New Customer',
@@ -116,7 +117,8 @@ const translations = {
     'customers.noCustomers': 'No customers found',
     'customers.createFirst': 'Add your first customer to get started.',
     'customers.adjustFilters': 'Try adjusting your filters.',
-    'customers.confirmDelete': 'Are you sure? This will remove all customer data. Customers with existing orders cannot be deleted.',
+    'customers.confirmDelete':
+      'Are you sure? This will remove all customer data. Customers with existing orders cannot be deleted.',
 
     // Inventory
     'inventory.title': 'Inventory Management',
@@ -141,7 +143,8 @@ const translations = {
     'inventory.noItems': 'No materials found',
     'inventory.createFirst': 'Add your first material to get started.',
     'inventory.adjustFilters': 'Try adjusting your filters.',
-    'inventory.confirmDelete': 'Are you sure? This will remove the material and all its movement history.',
+    'inventory.confirmDelete':
+      'Are you sure? This will remove the material and all its movement history.',
     'inventory.stockMovement': 'Stock Movement',
     'inventory.movementType': 'Type',
     'inventory.quantity': 'Quantity',
@@ -151,7 +154,7 @@ const translations = {
     'inventory.updateSuccess': 'Material updated successfully',
     'inventory.deleteSuccess': 'Material deleted successfully',
     'inventory.movementSuccess': 'Stock movement recorded successfully',
-    
+
     // Financial
     'financial.title': 'Financial Management',
     'financial.subtitle': 'Financial overview and transactions',
@@ -381,11 +384,11 @@ const translations = {
     'nav.financial': 'Keuangan',
     'nav.analytics': 'Analitik',
     'nav.logout': 'Keluar',
-    
+
     // Dashboard
     'dashboard.title': 'Dasbor Premium Gift Box',
     'dashboard.welcome': 'Selamat datang di sistem manajemen bisnis Anda',
-    
+
     // Metrics
     'metrics.revenue': 'Total Pendapatan',
     'metrics.orders': 'Pesanan',
@@ -393,7 +396,7 @@ const translations = {
     'metrics.inventory': 'Item',
     'metrics.growth': 'Pertumbuhan',
     'metrics.thisMonth': 'Bulan Ini',
-    
+
     // Login
     'login.title': 'Selamat Datang Kembali',
     'login.subtitle': 'Masuk ke akun Premium Gift Box Anda',
@@ -401,7 +404,7 @@ const translations = {
     'login.password': 'Kata Sandi',
     'login.signin': 'Masuk',
     'login.error': 'Nama pengguna atau kata sandi salah',
-    
+
     // Common
     'common.loading': 'Memuat...',
     'common.error': 'Kesalahan',
@@ -414,7 +417,7 @@ const translations = {
     'common.search': 'Cari',
     'common.filter': 'Filter',
     'common.export': 'Ekspor',
-    
+
     // Orders
     'orders.title': 'Manajemen Pesanan',
     'orders.new': 'Pesanan Baru',
@@ -437,10 +440,11 @@ const translations = {
     'orders.noOrders': 'Tidak ada pesanan ditemukan',
     'orders.createFirst': 'Buat pesanan pertama Anda untuk memulai.',
     'orders.adjustFilters': 'Coba sesuaikan filter Anda.',
-    'orders.confirmDelete': 'Apakah Anda yakin? Ini akan menghapus pesanan dan riwayat tahapnya secara permanen.',
+    'orders.confirmDelete':
+      'Apakah Anda yakin? Ini akan menghapus pesanan dan riwayat tahapnya secara permanen.',
     'orders.allStatus': 'Semua Status',
     'orders.allPriority': 'Semua Prioritas',
-    
+
     // Customers
     'customers.title': 'Database Pelanggan',
     'customers.new': 'Pelanggan Baru',
@@ -465,7 +469,8 @@ const translations = {
     'customers.noCustomers': 'Tidak ada pelanggan ditemukan',
     'customers.createFirst': 'Tambahkan pelanggan pertama Anda untuk memulai.',
     'customers.adjustFilters': 'Coba sesuaikan filter Anda.',
-    'customers.confirmDelete': 'Apakah Anda yakin? Ini akan menghapus semua data pelanggan. Pelanggan dengan pesanan yang ada tidak dapat dihapus.',
+    'customers.confirmDelete':
+      'Apakah Anda yakin? Ini akan menghapus semua data pelanggan. Pelanggan dengan pesanan yang ada tidak dapat dihapus.',
 
     // Inventory
     'inventory.title': 'Manajemen Inventori',
@@ -490,7 +495,8 @@ const translations = {
     'inventory.noItems': 'Tidak ada material ditemukan',
     'inventory.createFirst': 'Tambahkan material pertama Anda untuk memulai.',
     'inventory.adjustFilters': 'Coba sesuaikan filter Anda.',
-    'inventory.confirmDelete': 'Apakah Anda yakin? Ini akan menghapus material dan semua riwayat pergerakannya.',
+    'inventory.confirmDelete':
+      'Apakah Anda yakin? Ini akan menghapus material dan semua riwayat pergerakannya.',
     'inventory.stockMovement': 'Pergerakan Stok',
     'inventory.movementType': 'Tipe',
     'inventory.quantity': 'Kuantitas',
@@ -500,7 +506,7 @@ const translations = {
     'inventory.updateSuccess': 'Material berhasil diperbarui',
     'inventory.deleteSuccess': 'Material berhasil dihapus',
     'inventory.movementSuccess': 'Pergerakan stok berhasil dicatat',
-    
+
     // Financial
     'financial.title': 'Manajemen Keuangan',
     'financial.subtitle': 'Ringkasan keuangan dan transaksi',
@@ -726,7 +732,7 @@ const translations = {
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>(() => {
     const saved = localStorage.getItem('app_language');
-    return (saved === 'en' || saved === 'id') ? saved : 'en';
+    return saved === 'en' || saved === 'id' ? saved : 'en';
   });
 
   const setLanguage = (lang: Language) => {
@@ -735,7 +741,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   };
 
   const t = (key: string): string => {
-    return translations[language][key as keyof typeof translations['en']] || key;
+    return translations[language][key as keyof (typeof translations)['en']] || key;
   };
 
   const value: LanguageContextType = {
@@ -744,9 +750,5 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     t,
   };
 
-  return (
-    <LanguageContext.Provider value={value}>
-      {children}
-    </LanguageContext.Provider>
-  );
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 };

@@ -1,7 +1,11 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { apiClient } from './AuthContext';
 import type {
-  SalesReportData, InventoryReportData, ProductionReportData, CustomerReportData, FinancialReportData,
+  SalesReportData,
+  InventoryReportData,
+  ProductionReportData,
+  CustomerReportData,
+  FinancialReportData,
 } from '@shared/types';
 
 interface ApiContextType {
@@ -55,11 +59,17 @@ interface ApiContextType {
   updateProductionStage: (id: string, stage: string, notes?: string) => Promise<any>;
 
   // Reports (typed — these pages have been audited)
-  getSalesReport: (params?: Record<string, any>) => Promise<{ success: boolean; report: SalesReportData }>;
+  getSalesReport: (
+    params?: Record<string, any>
+  ) => Promise<{ success: boolean; report: SalesReportData }>;
   getInventoryReport: () => Promise<{ success: boolean; report: InventoryReportData }>;
-  getProductionReport: (params?: Record<string, any>) => Promise<{ success: boolean; report: ProductionReportData }>;
+  getProductionReport: (
+    params?: Record<string, any>
+  ) => Promise<{ success: boolean; report: ProductionReportData }>;
   getCustomerReport: () => Promise<{ success: boolean; report: CustomerReportData }>;
-  getFinancialReport: (params?: Record<string, any>) => Promise<{ success: boolean; report: FinancialReportData }>;
+  getFinancialReport: (
+    params?: Record<string, any>
+  ) => Promise<{ success: boolean; report: FinancialReportData }>;
 
   // Users
   getUsers: (params?: Record<string, any>) => Promise<any>;
@@ -418,9 +428,5 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
     deleteSetting,
   };
 
-  return (
-    <ApiContext.Provider value={value}>
-      {children}
-    </ApiContext.Provider>
-  );
+  return <ApiContext.Provider value={value}>{children}</ApiContext.Provider>;
 };

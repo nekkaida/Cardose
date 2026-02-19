@@ -10,7 +10,9 @@ let mockPathname = '/dashboard';
 jest.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: mockPathname }),
   Link: ({ to, children, className }: any) => (
-    <a href={to} className={className}>{children}</a>
+    <a href={to} className={className}>
+      {children}
+    </a>
   ),
 }));
 
@@ -67,9 +69,16 @@ describe('Sidebar', () => {
       renderSidebar();
 
       const navItems = [
-        'Dashboard', 'Orders', 'Customers', 'Inventory',
-        'Financial', 'Analytics', 'Production', 'Reports',
-        'Users', 'Settings',
+        'Dashboard',
+        'Orders',
+        'Customers',
+        'Inventory',
+        'Financial',
+        'Analytics',
+        'Production',
+        'Reports',
+        'Users',
+        'Settings',
       ];
 
       navItems.forEach((name) => {

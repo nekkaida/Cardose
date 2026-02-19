@@ -129,7 +129,9 @@ describe('FinancialPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Error')).toBeInTheDocument();
-        expect(screen.getByText('Failed to load financial data. Please try again.')).toBeInTheDocument();
+        expect(
+          screen.getByText('Failed to load financial data. Please try again.')
+        ).toBeInTheDocument();
       });
     });
 
@@ -183,7 +185,9 @@ describe('FinancialPage', () => {
       render(<FinancialPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Monitor financial performance and transactions')).toBeInTheDocument();
+        expect(
+          screen.getByText('Monitor financial performance and transactions')
+        ).toBeInTheDocument();
       });
     });
 

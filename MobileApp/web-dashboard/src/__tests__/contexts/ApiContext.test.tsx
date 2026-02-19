@@ -38,8 +38,11 @@ jest.mock('axios', () => {
 // Test component that exercises various API methods
 const TestComponent: React.FC = () => {
   const {
-    getOrders, createOrder, updateOrder,
-    getCustomers, getInventory,
+    getOrders,
+    createOrder,
+    updateOrder,
+    getCustomers,
+    getInventory,
     getDashboardAnalytics,
     getFinancialSummary,
     getUsers,

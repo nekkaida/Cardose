@@ -2,8 +2,19 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApi } from '../contexts/ApiContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
-  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
 } from 'recharts';
 
 // ---------------------------------------------------------------------------
@@ -149,17 +160,17 @@ const MAX_TREND_MONTHS = 6;
 // ---------------------------------------------------------------------------
 
 const SkeletonKPICard: React.FC = () => (
-  <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 animate-pulse">
-    <div className="h-3 bg-gray-200 rounded w-24 mb-3" />
-    <div className="h-7 bg-gray-200 rounded w-20 mb-2" />
-    <div className="h-3 bg-gray-200 rounded w-28" />
+  <div className="animate-pulse rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="mb-3 h-3 w-24 rounded bg-gray-200" />
+    <div className="mb-2 h-7 w-20 rounded bg-gray-200" />
+    <div className="h-3 w-28 rounded bg-gray-200" />
   </div>
 );
 
 const SkeletonChart: React.FC<{ height?: number }> = ({ height = 280 }) => (
-  <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 animate-pulse">
-    <div className="h-4 bg-gray-200 rounded w-48 mb-6" />
-    <div className="bg-gray-100 rounded" style={{ height }} />
+  <div className="animate-pulse rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+    <div className="mb-6 h-4 w-48 rounded bg-gray-200" />
+    <div className="rounded bg-gray-100" style={{ height }} />
   </div>
 );
 
@@ -169,8 +180,18 @@ const SkeletonChart: React.FC<{ height?: number }> = ({ height = 280 }) => (
 
 const EmptyState: React.FC<{ message: string }> = ({ message }) => (
   <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-    <svg className="w-10 h-10 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+    <svg
+      className="mb-2 h-10 w-10"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+      />
     </svg>
     <p className="text-sm">{message}</p>
   </div>
@@ -181,7 +202,7 @@ const EmptyState: React.FC<{ message: string }> = ({ message }) => (
 // ---------------------------------------------------------------------------
 
 const SectionError: React.FC<{ message: string; onRetry: () => void }> = ({ message, onRetry }) => (
-  <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
     {message}
     <button onClick={onRetry} className="ml-2 underline">
       Retry
@@ -206,7 +227,7 @@ const AnalyticsPage: React.FC = () => {
     // language is not a direct dep of `t`, but when language changes the
     // translations change, so we include it to recalculate memos downstream.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, language],
+    [t, language]
   );
 
   // ---- State ----
@@ -336,7 +357,10 @@ const AnalyticsPage: React.FC = () => {
 
   const TICK_STYLE = { fontSize: 11 };
 
-  const tooltipRevenue = (value: number) => [formatCurrency(value), tr('analytics.revenue', 'Revenue')];
+  const tooltipRevenue = (value: number) => [
+    formatCurrency(value),
+    tr('analytics.revenue', 'Revenue'),
+  ];
   const tooltipOrders = (value: number) => [value, tr('analytics.orders', 'Orders')];
   const tooltipCustomers = (value: number) => [value, tr('analytics.customers', 'Customers')];
 
@@ -347,19 +371,19 @@ const AnalyticsPage: React.FC = () => {
     return (
       <div className="space-y-6">
         {/* Header skeleton */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="animate-pulse">
-            <div className="h-7 bg-gray-200 rounded w-56 mb-2" />
-            <div className="h-4 bg-gray-200 rounded w-72" />
+            <div className="mb-2 h-7 w-56 rounded bg-gray-200" />
+            <div className="h-4 w-72 rounded bg-gray-200" />
           </div>
-          <div className="flex items-center gap-3 animate-pulse">
-            <div className="h-9 bg-gray-200 rounded w-32" />
-            <div className="h-9 bg-gray-200 rounded w-9" />
+          <div className="flex animate-pulse items-center gap-3">
+            <div className="h-9 w-32 rounded bg-gray-200" />
+            <div className="h-9 w-9 rounded bg-gray-200" />
           </div>
         </div>
 
         {/* KPI skeletons */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <SkeletonKPICard />
           <SkeletonKPICard />
           <SkeletonKPICard />
@@ -367,15 +391,15 @@ const AnalyticsPage: React.FC = () => {
         </div>
 
         {/* Chart skeletons */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <SkeletonChart />
           <SkeletonChart />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <SkeletonChart />
           <SkeletonChart />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <SkeletonChart height={220} />
           <SkeletonChart height={200} />
         </div>
@@ -388,12 +412,12 @@ const AnalyticsPage: React.FC = () => {
       {/* ---------------------------------------------------------------- */}
       {/* Header row                                                       */}
       {/* ---------------------------------------------------------------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             {tr('analytics.title', 'Business Analytics')}
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-sm text-gray-500">
             {tr('analytics.subtitle', 'Detailed business insights and reports')}
           </p>
         </div>
@@ -403,7 +427,7 @@ const AnalyticsPage: React.FC = () => {
           <select
             value={period}
             onChange={(e) => setPeriod(e.target.value as PeriodKey)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#2C5530] focus:border-[#2C5530]"
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#2C5530] focus:outline-none focus:ring-2 focus:ring-[#2C5530]"
             aria-label={tr('analytics.period', 'Period')}
           >
             {PERIOD_OPTIONS.map((opt) => (
@@ -416,12 +440,22 @@ const AnalyticsPage: React.FC = () => {
           {/* Refresh button */}
           <button
             onClick={loadAnalytics}
-            className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#2C5530]"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#2C5530]"
             aria-label={tr('analytics.refresh', 'Refresh')}
             title={tr('analytics.refresh', 'Refresh')}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
           </button>
         </div>
@@ -436,55 +470,53 @@ const AnalyticsPage: React.FC = () => {
           onRetry={loadAnalytics}
         />
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {/* Total Orders */}
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
               {tr('analytics.totalOrders', 'Total Orders')}
             </p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">
-              {orders?.total_orders ?? 0}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="mt-1 text-2xl font-bold text-gray-900">{orders?.total_orders ?? 0}</p>
+            <p className="mt-1 text-xs text-gray-400">
               {orders?.completed_orders ?? 0} {tr('analytics.completed', 'completed')}
             </p>
           </div>
 
           {/* Revenue */}
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
               {tr('analytics.revenue', 'Revenue')}
             </p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">
+            <p className="mt-1 text-2xl font-bold text-gray-900">
               {formatShortCurrency(revenue?.total_revenue ?? 0)}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="mt-1 text-xs text-gray-400">
               {formatShortCurrency(revenue?.paid_revenue ?? 0)} {tr('analytics.paid', 'paid')}
             </p>
           </div>
 
           {/* Customers */}
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
               {tr('analytics.customers', 'Customers')}
             </p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">
+            <p className="mt-1 text-2xl font-bold text-gray-900">
               {customers?.total_customers ?? 0}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="mt-1 text-xs text-gray-400">
               {customers?.vip_customers ?? 0} {tr('analytics.vip', 'VIP')}
             </p>
           </div>
 
           {/* Avg Order */}
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
               {tr('analytics.avgOrder', 'Avg Order')}
             </p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">
+            <p className="mt-1 text-2xl font-bold text-gray-900">
               {formatShortCurrency(revenue?.average_order_value ?? 0)}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="mt-1 text-xs text-gray-400">
               {revenue?.invoice_count ?? 0} {tr('analytics.invoices', 'invoices')}
             </p>
           </div>
@@ -495,18 +527,18 @@ const AnalyticsPage: React.FC = () => {
       {/* Completion Rate (from backend orders.completion_rate directly)    */}
       {/* ---------------------------------------------------------------- */}
       {!errors.dashboard && dashboard?.orders && (
-        <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 flex items-center gap-4">
+        <div className="flex items-center gap-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
           <div className="flex-1">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
               {tr('analytics.completionRate', 'Completion Rate')}
             </p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">
+            <p className="mt-1 text-2xl font-bold text-gray-900">
               {Number(orders?.completion_rate ?? 0).toFixed(1)}%
             </p>
           </div>
-          <div className="w-48 bg-gray-200 rounded-full h-3">
+          <div className="h-3 w-48 rounded-full bg-gray-200">
             <div
-              className="bg-[#2C5530] h-3 rounded-full transition-all"
+              className="h-3 rounded-full bg-[#2C5530] transition-all"
               style={{ width: `${Math.min(Number(orders?.completion_rate ?? 0), 100)}%` }}
             />
           </div>
@@ -516,10 +548,10 @@ const AnalyticsPage: React.FC = () => {
       {/* ---------------------------------------------------------------- */}
       {/* Charts Row 1: Order Status + Customer Segments                   */}
       {/* ---------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Order Status Distribution */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-gray-900">
             {tr('analytics.orderStatus', 'Order Status Distribution')}
           </h2>
           {errors.dashboard ? (
@@ -556,8 +588,8 @@ const AnalyticsPage: React.FC = () => {
         </div>
 
         {/* Customer Segments */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-gray-900">
             {tr('analytics.customerSegments', 'Customer Segments')}
           </h2>
           {errors.customer ? (
@@ -597,10 +629,10 @@ const AnalyticsPage: React.FC = () => {
       {/* ---------------------------------------------------------------- */}
       {/* Charts Row 2: Revenue Trend + Top Customers                      */}
       {/* ---------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Revenue Trend */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-gray-900">
             {tr('analytics.revenueTrend', 'Revenue Trend')}
           </h2>
           {errors.revenue ? (
@@ -635,8 +667,8 @@ const AnalyticsPage: React.FC = () => {
         </div>
 
         {/* Top Customers */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-gray-900">
             {tr('analytics.topCustomers', 'Top Customers by Revenue')}
           </h2>
           {errors.customer ? (
@@ -667,10 +699,10 @@ const AnalyticsPage: React.FC = () => {
       {/* ---------------------------------------------------------------- */}
       {/* Charts Row 3: Production Pipeline + Inventory Overview           */}
       {/* ---------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Production Pipeline */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-gray-900">
             {tr('analytics.productionPipeline', 'Production Pipeline')}
           </h2>
           {errors.dashboard ? (
@@ -698,8 +730,8 @@ const AnalyticsPage: React.FC = () => {
         </div>
 
         {/* Inventory Overview */}
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-base font-semibold text-gray-900">
             {tr('analytics.inventoryOverview', 'Inventory Overview')}
           </h2>
           {errors.dashboard ? (
@@ -710,7 +742,7 @@ const AnalyticsPage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-lg bg-gray-50 p-4">
-                <p className="text-xs text-gray-500 uppercase">
+                <p className="text-xs uppercase text-gray-500">
                   {tr('analytics.totalMaterials', 'Total Materials')}
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -718,7 +750,7 @@ const AnalyticsPage: React.FC = () => {
                 </p>
               </div>
               <div className="rounded-lg bg-gray-50 p-4">
-                <p className="text-xs text-gray-500 uppercase">
+                <p className="text-xs uppercase text-gray-500">
                   {tr('analytics.outOfStock', 'Out of Stock')}
                 </p>
                 <p
@@ -730,7 +762,7 @@ const AnalyticsPage: React.FC = () => {
                 </p>
               </div>
               <div className="rounded-lg bg-gray-50 p-4">
-                <p className="text-xs text-gray-500 uppercase">
+                <p className="text-xs uppercase text-gray-500">
                   {tr('analytics.lowStock', 'Low Stock')}
                 </p>
                 <p
@@ -742,7 +774,7 @@ const AnalyticsPage: React.FC = () => {
                 </p>
               </div>
               <div className="rounded-lg bg-gray-50 p-4">
-                <p className="text-xs text-gray-500 uppercase">
+                <p className="text-xs uppercase text-gray-500">
                   {tr('analytics.totalValue', 'Total Value')}
                 </p>
                 <p className="text-2xl font-bold text-gray-900">

@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from 'react';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -68,7 +75,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (savedToken && savedUser) {
         try {
           const response = await apiClient.get('/auth/verify', {
-            headers: { Authorization: `Bearer ${savedToken}` }
+            headers: { Authorization: `Bearer ${savedToken}` },
           });
 
           if (response.data.valid) {
@@ -99,7 +106,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await apiClient.post('/auth/login', {
         username,
-        password
+        password,
       });
 
       if (response.data.success) {
@@ -153,7 +160,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Keep module-level ref in sync so the 401 interceptor can trigger logout
   useEffect(() => {
     logoutFn = logout;
-    return () => { logoutFn = null; };
+    return () => {
+      logoutFn = null;
+    };
   }, [logout]);
 
   const value: AuthContextType = {
@@ -165,9 +174,5 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     token,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

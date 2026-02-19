@@ -1,7 +1,12 @@
 import React from 'react';
 
-interface Props { children: React.ReactNode; }
-interface State { hasError: boolean; error: Error | null; }
+interface Props {
+  children: React.ReactNode;
+}
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
 
 export class ErrorBoundary extends React.Component<Props, State> {
   state: State = { hasError: false, error: null };
@@ -17,13 +22,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-50">
-          <div className="text-center p-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h1>
-            <p className="text-gray-600 mb-4">{this.state.error?.message || 'An unexpected error occurred'}</p>
+        <div className="flex min-h-screen items-center justify-center bg-gray-50">
+          <div className="p-8 text-center">
+            <h1 className="mb-2 text-2xl font-bold text-gray-900">Something went wrong</h1>
+            <p className="mb-4 text-gray-600">
+              {this.state.error?.message || 'An unexpected error occurred'}
+            </p>
             <button
               onClick={() => window.location.reload()}
-              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
+              className="rounded-lg bg-primary-600 px-6 py-2 text-white hover:bg-primary-700"
             >
               Try Again
             </button>

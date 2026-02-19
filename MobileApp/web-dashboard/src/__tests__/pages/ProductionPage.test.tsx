@@ -141,7 +141,9 @@ describe('ProductionPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Error')).toBeInTheDocument();
-        expect(screen.getByText('Failed to load production data. Please try again.')).toBeInTheDocument();
+        expect(
+          screen.getByText('Failed to load production data. Please try again.')
+        ).toBeInTheDocument();
       });
     });
 
@@ -195,7 +197,9 @@ describe('ProductionPage', () => {
       render(<ProductionPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Track production stages and manage workflows')).toBeInTheDocument();
+        expect(
+          screen.getByText('Track production stages and manage workflows')
+        ).toBeInTheDocument();
       });
     });
 

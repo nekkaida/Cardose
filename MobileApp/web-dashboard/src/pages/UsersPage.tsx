@@ -23,7 +23,14 @@ const UsersPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [stats, setStats] = useState<any>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', email: '', password: '', full_name: '', phone: '', role: 'employee' });
+  const [newUser, setNewUser] = useState({
+    username: '',
+    email: '',
+    password: '',
+    full_name: '',
+    phone: '',
+    role: 'employee',
+  });
   const [creating, setCreating] = useState(false);
   const pageSize = 25;
 
@@ -100,7 +107,14 @@ const UsersPage: React.FC = () => {
       }
       setShowCreateModal(false);
       setEditingUser(null);
-      setNewUser({ username: '', email: '', password: '', full_name: '', phone: '', role: 'employee' });
+      setNewUser({
+        username: '',
+        email: '',
+        password: '',
+        full_name: '',
+        phone: '',
+        role: 'employee',
+      });
       loadUsers();
     } catch (err) {
       console.error('Error saving user:', err);
@@ -124,27 +138,37 @@ const UsersPage: React.FC = () => {
 
   const getRoleBadge = (role: string) => {
     switch (role) {
-      case 'owner': return 'bg-primary-100 text-primary-800';
-      case 'manager': return 'bg-blue-100 text-blue-800';
-      case 'employee': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'owner':
+        return 'bg-primary-100 text-primary-800';
+      case 'manager':
+        return 'bg-blue-100 text-blue-800';
+      case 'employee':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-primary-600"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg">
+      <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-4 text-red-700">
         <p className="font-medium">Error</p>
         <p className="text-sm">{error}</p>
-        <button onClick={() => { setError(null); loadUsers(); }} className="mt-2 text-sm text-red-600 underline">
+        <button
+          onClick={() => {
+            setError(null);
+            loadUsers();
+          }}
+          className="mt-2 text-sm text-red-600 underline"
+        >
           Try Again
         </button>
       </div>
@@ -153,46 +177,52 @@ const UsersPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t('users.title')}</h1>
           <p className="text-gray-600">Manage system users and permissions</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          className="rounded-lg bg-primary-600 px-4 py-2 text-white transition-colors hover:bg-primary-700"
         >
           Add User
         </button>
       </div>
 
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
             <p className="text-sm text-gray-600">Total Users</p>
             <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
             <p className="text-sm text-gray-600">Active</p>
             <p className="text-2xl font-bold text-green-600">{stats.active}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
             <p className="text-sm text-gray-600">Inactive</p>
             <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
             <p className="text-sm text-gray-600">By Role</p>
-            <div className="flex gap-2 mt-1">
-              <span className="text-xs bg-primary-100 text-primary-800 px-2 py-0.5 rounded-full">{stats.byRole?.owner || 0} owners</span>
-              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">{stats.byRole?.manager || 0} mgr</span>
-              <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">{stats.byRole?.employee || 0} emp</span>
+            <div className="mt-1 flex gap-2">
+              <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs text-primary-800">
+                {stats.byRole?.owner || 0} owners
+              </span>
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
+                {stats.byRole?.manager || 0} mgr
+              </span>
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-800">
+                {stats.byRole?.employee || 0} emp
+              </span>
             </div>
           </div>
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-        <div className="flex flex-col md:flex-row gap-4">
+      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row">
           <div className="flex-1">
             <input
               type="text"
@@ -200,14 +230,17 @@ const UsersPage: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-600"
             />
           </div>
           <div>
             <select
               value={roleFilter}
-              onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600"
+              onChange={(e) => {
+                setRoleFilter(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
             >
               <option value="all">All Roles</option>
               <option value="owner">Owner</option>
@@ -215,136 +248,212 @@ const UsersPage: React.FC = () => {
               <option value="employee">Employee</option>
             </select>
           </div>
-          <button onClick={handleSearch} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+          <button
+            onClick={handleSearch}
+            className="rounded-lg bg-primary-600 px-4 py-2 text-white transition-colors hover:bg-primary-700"
+          >
             Search
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Role
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Actions
+                </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 bg-white">
               {users.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                     No users found.
                   </td>
                 </tr>
-              ) : users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
-                    <div className="text-xs text-gray-500">@{user.username}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-600">{user.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadge(user.role)}`}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {user.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button
-                      onClick={() => handleEditUser(user)}
-                      className="mr-2 px-2 py-1 text-xs rounded bg-blue-100 text-blue-800 hover:bg-blue-200"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleToggleStatus(user)}
-                      className={`mr-2 px-2 py-1 text-xs rounded ${user.is_active ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
-                    >
-                      {user.is_active ? 'Deactivate' : 'Activate'}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(user)}
-                      className="px-2 py-1 text-xs rounded bg-red-100 text-red-800 hover:bg-red-200"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              ) : (
+                users.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
+                      <div className="text-xs text-gray-500">@{user.username}</div>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <div className="text-sm text-gray-600">{user.email}</div>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getRoleBadge(user.role)}`}
+                      >
+                        {user.role}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                      >
+                        {user.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm">
+                      <button
+                        onClick={() => handleEditUser(user)}
+                        className="mr-2 rounded bg-blue-100 px-2 py-1 text-xs text-blue-800 hover:bg-blue-200"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(user)}
+                        className={`mr-2 rounded px-2 py-1 text-xs ${user.is_active ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}
+                      >
+                        {user.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(user)}
+                        className="rounded bg-red-100 px-2 py-1 text-xs text-red-800 hover:bg-red-200"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between px-6 py-3 border-t">
-          <span className="text-sm text-gray-700">Page {page} of {totalPages}</span>
+        <div className="flex items-center justify-between border-t px-6 py-3">
+          <span className="text-sm text-gray-700">
+            Page {page} of {totalPages}
+          </span>
           <div className="space-x-2">
-            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-              className="px-3 py-1 text-sm border rounded disabled:opacity-50">Previous</button>
-            <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
-              className="px-3 py-1 text-sm border rounded disabled:opacity-50">Next</button>
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded border px-3 py-1 text-sm disabled:opacity-50"
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
 
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">{editingUser ? 'Edit User' : 'Create New User'}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">
+              {editingUser ? 'Edit User' : 'Create New User'}
+            </h2>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                <input type="text" required value={newUser.full_name}
+                <label className="mb-1 block text-sm font-medium text-gray-700">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newUser.full_name}
                   onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600" />
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                <input type="text" required value={newUser.username} disabled={!!editingUser}
+                <label className="mb-1 block text-sm font-medium text-gray-700">Username</label>
+                <input
+                  type="text"
+                  required
+                  value={newUser.username}
+                  disabled={!!editingUser}
                   onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600 ${editingUser ? 'bg-gray-100 cursor-not-allowed' : ''}`} />
+                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600 ${editingUser ? 'cursor-not-allowed bg-gray-100' : ''}`}
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input type="email" required value={newUser.email}
+                <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600" />
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password{editingUser ? ' (leave blank to keep current)' : ''}</label>
-                <input type="password" required={!editingUser} value={newUser.password}
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Password{editingUser ? ' (leave blank to keep current)' : ''}
+                </label>
+                <input
+                  type="password"
+                  required={!editingUser}
+                  value={newUser.password}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600" />
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input type="text" value={newUser.phone}
+                <label className="mb-1 block text-sm font-medium text-gray-700">Phone</label>
+                <input
+                  type="text"
+                  value={newUser.phone}
                   onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600" />
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                <select value={newUser.role}
+                <label className="mb-1 block text-sm font-medium text-gray-700">Role</label>
+                <select
+                  value={newUser.role}
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-600">
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                >
                   <option value="employee">Employee</option>
                   <option value="manager">Manager</option>
                   <option value="owner">Owner</option>
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => { setShowCreateModal(false); setEditingUser(null); setNewUser({ username: '', email: '', password: '', full_name: '', phone: '', role: 'employee' }); }}
-                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
-                <button type="submit" disabled={creating}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setEditingUser(null);
+                    setNewUser({
+                      username: '',
+                      email: '',
+                      password: '',
+                      full_name: '',
+                      phone: '',
+                      role: 'employee',
+                    });
+                  }}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="rounded-lg bg-primary-600 px-4 py-2 text-white hover:bg-primary-700 disabled:opacity-50"
+                >
                   {creating ? 'Saving...' : editingUser ? 'Save Changes' : 'Create User'}
                 </button>
               </div>
