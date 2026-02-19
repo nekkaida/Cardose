@@ -17,7 +17,9 @@
     "test:production": "jest --runInBand tests/production.test.js",
     "test:financial": "jest --runInBand tests/financial.test.js",
     "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "keywords": [
     "gift-box",
@@ -47,13 +49,15 @@
     "nodemailer": "^8.0.1",
     "pdfkit": "^0.13.0",
     "sharp": "^0.32.6",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "eslint": "^8.57.1",
     "jest": "^30.2.0",
     "nodemon": "^3.1.11",
+    "prettier": "^3.8.1",
     "supertest": "^7.2.2"
   }
 }
