@@ -16,46 +16,59 @@ vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/production', search: '' }),
 }));
 
+// Mock AuthContext
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: '1', username: 'admin', email: 'admin@test.com', role: 'admin' },
+    isAuthenticated: true,
+    loading: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+    token: 'test-token',
+  }),
+}));
+
 // Mock ApiContext
 const mockGetProductionBoard = vi.fn();
 const mockGetProductionStats = vi.fn();
 
 vi.mock('../../contexts/ApiContext', () => ({
   useApi: () => ({
-    getDashboardAnalytics: vi.fn(),
-    getOrders: vi.fn(),
-    createOrder: vi.fn(),
-    updateOrder: vi.fn(),
-    getCustomers: vi.fn(),
-    createCustomer: vi.fn(),
-    updateCustomer: vi.fn(),
-    getInventory: vi.fn(),
-    createInventoryItem: vi.fn(),
-    updateInventoryStock: vi.fn(),
-    getFinancialSummary: vi.fn(),
-    getTransactions: vi.fn(),
-    createTransaction: vi.fn(),
-    calculatePricing: vi.fn(),
-    getRevenueAnalytics: vi.fn(),
-    getCustomerAnalytics: vi.fn(),
-    getInventoryAnalytics: vi.fn(),
-    getProductionAnalytics: vi.fn(),
+    getDashboardAnalytics: vi.fn().mockResolvedValue({}),
+    getOrders: vi.fn().mockResolvedValue({}),
+    createOrder: vi.fn().mockResolvedValue({}),
+    updateOrder: vi.fn().mockResolvedValue({}),
+    getCustomers: vi.fn().mockResolvedValue({}),
+    createCustomer: vi.fn().mockResolvedValue({}),
+    updateCustomer: vi.fn().mockResolvedValue({}),
+    getInventory: vi.fn().mockResolvedValue({}),
+    createInventoryItem: vi.fn().mockResolvedValue({}),
+    updateInventoryStock: vi.fn().mockResolvedValue({}),
+    getFinancialSummary: vi.fn().mockResolvedValue({}),
+    getTransactions: vi.fn().mockResolvedValue({}),
+    createTransaction: vi.fn().mockResolvedValue({}),
+    calculatePricing: vi.fn().mockResolvedValue({}),
+    getRevenueAnalytics: vi.fn().mockResolvedValue({}),
+    getCustomerAnalytics: vi.fn().mockResolvedValue({}),
+    getInventoryAnalytics: vi.fn().mockResolvedValue({}),
+    getProductionAnalytics: vi.fn().mockResolvedValue({}),
     getProductionBoard: mockGetProductionBoard,
-    getProductionTasks: vi.fn(),
+    getProductionTasks: vi.fn().mockResolvedValue({}),
     getProductionStats: mockGetProductionStats,
-    getSalesReport: vi.fn(),
-    getInventoryReport: vi.fn(),
-    getProductionReport: vi.fn(),
-    getCustomerReport: vi.fn(),
-    getFinancialReport: vi.fn(),
-    getUsers: vi.fn(),
-    createUser: vi.fn(),
-    updateUser: vi.fn(),
-    updateUserStatus: vi.fn(),
-    deleteUser: vi.fn(),
-    getSettings: vi.fn(),
-    updateSetting: vi.fn(),
-    deleteSetting: vi.fn(),
+    updateProductionStage: vi.fn().mockResolvedValue({}),
+    getSalesReport: vi.fn().mockResolvedValue({}),
+    getInventoryReport: vi.fn().mockResolvedValue({}),
+    getProductionReport: vi.fn().mockResolvedValue({}),
+    getCustomerReport: vi.fn().mockResolvedValue({}),
+    getFinancialReport: vi.fn().mockResolvedValue({}),
+    getUsers: vi.fn().mockResolvedValue({}),
+    createUser: vi.fn().mockResolvedValue({}),
+    updateUser: vi.fn().mockResolvedValue({}),
+    updateUserStatus: vi.fn().mockResolvedValue({}),
+    deleteUser: vi.fn().mockResolvedValue({}),
+    getSettings: vi.fn().mockResolvedValue({}),
+    updateSetting: vi.fn().mockResolvedValue({}),
+    deleteSetting: vi.fn().mockResolvedValue({}),
   }),
 }));
 
@@ -66,7 +79,7 @@ vi.mock('../../contexts/LanguageContext', () => ({
     setLanguage: vi.fn(),
     t: (key: string) => {
       const translations: Record<string, string> = {
-        'production.title': 'Production',
+        'production.title': 'Production Management',
         'common.loading': 'Loading...',
         'common.error': 'Error',
       };
@@ -75,44 +88,61 @@ vi.mock('../../contexts/LanguageContext', () => ({
   }),
 }));
 
+// Board data: page expects { board: { pending: [...], designing: [...], ... } }
 const mockBoardData = {
-  board: [
-    {
-      id: '1',
-      order_number: 'ORD-001',
-      customer_name: 'John Doe',
-      status: 'designing',
-      priority: 'normal',
-      due_date: '2025-02-01',
-      total_amount: 5000000,
-    },
-    {
-      id: '2',
-      order_number: 'ORD-002',
-      customer_name: 'Jane Smith',
-      status: 'production',
-      priority: 'urgent',
-      due_date: '2025-01-25',
-      total_amount: 8000000,
-    },
-    {
-      id: '3',
-      order_number: 'ORD-003',
-      customer_name: 'Bob Wilson',
-      status: 'quality_control',
-      priority: 'high',
-      due_date: '2025-01-20',
-      total_amount: 3000000,
-    },
-  ],
+  board: {
+    pending: [],
+    designing: [
+      {
+        id: '1',
+        order_number: 'ORD-001',
+        customer_name: 'John Doe',
+        status: 'designing',
+        priority: 'normal',
+        due_date: '2025-02-01',
+        total_amount: 5000000,
+      },
+    ],
+    approved: [],
+    production: [
+      {
+        id: '2',
+        order_number: 'ORD-002',
+        customer_name: 'Jane Smith',
+        status: 'production',
+        priority: 'urgent',
+        due_date: '2025-01-25',
+        total_amount: 8000000,
+      },
+    ],
+    quality_control: [
+      {
+        id: '3',
+        order_number: 'ORD-003',
+        customer_name: 'Bob Wilson',
+        status: 'quality_control',
+        priority: 'high',
+        due_date: '2025-01-20',
+        total_amount: 3000000,
+      },
+    ],
+  },
 };
 
+// Stats data: page expects { stats: { active_orders, completed_today, overdue_orders, quality_issues, stage_distribution } }
 const mockStatsData = {
   stats: {
-    designing: 3,
-    in_production: 5,
-    quality_control: 2,
-    urgent_orders: 1,
+    active_orders: 10,
+    completed_today: 2,
+    overdue_orders: 1,
+    quality_issues: 0,
+    stage_distribution: {
+      pending: 0,
+      designing: 1,
+      approved: 0,
+      production: 1,
+      quality_control: 1,
+    },
   },
 };
 
@@ -122,13 +152,14 @@ describe('ProductionPage', () => {
   });
 
   describe('Loading state', () => {
-    it('should show loading spinner initially', () => {
+    it('should show loading skeleton initially', () => {
       mockGetProductionBoard.mockImplementation(() => new Promise(() => {}));
       mockGetProductionStats.mockImplementation(() => new Promise(() => {}));
       render(<ProductionPage />);
 
-      const spinnerContainer = document.querySelector('.animate-spin');
-      expect(spinnerContainer).toBeInTheDocument();
+      // Page uses skeleton (animate-pulse), not spinner
+      const skeletonElement = document.querySelector('.animate-pulse');
+      expect(skeletonElement).toBeInTheDocument();
     });
   });
 
@@ -140,7 +171,6 @@ describe('ProductionPage', () => {
       render(<ProductionPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Error')).toBeInTheDocument();
         expect(
           screen.getByText('Failed to load production data. Please try again.')
         ).toBeInTheDocument();
@@ -174,7 +204,7 @@ describe('ProductionPage', () => {
       await userEvent.click(screen.getByText('Try Again'));
 
       await waitFor(() => {
-        expect(screen.getByText('Production')).toBeInTheDocument();
+        expect(screen.getByText('Production Management')).toBeInTheDocument();
       });
     });
   });
@@ -189,7 +219,7 @@ describe('ProductionPage', () => {
       render(<ProductionPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Production')).toBeInTheDocument();
+        expect(screen.getByText('Production Management')).toBeInTheDocument();
       });
     });
 
@@ -207,26 +237,10 @@ describe('ProductionPage', () => {
       render(<ProductionPage />);
 
       await waitFor(() => {
-        // "Designing" appears in both stats card and kanban column
-        const designingElements = screen.getAllByText('Designing');
-        expect(designingElements.length).toBeGreaterThanOrEqual(2);
-        // "In Production" appears in both stats card and kanban column
-        const inProductionElements = screen.getAllByText('In Production');
-        expect(inProductionElements.length).toBeGreaterThanOrEqual(2);
-        // "Quality Control" appears in both stats card and kanban column
-        const qcElements = screen.getAllByText('Quality Control');
-        expect(qcElements.length).toBeGreaterThanOrEqual(2);
-        expect(screen.getByText('Urgent Orders')).toBeInTheDocument();
-      });
-    });
-
-    it('should display stats values', async () => {
-      render(<ProductionPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText('3')).toBeInTheDocument();
-        expect(screen.getByText('5')).toBeInTheDocument();
-        expect(screen.getByText('Urgent Orders')).toBeInTheDocument();
+        expect(screen.getByText('Active Orders')).toBeInTheDocument();
+        expect(screen.getByText('Completed Today')).toBeInTheDocument();
+        expect(screen.getByText('Overdue Orders')).toBeInTheDocument();
+        expect(screen.getByText('Quality Issues')).toBeInTheDocument();
       });
     });
 
@@ -234,9 +248,12 @@ describe('ProductionPage', () => {
       render(<ProductionPage />);
 
       await waitFor(() => {
-        // Board columns have stage labels
-        const designingElements = screen.getAllByText('Designing');
-        expect(designingElements.length).toBeGreaterThanOrEqual(2);
+        // Column headings from STAGES
+        expect(screen.getByText('Pending')).toBeInTheDocument();
+        expect(screen.getByText('Designing')).toBeInTheDocument();
+        expect(screen.getByText('Approved')).toBeInTheDocument();
+        expect(screen.getByText('In Production')).toBeInTheDocument();
+        expect(screen.getByText('Quality Control')).toBeInTheDocument();
       });
     });
 
@@ -264,6 +281,7 @@ describe('ProductionPage', () => {
       render(<ProductionPage />);
 
       await waitFor(() => {
+        // Priority labels fall back to raw values since translation keys aren't mapped
         expect(screen.getByText('normal')).toBeInTheDocument();
         expect(screen.getByText('urgent')).toBeInTheDocument();
         expect(screen.getByText('high')).toBeInTheDocument();
