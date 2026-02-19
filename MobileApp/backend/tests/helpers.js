@@ -6,17 +6,17 @@ const fs = require('fs');
 // Build a fresh Fastify instance for testing
 async function buildApp() {
   const fastify = Fastify({
-    logger: false // Disable logging in tests
+    logger: false, // Disable logging in tests
   });
 
   // Register CORS
   await fastify.register(require('@fastify/cors'), {
-    origin: true
+    origin: true,
   });
 
   // Register JWT
   await fastify.register(require('@fastify/jwt'), {
-    secret: process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing'
+    secret: process.env.JWT_SECRET || 'test-jwt-secret-key-for-testing',
   });
 
   // Register multipart (needed for file upload routes)
@@ -33,14 +33,73 @@ async function buildApp() {
 
   const rawDb = dbService.db;
 
+  // 0a. customers: route inserts 'address' column but table may not have it
+  try {
+    rawDb.exec('ALTER TABLE customers ADD COLUMN address TEXT');
+  } catch (e) {
+    /* already exists */
+  }
+
+  // 0b. orders: route inserts 'special_requests' and 'notes' columns
+  try {
+    rawDb.exec('ALTER TABLE orders ADD COLUMN special_requests TEXT');
+  } catch (e) {
+    /* already exists */
+  }
+  try {
+    rawDb.exec('ALTER TABLE orders ADD COLUMN notes TEXT');
+  } catch (e) {
+    /* already exists */
+  }
+
+  // 0c. users: auth routes reference 'avatar_url', 'reset_token', 'reset_token_expires'
+  try {
+    rawDb.exec('ALTER TABLE users ADD COLUMN avatar_url TEXT');
+  } catch (e) {
+    /* already exists */
+  }
+  try {
+    rawDb.exec('ALTER TABLE users ADD COLUMN reset_token TEXT');
+  } catch (e) {
+    /* already exists */
+  }
+  try {
+    rawDb.exec('ALTER TABLE users ADD COLUMN reset_token_expires DATETIME');
+  } catch (e) {
+    /* already exists */
+  }
+
+  // 0d. financial_transactions: route inserts 'created_by' column
+  try {
+    rawDb.exec('ALTER TABLE financial_transactions ADD COLUMN created_by TEXT');
+  } catch (e) {
+    /* already exists */
+  }
+
   // 1. inventory_materials: route reports/inventory references 'sku' column
-  try { rawDb.exec('ALTER TABLE inventory_materials ADD COLUMN sku TEXT'); } catch (e) { /* already exists */ }
+  try {
+    rawDb.exec('ALTER TABLE inventory_materials ADD COLUMN sku TEXT');
+  } catch (e) {
+    /* already exists */
+  }
 
   // 2. quality_checks: routes reference 'overall_status' and 'checklist_items' columns;
   //    also 'check_type' is NOT NULL but routes don't insert it, so add a default.
-  try { rawDb.exec('ALTER TABLE quality_checks ADD COLUMN overall_status TEXT DEFAULT \'pending\''); } catch (e) { /* already exists */ }
-  try { rawDb.exec('ALTER TABLE quality_checks ADD COLUMN checklist_items TEXT'); } catch (e) { /* already exists */ }
-  try { rawDb.exec('ALTER TABLE quality_checks ADD COLUMN updated_at DATETIME'); } catch (e) { /* already exists */ }
+  try {
+    rawDb.exec("ALTER TABLE quality_checks ADD COLUMN overall_status TEXT DEFAULT 'pending'");
+  } catch (e) {
+    /* already exists */
+  }
+  try {
+    rawDb.exec('ALTER TABLE quality_checks ADD COLUMN checklist_items TEXT');
+  } catch (e) {
+    /* already exists */
+  }
+  try {
+    rawDb.exec('ALTER TABLE quality_checks ADD COLUMN updated_at DATETIME');
+  } catch (e) {
+    /* already exists */
+  }
 
   // Recreate quality_checks without check_type NOT NULL (routes don't provide it)
   // SQLite doesn't support DROP NOT NULL, so recreate the table
@@ -62,14 +121,24 @@ async function buildApp() {
         FOREIGN KEY (checked_by) REFERENCES users (id)
       )
     `);
-    rawDb.exec('INSERT OR IGNORE INTO quality_checks_new SELECT id, order_id, check_type, status, COALESCE(overall_status, status), checklist_items, checked_by, checked_at, notes, updated_at, created_at FROM quality_checks');
+    rawDb.exec(
+      'INSERT OR IGNORE INTO quality_checks_new SELECT id, order_id, check_type, status, COALESCE(overall_status, status), checklist_items, checked_by, checked_at, notes, updated_at, created_at FROM quality_checks'
+    );
     rawDb.exec('DROP TABLE quality_checks');
     rawDb.exec('ALTER TABLE quality_checks_new RENAME TO quality_checks');
-    rawDb.exec('CREATE INDEX IF NOT EXISTS idx_quality_checks_order_id ON quality_checks(order_id)');
-  } catch (e) { /* ignore if already done */ }
+    rawDb.exec(
+      'CREATE INDEX IF NOT EXISTS idx_quality_checks_order_id ON quality_checks(order_id)'
+    );
+  } catch (e) {
+    /* ignore if already done */
+  }
 
   // 3. purchase_orders: route inserts 'expected_date' but table has 'expected_delivery'
-  try { rawDb.exec('ALTER TABLE purchase_orders ADD COLUMN expected_date DATETIME'); } catch (e) { /* already exists */ }
+  try {
+    rawDb.exec('ALTER TABLE purchase_orders ADD COLUMN expected_date DATETIME');
+  } catch (e) {
+    /* already exists */
+  }
 
   // Recreate purchase_orders without strict CHECK constraint on status
   // (route allows 'shipped' which original CHECK doesn't include)
@@ -92,19 +161,51 @@ async function buildApp() {
         FOREIGN KEY (created_by) REFERENCES users (id)
       )
     `);
-    const cols = rawDb.prepare('PRAGMA table_info(purchase_orders)').all().map(c => c.name);
-    const selectCols = cols.filter(c => ['id','po_number','supplier','items','total_amount','status','expected_delivery','received_date','notes','created_by','created_at','updated_at'].includes(c)).join(', ');
+    const cols = rawDb
+      .prepare('PRAGMA table_info(purchase_orders)')
+      .all()
+      .map((c) => c.name);
+    const selectCols = cols
+      .filter((c) =>
+        [
+          'id',
+          'po_number',
+          'supplier',
+          'items',
+          'total_amount',
+          'status',
+          'expected_delivery',
+          'received_date',
+          'notes',
+          'created_by',
+          'created_at',
+          'updated_at',
+        ].includes(c)
+      )
+      .join(', ');
     if (selectCols) {
-      rawDb.exec(`INSERT OR IGNORE INTO purchase_orders_new (${selectCols}) SELECT ${selectCols} FROM purchase_orders`);
+      rawDb.exec(
+        `INSERT OR IGNORE INTO purchase_orders_new (${selectCols}) SELECT ${selectCols} FROM purchase_orders`
+      );
     }
     rawDb.exec('DROP TABLE purchase_orders');
     rawDb.exec('ALTER TABLE purchase_orders_new RENAME TO purchase_orders');
-  } catch (e) { /* ignore if already done */ }
+  } catch (e) {
+    /* ignore if already done */
+  }
 
   // 4. message_templates: route inserts 'body' and 'category' but table may not have them;
   //    also 'content' is NOT NULL but routes don't always provide it
-  try { rawDb.exec('ALTER TABLE message_templates ADD COLUMN body TEXT'); } catch (e) { /* already exists */ }
-  try { rawDb.exec('ALTER TABLE message_templates ADD COLUMN category TEXT'); } catch (e) { /* already exists */ }
+  try {
+    rawDb.exec('ALTER TABLE message_templates ADD COLUMN body TEXT');
+  } catch (e) {
+    /* already exists */
+  }
+  try {
+    rawDb.exec('ALTER TABLE message_templates ADD COLUMN category TEXT');
+  } catch (e) {
+    /* already exists */
+  }
   // Recreate to make 'content' nullable and remove type CHECK constraint (routes use 'invoice' etc.)
   try {
     rawDb.exec(`
@@ -124,10 +225,14 @@ async function buildApp() {
         FOREIGN KEY (created_by) REFERENCES users (id)
       )
     `);
-    rawDb.exec('INSERT OR IGNORE INTO message_templates_new SELECT id, name, type, subject, content, body, variables, category, is_active, created_by, created_at, updated_at FROM message_templates');
+    rawDb.exec(
+      'INSERT OR IGNORE INTO message_templates_new SELECT id, name, type, subject, content, body, variables, category, is_active, created_by, created_at, updated_at FROM message_templates'
+    );
     rawDb.exec('DROP TABLE message_templates');
     rawDb.exec('ALTER TABLE message_templates_new RENAME TO message_templates');
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    /* ignore */
+  }
 
   // 5. webhooks: WebhookService doesn't insert 'name', but table has 'name NOT NULL'
   try {
@@ -151,7 +256,9 @@ async function buildApp() {
     `);
     rawDb.exec('DROP TABLE webhooks');
     rawDb.exec('ALTER TABLE webhooks_new RENAME TO webhooks');
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    /* ignore */
+  }
 
   // 6. Create webhook_logs table (used by WebhookService but not in createTables)
   rawDb.exec(`
@@ -213,12 +320,12 @@ async function buildApp() {
     getFileById: (fileId) => dbService.getFileById(fileId),
     getFilesByUser: (userId) => dbService.getFilesByUser(userId),
     deleteFile: (fileId) => dbService.deleteFile(fileId),
-    getFileStats: () => dbService.getFileStats()
+    getFileStats: () => dbService.getFileStats(),
   };
   fastify.decorate('db', asyncDb);
 
   // Add authenticate decorator
-  fastify.decorate('authenticate', async function(request, reply) {
+  fastify.decorate('authenticate', async function (request, reply) {
     try {
       await request.jwtVerify();
     } catch (err) {
@@ -228,7 +335,7 @@ async function buildApp() {
 
   // Add authorize decorator (role-based access control)
   fastify.decorate('authorize', (roles) => {
-    return async function(request, reply) {
+    return async function (request, reply) {
       try {
         await request.jwtVerify();
         if (!roles.includes(request.user.role)) {
@@ -279,7 +386,7 @@ async function createTestUserAndGetToken(app, userData = {}) {
     email: `test${Date.now()}@example.com`,
     password: 'Test123!',
     fullName: 'Test User',
-    role: 'owner'
+    role: 'owner',
   };
 
   const user = { ...defaultUser, ...userData };
@@ -288,10 +395,22 @@ async function createTestUserAndGetToken(app, userData = {}) {
   const userId = uuidv4();
   const passwordHash = await bcrypt.hash(user.password, 10);
 
-  app.db.db.prepare(`
+  app.db.db
+    .prepare(
+      `
     INSERT INTO users (id, username, email, password_hash, role, full_name, phone, is_active, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-  `).run(userId, user.username, user.email, passwordHash, user.role, user.fullName, user.phone || null);
+  `
+    )
+    .run(
+      userId,
+      user.username,
+      user.email,
+      passwordHash,
+      user.role,
+      user.fullName,
+      user.phone || null
+    );
 
   // Login to get token
   const loginResponse = await app.inject({
@@ -299,15 +418,15 @@ async function createTestUserAndGetToken(app, userData = {}) {
     url: '/api/auth/login',
     payload: {
       username: user.username,
-      password: user.password
-    }
+      password: user.password,
+    },
   });
 
   const loginData = JSON.parse(loginResponse.body);
   return {
     token: loginData.token,
     user: loginData.user,
-    credentials: user
+    credentials: user,
   };
 }
 
@@ -317,8 +436,8 @@ async function makeAuthenticatedRequest(app, method, url, token, payload = null)
     method,
     url,
     headers: {
-      Authorization: `Bearer ${token}`
-    }
+      Authorization: `Bearer ${token}`,
+    },
   };
 
   if (payload) {
@@ -334,7 +453,7 @@ async function createTestCustomer(app, token, customerData = {}) {
     name: 'Test Customer ' + Date.now(),
     email: `customer${Date.now()}@example.com`,
     phone: '08123456789',
-    business_type: 'corporate'
+    business_type: 'corporate',
   };
 
   const customer = { ...defaultCustomer, ...customerData };
@@ -352,7 +471,7 @@ async function createTestOrder(app, token, customerId, orderData = {}) {
     status: 'pending',
     priority: 'normal',
     total_amount: 100000,
-    items: []
+    items: [],
   };
 
   const order = { ...defaultOrder, ...orderData };
@@ -369,7 +488,7 @@ async function createTestInventoryItem(app, token, itemData = {}) {
     category: 'paper',
     current_stock: 100,
     reorder_level: 10,
-    unit_cost: 5000
+    unit_cost: 5000,
   };
 
   const item = { ...defaultItem, ...itemData };
@@ -381,7 +500,7 @@ async function createTestInventoryItem(app, token, itemData = {}) {
 
 // Helper to wait for a specified time
 function wait(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 module.exports = {
@@ -391,5 +510,5 @@ module.exports = {
   createTestCustomer,
   createTestOrder,
   createTestInventoryItem,
-  wait
+  wait,
 };
