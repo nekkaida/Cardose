@@ -53,17 +53,34 @@ const db = new Database(fastify.log);
 // Make database available in all routes
 fastify.decorate('db', db);
 
-// Sentry error handler
+// Sentry error handler — only reports 5xx to Sentry, preserves Fastify's
+// default validation error format (statusCode + message) for 4xx errors.
 fastify.setErrorHandler((error, request, reply) => {
-  if (env.SENTRY_DSN) {
+  const statusCode = error.statusCode || 500;
+
+  // Only report unexpected server errors to Sentry (not validation/auth errors)
+  if (statusCode >= 500 && env.SENTRY_DSN) {
     Sentry.captureException(error, {
       extra: { url: request.url, method: request.method },
     });
   }
+
+  // Let Fastify's default format through for validation errors (4xx)
+  if (error.validation) {
+    reply.status(400).send({
+      statusCode: 400,
+      error: 'Bad Request',
+      message: error.message,
+    });
+    return;
+  }
+
   fastify.log.error(error);
-  reply.status(error.statusCode || 500).send({
-    success: false,
-    error: env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message,
+  reply.status(statusCode).send({
+    statusCode,
+    error:
+      statusCode >= 500 && env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message,
+    message: error.message,
   });
 });
 
