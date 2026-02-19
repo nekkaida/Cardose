@@ -17,7 +17,10 @@ const envSchema = z.object({
   // SMTP (all optional — email features disabled when missing)
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().default(587),
-  SMTP_SECURE: z.string().transform((v) => v === 'true').default('false'),
+  SMTP_SECURE: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('false'),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
@@ -31,16 +34,34 @@ const envSchema = z.object({
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
 
   // Backup
-  AUTO_BACKUP: z.string().transform((v) => v === 'true').default('true'),
+  AUTO_BACKUP: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('true'),
   BACKUP_FREQUENCY: z.coerce.number().default(4),
   BACKUP_DIR: z.string().default('./backups'),
 
   // Feature flags
-  ENABLE_WHATSAPP: z.string().transform((v) => v === 'true').default('true'),
-  ENABLE_EMAIL: z.string().transform((v) => v === 'true').default('true'),
-  ENABLE_NOTIFICATIONS: z.string().transform((v) => v !== 'false').default('true'),
-  ENABLE_ANALYTICS: z.string().transform((v) => v === 'true').default('true'),
-  ENABLE_BACKUP: z.string().transform((v) => v === 'true').default('true'),
+  ENABLE_WHATSAPP: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('true'),
+  ENABLE_EMAIL: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('true'),
+  ENABLE_NOTIFICATIONS: z
+    .string()
+    .transform((v) => v !== 'false')
+    .default('true'),
+  ENABLE_ANALYTICS: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('true'),
+  ENABLE_BACKUP: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('true'),
 
   // File uploads
   MAX_FILE_SIZE: z.coerce.number().default(10485760),

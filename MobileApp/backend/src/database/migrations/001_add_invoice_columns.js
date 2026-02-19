@@ -3,7 +3,7 @@
 
 function columnExists(db, table, column) {
   const columns = db.prepare(`PRAGMA table_info("${table}")`).all();
-  return columns.some(col => col.name === column);
+  return columns.some((col) => col.name === column);
 }
 
 module.exports = {
@@ -17,5 +17,5 @@ module.exports = {
     if (!columnExists(db, 'invoices', 'payment_method')) {
       db.exec('ALTER TABLE invoices ADD COLUMN payment_method TEXT');
     }
-  }
+  },
 };

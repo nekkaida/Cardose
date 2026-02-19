@@ -4,8 +4,14 @@ const path = require('path');
 
 // Whitelist of tables allowed for sync operations
 const SYNCABLE_TABLES = new Set([
-  'customers', 'orders', 'invoices', 'inventory_materials',
-  'production_tasks', 'quality_checks', 'files', 'communication_logs'
+  'customers',
+  'orders',
+  'invoices',
+  'inventory_materials',
+  'production_tasks',
+  'quality_checks',
+  'files',
+  'communication_logs',
 ]);
 
 class SyncService {
@@ -37,7 +43,7 @@ class SyncService {
         'production_tasks',
         'quality_checks',
         'files',
-        'communication_logs'
+        'communication_logs',
       ];
 
       const changes = {};
@@ -63,7 +69,7 @@ class SyncService {
         success: true,
         timestamp: new Date().toISOString(),
         changes,
-        recordCount: Object.values(changes).reduce((sum, records) => sum + records.length, 0)
+        recordCount: Object.values(changes).reduce((sum, records) => sum + records.length, 0),
       };
     } catch (error) {
       throw new Error(`Failed to get changes: ${error.message}`);
@@ -78,7 +84,7 @@ class SyncService {
       applied: 0,
       conflicts: 0,
       errors: 0,
-      details: []
+      details: [],
     };
 
     for (const [table, records] of Object.entries(changes)) {
@@ -87,10 +93,7 @@ class SyncService {
       for (const record of records) {
         try {
           // Check if record exists
-          const existing = await this.db.get(
-            `SELECT * FROM "${table}" WHERE id = ?`,
-            [record.id]
-          );
+          const existing = await this.db.get(`SELECT * FROM "${table}" WHERE id = ?`, [record.id]);
 
           if (existing) {
             // Check for conflict
@@ -113,7 +116,7 @@ class SyncService {
                   table,
                   id: record.id,
                   action: 'conflict_resolved',
-                  strategy: this.conflictResolutionStrategy
+                  strategy: this.conflictResolutionStrategy,
                 });
               }
             } else {
@@ -123,7 +126,7 @@ class SyncService {
               results.details.push({
                 table,
                 id: record.id,
-                action: 'updated'
+                action: 'updated',
               });
             }
           } else {
@@ -133,7 +136,7 @@ class SyncService {
             results.details.push({
               table,
               id: record.id,
-              action: 'inserted'
+              action: 'inserted',
             });
           }
         } catch (error) {
@@ -142,7 +145,7 @@ class SyncService {
             table,
             id: record.id,
             action: 'error',
-            error: error.message
+            error: error.message,
           });
         }
       }
@@ -153,7 +156,7 @@ class SyncService {
 
     return {
       success: true,
-      results
+      results,
     };
   }
 
@@ -180,7 +183,7 @@ class SyncService {
 
     // Check if data fields are different
     const fieldsToCompare = Object.keys(incoming).filter(
-      key => !['id', 'created_at', 'updated_at'].includes(key)
+      (key) => !['id', 'created_at', 'updated_at'].includes(key)
     );
 
     for (const field of fieldsToCompare) {
@@ -232,9 +235,9 @@ class SyncService {
    * Update record in database
    */
   async updateRecord(table, record) {
-    const fields = Object.keys(record).filter(key => key !== 'id');
-    const setClause = fields.map(field => `${field} = ?`).join(', ');
-    const values = fields.map(field => record[field]);
+    const fields = Object.keys(record).filter((key) => key !== 'id');
+    const setClause = fields.map((field) => `${field} = ?`).join(', ');
+    const values = fields.map((field) => record[field]);
     values.push(record.id);
 
     const query = `UPDATE "${table}" SET ${setClause} WHERE id = ?`;
@@ -247,7 +250,7 @@ class SyncService {
   async insertRecord(table, record) {
     const fields = Object.keys(record);
     const placeholders = fields.map(() => '?').join(', ');
-    const values = fields.map(field => record[field]);
+    const values = fields.map((field) => record[field]);
 
     const query = `INSERT INTO "${table}" (${fields.join(', ')}) VALUES (${placeholders})`;
     await this.db.run(query, values);
@@ -263,13 +266,20 @@ class SyncService {
       existing_data: JSON.stringify(existing),
       incoming_data: JSON.stringify(incoming),
       status: 'pending',
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
 
     await this.db.run(
       `INSERT INTO sync_conflicts (table_name, record_id, existing_data, incoming_data, status, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [conflict.table, conflict.record_id, conflict.existing_data, conflict.incoming_data, conflict.status, conflict.created_at]
+      [
+        conflict.table,
+        conflict.record_id,
+        conflict.existing_data,
+        conflict.incoming_data,
+        conflict.status,
+        conflict.created_at,
+      ]
     );
   }
 
@@ -281,10 +291,10 @@ class SyncService {
       `SELECT * FROM sync_conflicts WHERE status = 'pending' ORDER BY created_at DESC`
     );
 
-    return conflicts.map(conflict => ({
+    return conflicts.map((conflict) => ({
       ...conflict,
       existing_data: JSON.parse(conflict.existing_data),
-      incoming_data: JSON.parse(conflict.incoming_data)
+      incoming_data: JSON.parse(conflict.incoming_data),
     }));
   }
 
@@ -292,10 +302,7 @@ class SyncService {
    * Resolve conflict manually
    */
   async resolveConflictManually(conflictId, chosenVersion) {
-    const conflict = await this.db.get(
-      `SELECT * FROM sync_conflicts WHERE id = ?`,
-      [conflictId]
-    );
+    const conflict = await this.db.get(`SELECT * FROM sync_conflicts WHERE id = ?`, [conflictId]);
 
     if (!conflict) {
       throw new Error('Conflict not found');
@@ -316,7 +323,7 @@ class SyncService {
     return {
       success: true,
       message: 'Conflict resolved',
-      chosenVersion
+      chosenVersion,
     };
   }
 
@@ -327,7 +334,13 @@ class SyncService {
     await this.db.run(
       `INSERT INTO sync_logs (device_id, applied_count, conflict_count, error_count, details, synced_at)
        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-      [deviceId, results.applied, results.conflicts, results.errors, JSON.stringify(results.details)]
+      [
+        deviceId,
+        results.applied,
+        results.conflicts,
+        results.errors,
+        JSON.stringify(results.details),
+      ]
     );
   }
 
@@ -348,9 +361,9 @@ class SyncService {
 
     const logs = await this.db.all(query, params);
 
-    return logs.map(log => ({
+    return logs.map((log) => ({
       ...log,
-      details: JSON.parse(log.details)
+      details: JSON.parse(log.details),
     }));
   }
 
@@ -369,7 +382,7 @@ class SyncService {
     return {
       success: true,
       deviceId,
-      message: 'Device registered successfully'
+      message: 'Device registered successfully',
     };
   }
 
@@ -377,10 +390,9 @@ class SyncService {
    * Update device last sync timestamp
    */
   async updateDeviceLastSync(deviceId) {
-    await this.db.run(
-      `UPDATE sync_devices SET last_sync = CURRENT_TIMESTAMP WHERE id = ?`,
-      [deviceId]
-    );
+    await this.db.run(`UPDATE sync_devices SET last_sync = CURRENT_TIMESTAMP WHERE id = ?`, [
+      deviceId,
+    ]);
   }
 
   /**
@@ -408,7 +420,7 @@ class SyncService {
 
     return {
       success: true,
-      message: 'Device removed successfully'
+      message: 'Device removed successfully',
     };
   }
 
@@ -416,10 +428,7 @@ class SyncService {
    * Get sync status
    */
   async getSyncStatus(deviceId) {
-    const device = await this.db.get(
-      `SELECT * FROM sync_devices WHERE id = ?`,
-      [deviceId]
-    );
+    const device = await this.db.get(`SELECT * FROM sync_devices WHERE id = ?`, [deviceId]);
 
     if (!device) {
       throw new Error('Device not found');
@@ -434,7 +443,7 @@ class SyncService {
       device,
       lastSync,
       pendingChanges: pendingChanges.recordCount,
-      status: pendingChanges.recordCount > 0 ? 'out_of_sync' : 'synced'
+      status: pendingChanges.recordCount > 0 ? 'out_of_sync' : 'synced',
     };
   }
 

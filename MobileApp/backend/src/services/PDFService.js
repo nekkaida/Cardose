@@ -121,11 +121,7 @@ class PDFService {
     doc.fillColor('#000000');
 
     // Horizontal line
-    doc.strokeColor('#2C5530')
-       .lineWidth(2)
-       .moveTo(50, 90)
-       .lineTo(550, 90)
-       .stroke();
+    doc.strokeColor('#2C5530').lineWidth(2).moveTo(50, 90).lineTo(550, 90).stroke();
   }
 
   /**
@@ -140,32 +136,42 @@ class PDFService {
     doc.fontSize(10).fillColor('#2C5530');
     let xPos = startX;
     tableHeaders.forEach((header, i) => {
-      doc.text(header, xPos, tableTop, { width: columnWidths[i], align: i === 0 ? 'left' : 'right' });
+      doc.text(header, xPos, tableTop, {
+        width: columnWidths[i],
+        align: i === 0 ? 'left' : 'right',
+      });
       xPos += columnWidths[i];
     });
     doc.fillColor('#000000');
 
     // Header underline
-    doc.strokeColor('#cccccc')
-       .lineWidth(1)
-       .moveTo(startX, tableTop + 15)
-       .lineTo(550, tableTop + 15)
-       .stroke();
+    doc
+      .strokeColor('#cccccc')
+      .lineWidth(1)
+      .moveTo(startX, tableTop + 15)
+      .lineTo(550, tableTop + 15)
+      .stroke();
 
     // Table rows
     let yPos = tableTop + 25;
     doc.fontSize(9);
 
     if (items && items.length > 0) {
-      items.forEach(item => {
+      items.forEach((item) => {
         xPos = startX;
         doc.text(item.description || item.name, xPos, yPos, { width: columnWidths[0] });
         xPos += columnWidths[0];
         doc.text(item.quantity || '1', xPos, yPos, { width: columnWidths[1], align: 'right' });
         xPos += columnWidths[1];
-        doc.text(this.formatCurrency(item.unit_price || 0), xPos, yPos, { width: columnWidths[2], align: 'right' });
+        doc.text(this.formatCurrency(item.unit_price || 0), xPos, yPos, {
+          width: columnWidths[2],
+          align: 'right',
+        });
         xPos += columnWidths[2];
-        doc.text(this.formatCurrency(item.total || item.unit_price || 0), xPos, yPos, { width: columnWidths[3], align: 'right' });
+        doc.text(this.formatCurrency(item.total || item.unit_price || 0), xPos, yPos, {
+          width: columnWidths[3],
+          align: 'right',
+        });
         yPos += 20;
       });
     } else {
@@ -175,19 +181,21 @@ class PDFService {
       xPos += columnWidths[0];
       doc.text('1', xPos, yPos, { width: columnWidths[1], align: 'right' });
       xPos += columnWidths[1];
-      doc.text(this.formatCurrency(invoice.subtotal), xPos, yPos, { width: columnWidths[2], align: 'right' });
+      doc.text(this.formatCurrency(invoice.subtotal), xPos, yPos, {
+        width: columnWidths[2],
+        align: 'right',
+      });
       xPos += columnWidths[2];
-      doc.text(this.formatCurrency(invoice.subtotal), xPos, yPos, { width: columnWidths[3], align: 'right' });
+      doc.text(this.formatCurrency(invoice.subtotal), xPos, yPos, {
+        width: columnWidths[3],
+        align: 'right',
+      });
       yPos += 20;
     }
 
     // Subtotal line
     yPos += 10;
-    doc.strokeColor('#cccccc')
-       .lineWidth(1)
-       .moveTo(startX, yPos)
-       .lineTo(550, yPos)
-       .stroke();
+    doc.strokeColor('#cccccc').lineWidth(1).moveTo(startX, yPos).lineTo(550, yPos).stroke();
 
     // Summary section
     yPos += 15;
@@ -200,7 +208,10 @@ class PDFService {
     if (invoice.discount > 0) {
       yPos += 20;
       doc.text('Discount:', summaryX, yPos);
-      doc.text(`-${this.formatCurrency(invoice.discount)}`, 470, yPos, { width: 80, align: 'right' });
+      doc.text(`-${this.formatCurrency(invoice.discount)}`, 470, yPos, {
+        width: 80,
+        align: 'right',
+      });
     }
 
     yPos += 20;
@@ -209,11 +220,7 @@ class PDFService {
 
     // Total line
     yPos += 10;
-    doc.strokeColor('#2C5530')
-       .lineWidth(2)
-       .moveTo(summaryX, yPos)
-       .lineTo(550, yPos)
-       .stroke();
+    doc.strokeColor('#2C5530').lineWidth(2).moveTo(summaryX, yPos).lineTo(550, yPos).stroke();
 
     // Total amount
     yPos += 15;
@@ -245,7 +252,11 @@ class PDFService {
         doc.text('Financial Report', 50, 50);
         doc.fillColor('#000000');
         doc.fontSize(10);
-        doc.text(`Period: ${this.formatDate(period.start)} - ${this.formatDate(period.end)}`, 50, 80);
+        doc.text(
+          `Period: ${this.formatDate(period.start)} - ${this.formatDate(period.end)}`,
+          50,
+          80
+        );
         doc.text(`Generated: ${this.formatDate(new Date().toISOString())}`, 50, 95);
 
         // Revenue section
@@ -256,15 +267,21 @@ class PDFService {
         yPos += 25;
 
         doc.text('Total Revenue:', 50, yPos);
-        doc.text(this.formatCurrency(reportData.revenue.total_revenue), 400, yPos, { align: 'right' });
+        doc.text(this.formatCurrency(reportData.revenue.total_revenue), 400, yPos, {
+          align: 'right',
+        });
         yPos += 20;
 
         doc.text('Paid Revenue:', 50, yPos);
-        doc.text(this.formatCurrency(reportData.revenue.paid_revenue), 400, yPos, { align: 'right' });
+        doc.text(this.formatCurrency(reportData.revenue.paid_revenue), 400, yPos, {
+          align: 'right',
+        });
         yPos += 20;
 
         doc.text('Pending Revenue:', 50, yPos);
-        doc.text(this.formatCurrency(reportData.revenue.pending_revenue), 400, yPos, { align: 'right' });
+        doc.text(this.formatCurrency(reportData.revenue.pending_revenue), 400, yPos, {
+          align: 'right',
+        });
         yPos += 20;
 
         doc.text('Invoice Count:', 50, yPos);
@@ -312,7 +329,9 @@ class PDFService {
         yPos += 20;
 
         doc.text('Total Inventory Value:', 50, yPos);
-        doc.text(this.formatCurrency(reportData.inventory.total_value), 400, yPos, { align: 'right' });
+        doc.text(this.formatCurrency(reportData.inventory.total_value), 400, yPos, {
+          align: 'right',
+        });
 
         doc.end();
 

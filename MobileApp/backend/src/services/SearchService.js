@@ -15,25 +15,33 @@ class SearchService {
       const results = {
         query,
         total: 0,
-        results: {}
+        results: {},
       };
 
       const searchPromises = [];
 
       if (entityTypes.includes('customers')) {
-        searchPromises.push(this.searchCustomers(query, limit).then(r => results.results.customers = r));
+        searchPromises.push(
+          this.searchCustomers(query, limit).then((r) => (results.results.customers = r))
+        );
       }
 
       if (entityTypes.includes('orders')) {
-        searchPromises.push(this.searchOrders(query, limit).then(r => results.results.orders = r));
+        searchPromises.push(
+          this.searchOrders(query, limit).then((r) => (results.results.orders = r))
+        );
       }
 
       if (entityTypes.includes('invoices')) {
-        searchPromises.push(this.searchInvoices(query, limit).then(r => results.results.invoices = r));
+        searchPromises.push(
+          this.searchInvoices(query, limit).then((r) => (results.results.invoices = r))
+        );
       }
 
       if (entityTypes.includes('materials')) {
-        searchPromises.push(this.searchMaterials(query, limit).then(r => results.results.materials = r));
+        searchPromises.push(
+          this.searchMaterials(query, limit).then((r) => (results.results.materials = r))
+        );
       }
 
       await Promise.all(searchPromises);
@@ -42,7 +50,7 @@ class SearchService {
 
       return {
         success: true,
-        ...results
+        ...results,
       };
     } catch (error) {
       throw new Error(`Global search failed: ${error.message}`);
@@ -55,12 +63,15 @@ class SearchService {
   async searchCustomers(query, limit = 20) {
     const searchPattern = `%${query}%`;
 
-    return await this.db.all(`
+    return await this.db.all(
+      `
       SELECT id, name, email, phone, business_type
       FROM customers
       WHERE name LIKE ? OR email LIKE ? OR phone LIKE ? OR business_type LIKE ?
       ORDER BY name ASC LIMIT ?
-    `, [searchPattern, searchPattern, searchPattern, searchPattern, limit]);
+    `,
+      [searchPattern, searchPattern, searchPattern, searchPattern, limit]
+    );
   }
 
   /**
@@ -69,13 +80,16 @@ class SearchService {
   async searchOrders(query, limit = 20) {
     const searchPattern = `%${query}%`;
 
-    return await this.db.all(`
+    return await this.db.all(
+      `
       SELECT o.id, o.order_number, o.status, o.box_type, o.final_price, o.created_at, c.name as customer_name
       FROM orders o
       JOIN customers c ON o.customer_id = c.id
       WHERE o.order_number LIKE ? OR c.name LIKE ?
       ORDER BY o.created_at DESC LIMIT ?
-    `, [searchPattern, searchPattern, limit]);
+    `,
+      [searchPattern, searchPattern, limit]
+    );
   }
 
   /**
@@ -84,13 +98,16 @@ class SearchService {
   async searchInvoices(query, limit = 20) {
     const searchPattern = `%${query}%`;
 
-    return await this.db.all(`
+    return await this.db.all(
+      `
       SELECT i.id, i.invoice_number, i.status, i.total_amount, i.issue_date, c.name as customer_name
       FROM invoices i
       JOIN customers c ON i.customer_id = c.id
       WHERE i.invoice_number LIKE ? OR c.name LIKE ?
       ORDER BY i.issue_date DESC LIMIT ?
-    `, [searchPattern, searchPattern, limit]);
+    `,
+      [searchPattern, searchPattern, limit]
+    );
   }
 
   /**
@@ -99,12 +116,15 @@ class SearchService {
   async searchMaterials(query, limit = 20) {
     const searchPattern = `%${query}%`;
 
-    return await this.db.all(`
+    return await this.db.all(
+      `
       SELECT id, name, category, current_stock, unit, unit_cost
       FROM inventory_materials
       WHERE name LIKE ? OR category LIKE ?
       ORDER BY name ASC LIMIT ?
-    `, [searchPattern, searchPattern, limit]);
+    `,
+      [searchPattern, searchPattern, limit]
+    );
   }
 
   /**

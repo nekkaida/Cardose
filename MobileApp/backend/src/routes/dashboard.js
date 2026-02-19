@@ -7,7 +7,9 @@ async function dashboardRoutes(fastify, options) {
   fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       // Orders stats
-      const orderStats = db.db.prepare(`
+      const orderStats = db.db
+        .prepare(
+          `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
@@ -16,19 +18,27 @@ async function dashboardRoutes(fastify, options) {
           SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
           SUM(total_amount) as total_value
         FROM orders
-      `).get();
+      `
+        )
+        .get();
 
       // Customers stats
-      const customerStats = db.db.prepare(`
+      const customerStats = db.db
+        .prepare(
+          `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN loyalty_status = 'vip' THEN 1 ELSE 0 END) as vip,
           SUM(total_spent) as total_spent
         FROM customers
-      `).get();
+      `
+        )
+        .get();
 
       // Invoices stats
-      const invoiceStats = db.db.prepare(`
+      const invoiceStats = db.db
+        .prepare(
+          `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'unpaid' THEN 1 ELSE 0 END) as unpaid,
@@ -36,27 +46,37 @@ async function dashboardRoutes(fastify, options) {
           SUM(CASE WHEN status = 'paid' THEN total_amount ELSE 0 END) as paid_value,
           SUM(CASE WHEN status IN ('unpaid', 'overdue') THEN total_amount ELSE 0 END) as unpaid_value
         FROM invoices
-      `).get();
+      `
+        )
+        .get();
 
       // Inventory stats
-      const inventoryStats = db.db.prepare(`
+      const inventoryStats = db.db
+        .prepare(
+          `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN current_stock <= reorder_level THEN 1 ELSE 0 END) as low_stock,
           SUM(CASE WHEN current_stock <= 0 THEN 1 ELSE 0 END) as out_of_stock,
           SUM(current_stock * unit_cost) as total_value
         FROM inventory_materials
-      `).get();
+      `
+        )
+        .get();
 
       // Production tasks stats
-      const taskStats = db.db.prepare(`
+      const taskStats = db.db
+        .prepare(
+          `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
           SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
           SUM(CASE WHEN status = 'completed' AND DATE(completed_at) = DATE('now') THEN 1 ELSE 0 END) as completed_today
         FROM production_tasks
-      `).get();
+      `
+        )
+        .get();
 
       return {
         success: true,
@@ -67,33 +87,33 @@ async function dashboardRoutes(fastify, options) {
             designing: orderStats.designing || 0,
             production: orderStats.production || 0,
             completed: orderStats.completed || 0,
-            totalValue: orderStats.total_value || 0
+            totalValue: orderStats.total_value || 0,
           },
           customers: {
             total: customerStats.total || 0,
             vip: customerStats.vip || 0,
-            totalSpent: customerStats.total_spent || 0
+            totalSpent: customerStats.total_spent || 0,
           },
           invoices: {
             total: invoiceStats.total || 0,
             unpaid: invoiceStats.unpaid || 0,
             overdue: invoiceStats.overdue || 0,
             paidValue: invoiceStats.paid_value || 0,
-            unpaidValue: invoiceStats.unpaid_value || 0
+            unpaidValue: invoiceStats.unpaid_value || 0,
           },
           inventory: {
             total: inventoryStats.total || 0,
             lowStock: inventoryStats.low_stock || 0,
             outOfStock: inventoryStats.out_of_stock || 0,
-            totalValue: inventoryStats.total_value || 0
+            totalValue: inventoryStats.total_value || 0,
           },
           tasks: {
             total: taskStats.total || 0,
             pending: taskStats.pending || 0,
             inProgress: taskStats.in_progress || 0,
-            completedToday: taskStats.completed_today || 0
-          }
-        }
+            completedToday: taskStats.completed_today || 0,
+          },
+        },
       };
     } catch (error) {
       fastify.log.error(error);
@@ -103,38 +123,46 @@ async function dashboardRoutes(fastify, options) {
   });
 
   // Get recent orders (requires authentication)
-  fastify.get('/recent-orders', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      querystring: {
-        type: 'object',
-        properties: {
-          limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 }
-        }
-      }
-    }
-  }, async (request, reply) => {
-    try {
-      const { limit = 10 } = request.query;
+  fastify.get(
+    '/recent-orders',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { limit = 10 } = request.query;
 
-      const orders = db.db.prepare(`
+        const orders = db.db
+          .prepare(
+            `
         SELECT o.*, c.name as customer_name
         FROM orders o
         LEFT JOIN customers c ON o.customer_id = c.id
         ORDER BY o.created_at DESC
         LIMIT ?
-      `).all(parseInt(limit));
+      `
+          )
+          .all(parseInt(limit));
 
-      return {
-        success: true,
-        orders
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        return {
+          success: true,
+          orders,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 
   // Get dashboard overview (requires authentication)
   fastify.get('/overview', { preHandler: [fastify.authenticate] }, async (request, reply) => {
@@ -144,83 +172,115 @@ async function dashboardRoutes(fastify, options) {
       const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
       const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
 
-      const monthlyRevenue = db.db.prepare(`
+      const monthlyRevenue = db.db
+        .prepare(
+          `
         SELECT SUM(amount) as total
         FROM financial_transactions
         WHERE type = 'income'
         AND DATE(payment_date) >= ?
         AND DATE(payment_date) <= ?
-      `).get(monthStart, monthEnd);
+      `
+        )
+        .get(monthStart, monthEnd);
 
       // Orders this month
-      const monthlyOrders = db.db.prepare(`
+      const monthlyOrders = db.db
+        .prepare(
+          `
         SELECT COUNT(*) as count
         FROM orders
         WHERE DATE(created_at) >= ?
         AND DATE(created_at) <= ?
-      `).get(monthStart, monthEnd);
+      `
+        )
+        .get(monthStart, monthEnd);
 
       // New customers this month
-      const newCustomers = db.db.prepare(`
+      const newCustomers = db.db
+        .prepare(
+          `
         SELECT COUNT(*) as count
         FROM customers
         WHERE DATE(created_at) >= ?
         AND DATE(created_at) <= ?
-      `).get(monthStart, monthEnd);
+      `
+        )
+        .get(monthStart, monthEnd);
 
       // Overdue invoices
-      const overdueInvoices = db.db.prepare(`
+      const overdueInvoices = db.db
+        .prepare(
+          `
         SELECT COUNT(*) as count, SUM(total_amount) as total
         FROM invoices
         WHERE status = 'overdue'
         OR (status = 'unpaid' AND due_date < DATE('now'))
-      `).get();
+      `
+        )
+        .get();
 
       // Urgent orders
-      const urgentOrders = db.db.prepare(`
+      const urgentOrders = db.db
+        .prepare(
+          `
         SELECT COUNT(*) as count
         FROM orders
         WHERE priority = 'urgent'
         AND status NOT IN ('completed', 'cancelled')
-      `).get();
+      `
+        )
+        .get();
 
       // Low stock alerts
-      const lowStockAlerts = db.db.prepare(`
+      const lowStockAlerts = db.db
+        .prepare(
+          `
         SELECT COUNT(*) as count
         FROM inventory_materials
         WHERE current_stock <= reorder_level
-      `).get();
+      `
+        )
+        .get();
 
       // Today's activity
-      const todayOrders = db.db.prepare(`SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = DATE('now')`).get();
-      const todayCompleted = db.db.prepare(`SELECT COUNT(*) as count FROM orders WHERE status = 'completed' AND DATE(updated_at) = DATE('now')`).get();
-      const todayInvoices = db.db.prepare(`SELECT COUNT(*) as count FROM invoices WHERE DATE(issue_date) = DATE('now')`).get();
+      const todayOrders = db.db
+        .prepare(`SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = DATE('now')`)
+        .get();
+      const todayCompleted = db.db
+        .prepare(
+          `SELECT COUNT(*) as count FROM orders WHERE status = 'completed' AND DATE(updated_at) = DATE('now')`
+        )
+        .get();
+      const todayInvoices = db.db
+        .prepare(`SELECT COUNT(*) as count FROM invoices WHERE DATE(issue_date) = DATE('now')`)
+        .get();
 
       return {
         success: true,
         overview: {
           revenue: {
             monthly: monthlyRevenue?.total || 0,
-            monthName: now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+            monthName: now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
           },
           orders: {
             monthly: monthlyOrders?.count || 0,
-            urgent: urgentOrders?.count || 0
+            urgent: urgentOrders?.count || 0,
           },
           customers: {
-            newThisMonth: newCustomers?.count || 0
+            newThisMonth: newCustomers?.count || 0,
           },
           alerts: {
             overdueInvoices: overdueInvoices?.count || 0,
             overdueAmount: overdueInvoices?.total || 0,
-            lowStock: lowStockAlerts?.count || 0
+            lowStock: lowStockAlerts?.count || 0,
           },
           today: {
             newOrders: todayOrders?.count || 0,
             completedOrders: todayCompleted?.count || 0,
-            newInvoices: todayInvoices?.count || 0
-          }
-        }
+            newInvoices: todayInvoices?.count || 0,
+          },
+        },
       };
     } catch (error) {
       fastify.log.error(error);
@@ -230,59 +290,69 @@ async function dashboardRoutes(fastify, options) {
   });
 
   // Get sales trend (requires authentication)
-  fastify.get('/sales-trend', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      querystring: {
-        type: 'object',
-        properties: {
-          days: { type: 'integer', minimum: 1, maximum: 365, default: 30 }
-        }
-      }
-    }
-  }, async (request, reply) => {
-    try {
-      const { days = 30 } = request.query;
+  fastify.get(
+    '/sales-trend',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            days: { type: 'integer', minimum: 1, maximum: 365, default: 30 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { days = 30 } = request.query;
 
-      const trend = [];
-      const now = new Date();
+        const trend = [];
+        const now = new Date();
 
-      for (let i = parseInt(days) - 1; i >= 0; i--) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
+        for (let i = parseInt(days) - 1; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split('T')[0];
 
-        const dayData = db.db.prepare(`
+          const dayData = db.db
+            .prepare(
+              `
           SELECT
             COUNT(*) as orders,
             SUM(amount) as revenue
           FROM financial_transactions
           WHERE type = 'income'
           AND DATE(payment_date) = ?
-        `).get(dateStr);
+        `
+            )
+            .get(dateStr);
 
-        trend.push({
-          date: dateStr,
-          orders: dayData?.orders || 0,
-          revenue: dayData?.revenue || 0
-        });
+          trend.push({
+            date: dateStr,
+            orders: dayData?.orders || 0,
+            revenue: dayData?.revenue || 0,
+          });
+        }
+
+        return {
+          success: true,
+          trend,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
       }
-
-      return {
-        success: true,
-        trend
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
     }
-  });
+  );
 
   // Get product mix (requires authentication)
   fastify.get('/product-mix', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const productMix = db.db.prepare(`
+      const productMix = db.db
+        .prepare(
+          `
         SELECT
           box_type,
           COUNT(*) as count,
@@ -291,11 +361,13 @@ async function dashboardRoutes(fastify, options) {
         WHERE box_type IS NOT NULL
         GROUP BY box_type
         ORDER BY count DESC
-      `).all();
+      `
+        )
+        .all();
 
       return {
         success: true,
-        productMix
+        productMix,
       };
     } catch (error) {
       fastify.log.error(error);
@@ -305,37 +377,45 @@ async function dashboardRoutes(fastify, options) {
   });
 
   // Get top customers (requires authentication)
-  fastify.get('/top-customers', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      querystring: {
-        type: 'object',
-        properties: {
-          limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 }
-        }
-      }
-    }
-  }, async (request, reply) => {
-    try {
-      const { limit = 10 } = request.query;
+  fastify.get(
+    '/top-customers',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { limit = 10 } = request.query;
 
-      const customers = db.db.prepare(`
+        const customers = db.db
+          .prepare(
+            `
         SELECT id, name, business_type, total_orders, total_spent, loyalty_status
         FROM customers
         ORDER BY total_spent DESC
         LIMIT ?
-      `).all(parseInt(limit));
+      `
+          )
+          .all(parseInt(limit));
 
-      return {
-        success: true,
-        customers
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        return {
+          success: true,
+          customers,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 }
 
 module.exports = dashboardRoutes;

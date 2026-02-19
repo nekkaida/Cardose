@@ -20,7 +20,7 @@ class TemplateService {
       return {
         success: true,
         templateId: id,
-        message: 'Template created successfully'
+        message: 'Template created successfully',
       };
     } catch (error) {
       throw new Error(`Failed to create template: ${error.message}`);
@@ -49,21 +49,27 @@ class TemplateService {
 
       const templates = await this.db.all(query, params);
 
-      return templates.map(template => {
+      return templates.map((template) => {
         let vars = template.variables || '';
         // Handle both JSON array and comma-separated string formats
         if (vars.startsWith('[')) {
           try {
             vars = JSON.parse(vars);
           } catch (e) {
-            vars = vars.split(',').map(v => v.trim()).filter(v => v);
+            vars = vars
+              .split(',')
+              .map((v) => v.trim())
+              .filter((v) => v);
           }
         } else {
-          vars = vars.split(',').map(v => v.trim()).filter(v => v);
+          vars = vars
+            .split(',')
+            .map((v) => v.trim())
+            .filter((v) => v);
         }
         return {
           ...template,
-          variables: vars
+          variables: vars,
         };
       });
     } catch (error) {
@@ -76,10 +82,9 @@ class TemplateService {
    */
   async getTemplateById(templateId) {
     try {
-      const template = await this.db.get(
-        'SELECT * FROM message_templates WHERE id = ?',
-        [templateId]
-      );
+      const template = await this.db.get('SELECT * FROM message_templates WHERE id = ?', [
+        templateId,
+      ]);
 
       if (!template) {
         throw new Error('Template not found');
@@ -90,15 +95,21 @@ class TemplateService {
         try {
           vars = JSON.parse(vars);
         } catch (e) {
-          vars = vars.split(',').map(v => v.trim()).filter(v => v);
+          vars = vars
+            .split(',')
+            .map((v) => v.trim())
+            .filter((v) => v);
         }
       } else {
-        vars = vars.split(',').map(v => v.trim()).filter(v => v);
+        vars = vars
+          .split(',')
+          .map((v) => v.trim())
+          .filter((v) => v);
       }
 
       return {
         ...template,
-        variables: vars
+        variables: vars,
       };
     } catch (error) {
       throw new Error(`Failed to get template: ${error.message}`);
@@ -151,7 +162,7 @@ class TemplateService {
 
       return {
         success: true,
-        message: 'Template updated successfully'
+        message: 'Template updated successfully',
       };
     } catch (error) {
       throw new Error(`Failed to update template: ${error.message}`);
@@ -167,7 +178,7 @@ class TemplateService {
 
       return {
         success: true,
-        message: 'Template deleted successfully'
+        message: 'Template deleted successfully',
       };
     } catch (error) {
       throw new Error(`Failed to delete template: ${error.message}`);
@@ -199,9 +210,7 @@ class TemplateService {
     try {
       const template = await this.getTemplateById(templateId);
 
-      const renderedSubject = template.subject
-        ? this.renderTemplate(template.subject, data)
-        : null;
+      const renderedSubject = template.subject ? this.renderTemplate(template.subject, data) : null;
 
       const renderedBody = this.renderTemplate(template.body, data);
 
@@ -212,8 +221,8 @@ class TemplateService {
         body: renderedBody,
         template: {
           id: template.id,
-          name: template.name
-        }
+          name: template.name,
+        },
       };
     } catch (error) {
       throw new Error(`Failed to render template: ${error.message}`);
@@ -243,7 +252,7 @@ Kami akan segera memproses pesanan Anda.
 Terima kasih,
 Premium Gift Box`,
         variables: ['customer_name', 'order_number', 'status', 'total_price'],
-        category: 'order'
+        category: 'order',
       },
       {
         name: 'Invoice Notification',
@@ -264,7 +273,7 @@ No. Rekening: 1234567890
 
 Premium Gift Box`,
         variables: ['customer_name', 'invoice_number', 'total_amount', 'due_date'],
-        category: 'invoice'
+        category: 'invoice',
       },
       {
         name: 'Payment Reminder',
@@ -281,7 +290,7 @@ Silakan lakukan pembayaran segera.
 
 Premium Gift Box`,
         variables: ['customer_name', 'invoice_number', 'total_amount', 'due_date'],
-        category: 'payment'
+        category: 'payment',
       },
       {
         name: 'Production Update',
@@ -296,7 +305,7 @@ Status: {{status}}
 
 Premium Gift Box`,
         variables: ['customer_name', 'order_number', 'status', 'message'],
-        category: 'production'
+        category: 'production',
       },
       {
         name: 'Order Confirmation Email',
@@ -314,7 +323,7 @@ Premium Gift Box`,
 <p>We will contact you shortly with design details.</p>
 <p>Best regards,<br>Premium Gift Box Team</p>`,
         variables: ['customer_name', 'order_number', 'status', 'total_price'],
-        category: 'order'
+        category: 'order',
       },
       {
         name: 'Invoice Email',
@@ -335,7 +344,7 @@ Account Number: 1234567890<br>
 Account Name: Premium Gift Box</p>
 <p>Best regards,<br>Premium Gift Box Team</p>`,
         variables: ['customer_name', 'invoice_number', 'total_amount', 'due_date'],
-        category: 'invoice'
+        category: 'invoice',
       },
       {
         name: 'Promotional Message',
@@ -354,8 +363,8 @@ Hubungi kami sekarang!
 
 Premium Gift Box`,
         variables: ['customer_name', 'promo_title', 'promo_description', 'discount', 'valid_until'],
-        category: 'marketing'
-      }
+        category: 'marketing',
+      },
     ];
   }
 
@@ -391,7 +400,7 @@ Premium Gift Box`,
       return {
         success: true,
         message: `${created} default templates initialized`,
-        created
+        created,
       };
     } catch (error) {
       throw new Error(`Failed to initialize templates: ${error.message}`);
@@ -437,12 +446,12 @@ Premium Gift Box`,
           name: template.name,
           type: template.type,
           category: template.category,
-          created_at: template.created_at
+          created_at: template.created_at,
         },
         usage: {
           total: 0, // Would need to implement tracking
-          last_used: null
-        }
+          last_used: null,
+        },
       };
     } catch (error) {
       throw new Error(`Failed to get template stats: ${error.message}`);

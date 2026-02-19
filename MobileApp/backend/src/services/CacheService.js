@@ -18,7 +18,7 @@ class CacheService {
     this.cache.set(key, {
       value,
       timestamp: Date.now(),
-      ttl: ttlSeconds
+      ttl: ttlSeconds,
     });
 
     // Set TTL timer
@@ -145,7 +145,7 @@ class CacheService {
       total: this.cache.size,
       valid: validEntries,
       expired: expiredEntries,
-      memoryUsage: this.estimateMemoryUsage()
+      memoryUsage: this.estimateMemoryUsage(),
     };
   }
 
@@ -163,7 +163,7 @@ class CacheService {
     return {
       bytes: size,
       kilobytes: (size / 1024).toFixed(2),
-      megabytes: (size / 1024 / 1024).toFixed(2)
+      megabytes: (size / 1024 / 1024).toFixed(2),
     };
   }
 

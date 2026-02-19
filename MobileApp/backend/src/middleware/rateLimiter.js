@@ -25,7 +25,7 @@ function createRateLimiter(options = {}) {
       return reply.status(429).send({
         error: 'Too many requests',
         message: `Rate limit exceeded. Try again in ${result.resetIn} seconds.`,
-        resetIn: result.resetIn
+        resetIn: result.resetIn,
       });
     }
   };
@@ -33,5 +33,5 @@ function createRateLimiter(options = {}) {
 
 module.exports = {
   createRateLimiter,
-  rateLimiter
+  rateLimiter,
 };

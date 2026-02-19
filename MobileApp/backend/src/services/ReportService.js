@@ -14,7 +14,8 @@ class ReportService {
    */
   async generateCustomerReport(startDate, endDate, format = 'json') {
     try {
-      const customers = await this.db.all(`
+      const customers = await this.db.all(
+        `
         SELECT
           c.*,
           COUNT(DISTINCT o.id) as total_orders,
@@ -29,16 +30,21 @@ class ReportService {
           AND DATE(i.created_at) BETWEEN DATE(?) AND DATE(?)
         GROUP BY c.id
         ORDER BY total_spent DESC
-      `, [startDate, endDate, startDate, endDate]);
+      `,
+        [startDate, endDate, startDate, endDate]
+      );
 
       const summary = {
         total_customers: customers.length,
-        active_customers: customers.filter(c => c.total_orders > 0).length,
-        new_customers: customers.filter(c => c.created_at >= startDate && c.created_at <= endDate).length,
+        active_customers: customers.filter((c) => c.total_orders > 0).length,
+        new_customers: customers.filter((c) => c.created_at >= startDate && c.created_at <= endDate)
+          .length,
         total_revenue: customers.reduce((sum, c) => sum + (c.total_paid || 0), 0),
-        average_order_value: customers.length > 0
-          ? customers.reduce((sum, c) => sum + (c.total_spent || 0), 0) / customers.filter(c => c.total_orders > 0).length
-          : 0
+        average_order_value:
+          customers.length > 0
+            ? customers.reduce((sum, c) => sum + (c.total_spent || 0), 0) /
+              customers.filter((c) => c.total_orders > 0).length
+            : 0,
       };
 
       return {
@@ -46,7 +52,7 @@ class ReportService {
         period: { startDate, endDate },
         summary,
         customers: format === 'json' ? customers : null,
-        format
+        format,
       };
     } catch (error) {
       throw new Error(`Failed to generate customer report: ${error.message}`);
@@ -73,7 +79,8 @@ class ReportService {
           dateFormat = '%Y-%m-%d';
       }
 
-      const salesData = await this.db.all(`
+      const salesData = await this.db.all(
+        `
         SELECT
           strftime(?, created_at) as period,
           COUNT(*) as order_count,
@@ -85,16 +92,20 @@ class ReportService {
         WHERE DATE(created_at) BETWEEN DATE(?) AND DATE(?)
         GROUP BY period
         ORDER BY period ASC
-      `, [dateFormat, startDate, endDate]);
+      `,
+        [dateFormat, startDate, endDate]
+      );
 
       const summary = {
         total_orders: salesData.reduce((sum, d) => sum + d.order_count, 0),
         total_sales: salesData.reduce((sum, d) => sum + (d.total_sales || 0), 0),
         completed_orders: salesData.reduce((sum, d) => sum + d.completed_orders, 0),
         cancelled_orders: salesData.reduce((sum, d) => sum + d.cancelled_orders, 0),
-        average_order_value: salesData.length > 0
-          ? salesData.reduce((sum, d) => sum + (d.total_sales || 0), 0) / salesData.reduce((sum, d) => sum + d.order_count, 0)
-          : 0
+        average_order_value:
+          salesData.length > 0
+            ? salesData.reduce((sum, d) => sum + (d.total_sales || 0), 0) /
+              salesData.reduce((sum, d) => sum + d.order_count, 0)
+            : 0,
       };
 
       return {
@@ -102,7 +113,7 @@ class ReportService {
         period: { startDate, endDate },
         groupBy,
         summary,
-        data: salesData
+        data: salesData,
       };
     } catch (error) {
       throw new Error(`Failed to generate sales report: ${error.message}`);
@@ -114,7 +125,8 @@ class ReportService {
    */
   async generateProductReport(startDate, endDate) {
     try {
-      const productData = await this.db.all(`
+      const productData = await this.db.all(
+        `
         SELECT
           box_type,
           COUNT(*) as order_count,
@@ -126,9 +138,12 @@ class ReportService {
         AND box_type IS NOT NULL
         GROUP BY box_type
         ORDER BY total_revenue DESC
-      `, [startDate, endDate]);
+      `,
+        [startDate, endDate]
+      );
 
-      const customizationStats = await this.db.all(`
+      const customizationStats = await this.db.all(
+        `
         SELECT
           custom_design,
           foil_stamping,
@@ -139,13 +154,15 @@ class ReportService {
         WHERE DATE(created_at) BETWEEN DATE(?) AND DATE(?)
         GROUP BY custom_design, foil_stamping, embossing
         ORDER BY order_count DESC
-      `, [startDate, endDate]);
+      `,
+        [startDate, endDate]
+      );
 
       return {
         success: true,
         period: { startDate, endDate },
         productTypes: productData,
-        customizationStats
+        customizationStats,
       };
     } catch (error) {
       throw new Error(`Failed to generate product report: ${error.message}`);
@@ -172,16 +189,16 @@ class ReportService {
 
       const summary = {
         total_materials: materials.length,
-        out_of_stock: materials.filter(m => m.stock_status === 'out_of_stock').length,
-        low_stock: materials.filter(m => m.stock_status === 'low_stock').length,
+        out_of_stock: materials.filter((m) => m.stock_status === 'out_of_stock').length,
+        low_stock: materials.filter((m) => m.stock_status === 'low_stock').length,
         total_value: materials.reduce((sum, m) => sum + m.total_value, 0),
-        needs_reorder: materials.filter(m => m.stock_status !== 'sufficient').length
+        needs_reorder: materials.filter((m) => m.stock_status !== 'sufficient').length,
       };
 
       return {
         success: true,
         summary,
-        materials
+        materials,
       };
     } catch (error) {
       throw new Error(`Failed to generate inventory report: ${error.message}`);
@@ -193,7 +210,8 @@ class ReportService {
    */
   async generateProductionReport(startDate, endDate) {
     try {
-      const productionTasks = await this.db.all(`
+      const productionTasks = await this.db.all(
+        `
         SELECT
           stage,
           COUNT(*) as task_count,
@@ -205,18 +223,24 @@ class ReportService {
         WHERE DATE(created_at) BETWEEN DATE(?) AND DATE(?)
         GROUP BY stage
         ORDER BY stage ASC
-      `, [startDate, endDate]);
+      `,
+        [startDate, endDate]
+      );
 
-      const qualityStats = await this.db.all(`
+      const qualityStats = await this.db.all(
+        `
         SELECT
           status,
           COUNT(*) as check_count
         FROM quality_checks
         WHERE DATE(checked_at) BETWEEN DATE(?) AND DATE(?)
         GROUP BY status
-      `, [startDate, endDate]);
+      `,
+        [startDate, endDate]
+      );
 
-      const onTimeDelivery = await this.db.get(`
+      const onTimeDelivery = await this.db.get(
+        `
         SELECT
           COUNT(*) as total_completed,
           SUM(CASE WHEN actual_completion <= estimated_completion THEN 1 ELSE 0 END) as on_time_count
@@ -224,11 +248,14 @@ class ReportService {
         WHERE status = 'completed'
         AND DATE(actual_completion) BETWEEN DATE(?) AND DATE(?)
         AND estimated_completion IS NOT NULL
-      `, [startDate, endDate]);
+      `,
+        [startDate, endDate]
+      );
 
-      const onTimeRate = onTimeDelivery.total_completed > 0
-        ? (onTimeDelivery.on_time_count / onTimeDelivery.total_completed * 100).toFixed(2)
-        : 0;
+      const onTimeRate =
+        onTimeDelivery.total_completed > 0
+          ? ((onTimeDelivery.on_time_count / onTimeDelivery.total_completed) * 100).toFixed(2)
+          : 0;
 
       return {
         success: true,
@@ -237,8 +264,8 @@ class ReportService {
         qualityStats,
         onTimeDelivery: {
           ...onTimeDelivery,
-          on_time_rate: onTimeRate
-        }
+          on_time_rate: onTimeRate,
+        },
       };
     } catch (error) {
       throw new Error(`Failed to generate production report: ${error.message}`);
@@ -250,7 +277,8 @@ class ReportService {
    */
   async generateFinancialReport(startDate, endDate) {
     try {
-      const revenue = await this.db.get(`
+      const revenue = await this.db.get(
+        `
         SELECT
           COUNT(*) as invoice_count,
           SUM(total_amount) as total_invoiced,
@@ -259,21 +287,32 @@ class ReportService {
           SUM(ppn_amount) as total_tax_collected
         FROM invoices
         WHERE DATE(issue_date) BETWEEN DATE(?) AND DATE(?)
-      `, [startDate, endDate]);
+      `,
+        [startDate, endDate]
+      );
 
-      const expenses = await this.db.get(`
+      const expenses = await this.db.get(
+        `
         SELECT
           SUM(total_amount) as total_expenses
         FROM purchase_orders
         WHERE DATE(order_date) BETWEEN DATE(?) AND DATE(?)
         AND status != 'cancelled'
-      `, [startDate, endDate]);
+      `,
+        [startDate, endDate]
+      );
 
-      const profitMargin = revenue.total_collected > 0
-        ? ((revenue.total_collected - (expenses.total_expenses || 0)) / revenue.total_collected * 100).toFixed(2)
-        : 0;
+      const profitMargin =
+        revenue.total_collected > 0
+          ? (
+              ((revenue.total_collected - (expenses.total_expenses || 0)) /
+                revenue.total_collected) *
+              100
+            ).toFixed(2)
+          : 0;
 
-      const paymentMethods = await this.db.all(`
+      const paymentMethods = await this.db.all(
+        `
         SELECT
           payment_method,
           COUNT(*) as transaction_count,
@@ -282,7 +321,9 @@ class ReportService {
         WHERE status = 'paid'
         AND DATE(issue_date) BETWEEN DATE(?) AND DATE(?)
         GROUP BY payment_method
-      `, [startDate, endDate]);
+      `,
+        [startDate, endDate]
+      );
 
       return {
         success: true,
@@ -291,7 +332,7 @@ class ReportService {
         expenses: expenses.total_expenses || 0,
         profit: revenue.total_collected - (expenses.total_expenses || 0),
         profitMargin,
-        paymentMethods
+        paymentMethods,
       };
     } catch (error) {
       throw new Error(`Failed to generate financial report: ${error.message}`);
@@ -309,7 +350,7 @@ class ReportService {
         this.generateProductReport(startDate, endDate),
         this.generateInventoryReport(),
         this.generateProductionReport(startDate, endDate),
-        this.generateFinancialReport(startDate, endDate)
+        this.generateFinancialReport(startDate, endDate),
       ]);
 
       return {
@@ -322,8 +363,8 @@ class ReportService {
           products,
           inventory,
           production,
-          financial
-        }
+          financial,
+        },
       };
     } catch (error) {
       throw new Error(`Failed to generate comprehensive report: ${error.message}`);

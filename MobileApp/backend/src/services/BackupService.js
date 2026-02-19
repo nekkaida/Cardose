@@ -45,7 +45,7 @@ class BackupService {
         description,
         size: stats.size,
         sizeMB: sizeInMB,
-        originalPath: this.databasePath
+        originalPath: this.databasePath,
       };
 
       const metadataPath = path.join(this.backupDir, `${backupFilename}.meta.json`);
@@ -56,7 +56,7 @@ class BackupService {
 
       return {
         success: true,
-        backup: metadata
+        backup: metadata,
       };
     } catch (error) {
       throw new Error(`Backup failed: ${error.message}`);
@@ -69,7 +69,7 @@ class BackupService {
   async listBackups() {
     try {
       const files = await fs.promises.readdir(this.backupDir);
-      const backupFiles = files.filter(f => f.endsWith('.db'));
+      const backupFiles = files.filter((f) => f.endsWith('.db'));
 
       const backups = [];
 
@@ -88,7 +88,7 @@ class BackupService {
             timestamp: stats.mtime.toISOString(),
             description: 'Legacy backup',
             size: stats.size,
-            sizeMB: (stats.size / (1024 * 1024)).toFixed(2)
+            sizeMB: (stats.size / (1024 * 1024)).toFixed(2),
           };
         }
 
@@ -125,7 +125,7 @@ class BackupService {
       return {
         success: true,
         message: 'Database restored successfully',
-        restoredFrom: backupFilename
+        restoredFrom: backupFilename,
       };
     } catch (error) {
       throw new Error(`Restore failed: ${error.message}`);
@@ -152,7 +152,7 @@ class BackupService {
 
       return {
         success: true,
-        message: 'Backup deleted successfully'
+        message: 'Backup deleted successfully',
       };
     } catch (error) {
       throw new Error(`Failed to delete backup: ${error.message}`);
@@ -175,13 +175,13 @@ class BackupService {
 
         return {
           success: true,
-          deletedCount: backupsToDelete.length
+          deletedCount: backupsToDelete.length,
         };
       }
 
       return {
         success: true,
-        deletedCount: 0
+        deletedCount: 0,
       };
     } catch (error) {
       throw new Error(`Cleanup failed: ${error.message}`);
@@ -210,7 +210,7 @@ class BackupService {
         filepath: sqlPath,
         filename: sqlFilename,
         size: stats.size,
-        sizeMB: (stats.size / (1024 * 1024)).toFixed(2)
+        sizeMB: (stats.size / (1024 * 1024)).toFixed(2),
       };
     } catch (error) {
       throw new Error(`SQL export failed: ${error.message}`);
@@ -234,18 +234,22 @@ class BackupService {
         totalBackups: backups.length,
         totalSize,
         totalSizeMB,
-        oldestBackup: oldestBackup ? {
-          filename: oldestBackup.filename,
-          timestamp: oldestBackup.timestamp,
-          sizeMB: oldestBackup.sizeMB
-        } : null,
-        newestBackup: newestBackup ? {
-          filename: newestBackup.filename,
-          timestamp: newestBackup.timestamp,
-          sizeMB: newestBackup.sizeMB
-        } : null,
+        oldestBackup: oldestBackup
+          ? {
+              filename: oldestBackup.filename,
+              timestamp: oldestBackup.timestamp,
+              sizeMB: oldestBackup.sizeMB,
+            }
+          : null,
+        newestBackup: newestBackup
+          ? {
+              filename: newestBackup.filename,
+              timestamp: newestBackup.timestamp,
+              sizeMB: newestBackup.sizeMB,
+            }
+          : null,
         backupDirectory: this.backupDir,
-        maxBackups: this.maxBackups
+        maxBackups: this.maxBackups,
       };
     } catch (error) {
       throw new Error(`Failed to get backup stats: ${error.message}`);
@@ -305,13 +309,13 @@ class BackupService {
       return {
         success: true,
         valid: isValid,
-        message: isValid ? 'Backup integrity verified' : 'Backup integrity check failed'
+        message: isValid ? 'Backup integrity verified' : 'Backup integrity check failed',
       };
     } catch (error) {
       return {
         success: false,
         valid: false,
-        message: `Verification failed: ${error.message}`
+        message: `Verification failed: ${error.message}`,
       };
     }
   }

@@ -20,8 +20,8 @@ class WhatsAppService {
       type: 'text',
       text: {
         preview_url: false,
-        body: message
-      }
+        body: message,
+      },
     };
 
     return this.sendMessage(data);
@@ -39,18 +39,21 @@ class WhatsAppService {
       template: {
         name: templateName,
         language: {
-          code: languageCode
+          code: languageCode,
         },
-        components: parameters.length > 0 ? [
-          {
-            type: 'body',
-            parameters: parameters.map(param => ({
-              type: 'text',
-              text: param
-            }))
-          }
-        ] : []
-      }
+        components:
+          parameters.length > 0
+            ? [
+                {
+                  type: 'body',
+                  parameters: parameters.map((param) => ({
+                    type: 'text',
+                    text: param,
+                  })),
+                },
+              ]
+            : [],
+      },
     };
 
     return this.sendMessage(data);
@@ -95,9 +98,10 @@ Jatuh Tempo: ${this.formatDate(invoice.due_date)}
 Total: ${this.formatCurrency(invoice.total_amount)}
 Status: ${this.translateInvoiceStatus(invoice.status)}
 
-${invoice.status === 'unpaid' ?
-  '\n*Informasi Pembayaran:*\nBank: Bank Mandiri\nNo. Rekening: 1234567890\nAtas Nama: Premium Gift Box\n' :
-  '\nTerima kasih atas pembayarannya!'
+${
+  invoice.status === 'unpaid'
+    ? '\n*Informasi Pembayaran:*\nBank: Bank Mandiri\nNo. Rekening: 1234567890\nAtas Nama: Premium Gift Box\n'
+    : '\nTerima kasih atas pembayarannya!'
 }
 
 Premium Gift Box
@@ -115,7 +119,7 @@ Premium Gift Box
       approved: 'Desain telah disetujui, siap produksi',
       production: 'Pesanan Anda sedang dalam proses produksi',
       quality_control: 'Pesanan sedang dalam pengecekan kualitas',
-      completed: 'Pesanan Anda telah selesai dan siap untuk diambil/dikirim'
+      completed: 'Pesanan Anda telah selesai dan siap untuk diambil/dikirim',
     };
 
     const message = `
@@ -126,9 +130,10 @@ Halo ${customer.name},
 Status: ${this.translateStatus(stage)}
 ${stageMessages[stage] || 'Pesanan sedang diproses'}
 
-${stage === 'completed' && order.estimated_completion ?
-  `\nEstimasi Penyelesaian: ${this.formatDate(order.estimated_completion)}` :
-  ''
+${
+  stage === 'completed' && order.estimated_completion
+    ? `\nEstimasi Penyelesaian: ${this.formatDate(order.estimated_completion)}`
+    : ''
 }
 
 Terima kasih atas kepercayaan Anda.
@@ -143,11 +148,12 @@ Premium Gift Box
    * Send payment reminder
    */
   async sendPaymentReminder(customer, invoice, daysOverdue = 0) {
-    const urgencyMessage = daysOverdue === 0
-      ? 'Invoice Anda jatuh tempo hari ini.'
-      : daysOverdue > 0
-        ? `Invoice Anda telah jatuh tempo ${daysOverdue} hari yang lalu.`
-        : `Invoice Anda akan jatuh tempo dalam ${Math.abs(daysOverdue)} hari.`;
+    const urgencyMessage =
+      daysOverdue === 0
+        ? 'Invoice Anda jatuh tempo hari ini.'
+        : daysOverdue > 0
+          ? `Invoice Anda telah jatuh tempo ${daysOverdue} hari yang lalu.`
+          : `Invoice Anda akan jatuh tempo dalam ${Math.abs(daysOverdue)} hari.`;
 
     const message = `
 Halo ${customer.name},
@@ -210,7 +216,7 @@ Premium Gift Box
           recipient: recipient.phone,
           name: recipient.name,
           success: true,
-          messageId: result.messages?.[0]?.id
+          messageId: result.messages?.[0]?.id,
         });
 
         // Rate limiting: wait 1 second between messages
@@ -220,16 +226,16 @@ Premium Gift Box
           recipient: recipient.phone,
           name: recipient.name,
           success: false,
-          error: error.message
+          error: error.message,
         });
       }
     }
 
     return {
       total: recipients.length,
-      successful: results.filter(r => r.success).length,
-      failed: results.filter(r => !r.success).length,
-      results
+      successful: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      results,
     };
   }
 
@@ -252,8 +258,8 @@ Premium Gift Box
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData),
-          'Authorization': `Bearer ${this.accessToken}`
-        }
+          Authorization: `Bearer ${this.accessToken}`,
+        },
       };
 
       const req = https.request(options, (res) => {
@@ -343,7 +349,7 @@ Premium Gift Box
       quality_control: 'Quality Control',
       completed: 'Selesai',
       delivered: 'Terkirim',
-      cancelled: 'Dibatalkan'
+      cancelled: 'Dibatalkan',
     };
     return translations[status] || status;
   }
@@ -356,7 +362,7 @@ Premium Gift Box
       unpaid: 'Belum Dibayar',
       paid: 'Sudah Dibayar',
       overdue: 'Terlambat',
-      cancelled: 'Dibatalkan'
+      cancelled: 'Dibatalkan',
     };
     return translations[status] || status;
   }
@@ -365,7 +371,7 @@ Premium Gift Box
    * Sleep helper for rate limiting
    */
   sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -405,7 +411,7 @@ Premium Gift Box
       from,
       messageText,
       messageType,
-      timestamp: message.timestamp
+      timestamp: message.timestamp,
     };
   }
 }

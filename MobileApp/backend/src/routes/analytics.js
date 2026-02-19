@@ -7,24 +7,33 @@ async function analyticsRoutes(fastify, options) {
   // Helper to get date offset based on period
   function getDateOffset(period) {
     switch (period) {
-      case 'week': return '-7 days';
-      case 'month': return '-30 days';
-      case 'quarter': return '-90 days';
-      case 'year': return '-365 days';
-      default: return '-30 days';
+      case 'week':
+        return '-7 days';
+      case 'month':
+        return '-30 days';
+      case 'quarter':
+        return '-90 days';
+      case 'year':
+        return '-365 days';
+      default:
+        return '-30 days';
     }
   }
 
   // Get dashboard overview statistics
-  fastify.get('/dashboard', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const { period = 'month' } = request.query;
-      const dateOffset = getDateOffset(period);
+  fastify.get(
+    '/dashboard',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      try {
+        const { period = 'month' } = request.query;
+        const dateOffset = getDateOffset(period);
 
-      // Revenue statistics
-      const revenueStats = await db.get(`
+        // Revenue statistics
+        const revenueStats = await db.get(
+          `
         SELECT
           COUNT(*) as total_orders,
           COALESCE(SUM(total_amount), 0) as total_revenue,
@@ -33,10 +42,13 @@ async function analyticsRoutes(fastify, options) {
           COALESCE(SUM(CASE WHEN status = 'unpaid' THEN total_amount ELSE 0 END), 0) as pending_revenue
         FROM invoices
         WHERE DATE(created_at) >= DATE('now', ?)
-      `, [dateOffset]);
+      `,
+          [dateOffset]
+        );
 
-      // Order statistics
-      const orderStats = await db.get(`
+        // Order statistics
+        const orderStats = await db.get(
+          `
         SELECT
           COUNT(*) as total_orders,
           SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_orders,
@@ -45,10 +57,13 @@ async function analyticsRoutes(fastify, options) {
           COALESCE(AVG(total_amount), 0) as average_order_value
         FROM orders
         WHERE DATE(created_at) >= DATE('now', ?)
-      `, [dateOffset]);
+      `,
+          [dateOffset]
+        );
 
-      // Customer statistics
-      const customerStats = await db.get(`
+        // Customer statistics
+        const customerStats = await db.get(
+          `
         SELECT
           COUNT(*) as total_customers,
           SUM(CASE WHEN loyalty_status = 'vip' THEN 1 ELSE 0 END) as vip_customers,
@@ -56,10 +71,12 @@ async function analyticsRoutes(fastify, options) {
           SUM(CASE WHEN loyalty_status = 'new' THEN 1 ELSE 0 END) as new_customers
         FROM customers
         WHERE DATE(created_at) >= DATE('now', ?)
-      `, [dateOffset]);
+      `,
+          [dateOffset]
+        );
 
-      // Inventory statistics (no date filter - current state)
-      const inventoryStats = await db.get(`
+        // Inventory statistics (no date filter - current state)
+        const inventoryStats = await db.get(`
         SELECT
           COUNT(*) as total_materials,
           SUM(CASE WHEN current_stock <= 0 THEN 1 ELSE 0 END) as out_of_stock,
@@ -68,8 +85,8 @@ async function analyticsRoutes(fastify, options) {
         FROM inventory_materials
       `);
 
-      // Production statistics
-      const productionStats = await db.get(`
+        // Production statistics
+        const productionStats = await db.get(`
         SELECT
           SUM(CASE WHEN status = 'designing' THEN 1 ELSE 0 END) as designing,
           SUM(CASE WHEN status = 'production' THEN 1 ELSE 0 END) as in_production,
@@ -79,59 +96,69 @@ async function analyticsRoutes(fastify, options) {
         WHERE status IN ('designing', 'approved', 'production', 'quality_control')
       `);
 
-      return {
-        period,
-        revenue: {
-          total_revenue: revenueStats.total_revenue || 0,
-          paid_revenue: revenueStats.paid_revenue || 0,
-          pending_revenue: revenueStats.pending_revenue || 0,
-          average_order_value: revenueStats.average_order_value || 0,
-          invoice_count: revenueStats.total_orders || 0
-        },
-        orders: {
-          total_orders: orderStats.total_orders || 0,
-          completed_orders: orderStats.completed_orders || 0,
-          active_orders: orderStats.active_orders || 0,
-          cancelled_orders: orderStats.cancelled_orders || 0,
-          average_value: orderStats.average_order_value || 0,
-          completion_rate: (orderStats.total_orders - orderStats.cancelled_orders) > 0
-            ? ((orderStats.completed_orders / (orderStats.total_orders - orderStats.cancelled_orders)) * 100).toFixed(2)
-            : 0
-        },
-        customers: {
-          total_customers: customerStats.total_customers || 0,
-          vip_customers: customerStats.vip_customers || 0,
-          regular_customers: customerStats.regular_customers || 0,
-          new_customers: customerStats.new_customers || 0
-        },
-        inventory: {
-          total_materials: inventoryStats.total_materials || 0,
-          out_of_stock: inventoryStats.out_of_stock || 0,
-          low_stock: inventoryStats.low_stock || 0,
-          total_value: inventoryStats.total_inventory_value || 0
-        },
-        production: {
-          designing: productionStats.designing || 0,
-          in_production: productionStats.in_production || 0,
-          quality_control: productionStats.quality_control || 0,
-          urgent_orders: productionStats.urgent_orders || 0
-        }
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch dashboard analytics' });
+        return {
+          period,
+          revenue: {
+            total_revenue: revenueStats.total_revenue || 0,
+            paid_revenue: revenueStats.paid_revenue || 0,
+            pending_revenue: revenueStats.pending_revenue || 0,
+            average_order_value: revenueStats.average_order_value || 0,
+            invoice_count: revenueStats.total_orders || 0,
+          },
+          orders: {
+            total_orders: orderStats.total_orders || 0,
+            completed_orders: orderStats.completed_orders || 0,
+            active_orders: orderStats.active_orders || 0,
+            cancelled_orders: orderStats.cancelled_orders || 0,
+            average_value: orderStats.average_order_value || 0,
+            completion_rate:
+              orderStats.total_orders - orderStats.cancelled_orders > 0
+                ? (
+                    (orderStats.completed_orders /
+                      (orderStats.total_orders - orderStats.cancelled_orders)) *
+                    100
+                  ).toFixed(2)
+                : 0,
+          },
+          customers: {
+            total_customers: customerStats.total_customers || 0,
+            vip_customers: customerStats.vip_customers || 0,
+            regular_customers: customerStats.regular_customers || 0,
+            new_customers: customerStats.new_customers || 0,
+          },
+          inventory: {
+            total_materials: inventoryStats.total_materials || 0,
+            out_of_stock: inventoryStats.out_of_stock || 0,
+            low_stock: inventoryStats.low_stock || 0,
+            total_value: inventoryStats.total_inventory_value || 0,
+          },
+          production: {
+            designing: productionStats.designing || 0,
+            in_production: productionStats.in_production || 0,
+            quality_control: productionStats.quality_control || 0,
+            urgent_orders: productionStats.urgent_orders || 0,
+          },
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.status(500).send({ error: 'Failed to fetch dashboard analytics' });
+      }
     }
-  });
+  );
 
   // Get revenue trend data
-  fastify.get('/revenue-trend', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      const { months = 12 } = request.query;
-      const dateOffset = `-${parseInt(months) || 12} months`;
+  fastify.get(
+    '/revenue-trend',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      try {
+        const { months = 12 } = request.query;
+        const dateOffset = `-${parseInt(months) || 12} months`;
 
-      const trend = await db.all(`
+        const trend = await db.all(
+          `
         SELECT
           strftime('%Y-%m', issue_date) as month,
           COUNT(*) as invoice_count,
@@ -142,22 +169,28 @@ async function analyticsRoutes(fastify, options) {
         WHERE DATE(issue_date) >= DATE('now', ?)
         GROUP BY strftime('%Y-%m', issue_date)
         ORDER BY month ASC
-      `, [dateOffset]);
+      `,
+          [dateOffset]
+        );
 
-      return { trend };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch revenue trend' });
+        return { trend };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.status(500).send({ error: 'Failed to fetch revenue trend' });
+      }
     }
-  });
+  );
 
   // Get customer analytics
-  fastify.get('/customers', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      // Top customers by revenue - simplified query
-      const topCustomers = await db.all(`
+  fastify.get(
+    '/customers',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      try {
+        // Top customers by revenue - simplified query
+        const topCustomers = await db.all(`
         SELECT
           c.id,
           c.name,
@@ -174,8 +207,8 @@ async function analyticsRoutes(fastify, options) {
         LIMIT 10
       `);
 
-      // Customer acquisition trend
-      const acquisitionTrend = await db.all(`
+        // Customer acquisition trend
+        const acquisitionTrend = await db.all(`
         SELECT
           strftime('%Y-%m', created_at) as month,
           COUNT(*) as new_customers
@@ -185,8 +218,8 @@ async function analyticsRoutes(fastify, options) {
         ORDER BY month ASC
       `);
 
-      // Customer by business type - simplified
-      const byBusinessType = await db.all(`
+        // Customer by business type - simplified
+        const byBusinessType = await db.all(`
         SELECT
           COALESCE(business_type, 'other') as business_type,
           COUNT(*) as count
@@ -195,24 +228,28 @@ async function analyticsRoutes(fastify, options) {
         ORDER BY count DESC
       `);
 
-      return {
-        top_customers: topCustomers,
-        acquisition_trend: acquisitionTrend,
-        by_business_type: byBusinessType
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch customer analytics' });
+        return {
+          top_customers: topCustomers,
+          acquisition_trend: acquisitionTrend,
+          by_business_type: byBusinessType,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.status(500).send({ error: 'Failed to fetch customer analytics' });
+      }
     }
-  });
+  );
 
   // Get product analytics
-  fastify.get('/products', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      // Orders by box type
-      const byBoxType = await db.all(`
+  fastify.get(
+    '/products',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      try {
+        // Orders by box type
+        const byBoxType = await db.all(`
         SELECT
           COALESCE(box_type, 'unspecified') as box_type,
           COUNT(*) as order_count,
@@ -224,40 +261,45 @@ async function analyticsRoutes(fastify, options) {
         ORDER BY order_count DESC
       `);
 
-      // Average dimensions (default to 0 if columns don't exist or have no data)
-      let avgDimensions = { avg_width: 0, avg_height: 0, avg_depth: 0 };
-      try {
-        avgDimensions = await db.get(`
+        // Average dimensions (default to 0 if columns don't exist or have no data)
+        let avgDimensions = { avg_width: 0, avg_height: 0, avg_depth: 0 };
+        try {
+          avgDimensions =
+            (await db.get(`
           SELECT
             COALESCE(AVG(width), 0) as avg_width,
             COALESCE(AVG(height), 0) as avg_height,
             COALESCE(AVG(depth), 0) as avg_depth
           FROM orders
           WHERE width IS NOT NULL AND height IS NOT NULL AND depth IS NOT NULL
-        `) || avgDimensions;
-      } catch (e) {
-        // columns may not exist
-      }
+        `)) || avgDimensions;
+        } catch (e) {
+          // columns may not exist
+        }
 
-      return {
-        by_box_type: byBoxType,
-        average_dimensions: avgDimensions
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch product analytics' });
+        return {
+          by_box_type: byBoxType,
+          average_dimensions: avgDimensions,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.status(500).send({ error: 'Failed to fetch product analytics' });
+      }
     }
-  });
+  );
 
   // Get production performance analytics
-  fastify.get('/production-performance', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      // Stage performance from production tasks
-      let stagePerformance = [];
+  fastify.get(
+    '/production-performance',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
       try {
-        stagePerformance = await db.all(`
+        // Stage performance from production tasks
+        let stagePerformance = [];
+        try {
+          stagePerformance = await db.all(`
           SELECT
             status as stage,
             COUNT(*) as stage_count,
@@ -267,29 +309,37 @@ async function analyticsRoutes(fastify, options) {
           GROUP BY status
           ORDER BY avg_duration_days DESC
         `);
-      } catch (e) {
-        // table may not exist
-      }
+        } catch (e) {
+          // table may not exist
+        }
 
-      // On-time delivery rate - simplified
-      let deliveryPerformance = { total_completed: 0, on_time_deliveries: 0, on_time_rate: 0 };
-      try {
-        deliveryPerformance = await db.get(`
+        // On-time delivery rate - simplified
+        let deliveryPerformance = { total_completed: 0, on_time_deliveries: 0, on_time_rate: 0 };
+        try {
+          deliveryPerformance =
+            (await db.get(`
           SELECT
             COUNT(*) as total_completed,
             COUNT(*) as on_time_deliveries,
             100.0 as on_time_rate
           FROM orders
           WHERE status = 'completed'
-        `) || deliveryPerformance;
-      } catch (e) {
-        // columns may not exist
-      }
+        `)) || deliveryPerformance;
+        } catch (e) {
+          // columns may not exist
+        }
 
-      // Quality control pass rate - using correct column name 'status' instead of 'overall_status'
-      let qualityPerformance = { total_checks: 0, passed_checks: 0, failed_checks: 0, needs_review: 0, pass_rate: 0 };
-      try {
-        qualityPerformance = await db.get(`
+        // Quality control pass rate - using correct column name 'status' instead of 'overall_status'
+        let qualityPerformance = {
+          total_checks: 0,
+          passed_checks: 0,
+          failed_checks: 0,
+          needs_review: 0,
+          pass_rate: 0,
+        };
+        try {
+          qualityPerformance =
+            (await db.get(`
           SELECT
             COUNT(*) as total_checks,
             SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed_checks,
@@ -297,60 +347,70 @@ async function analyticsRoutes(fastify, options) {
             SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as needs_review,
             CASE WHEN COUNT(*) > 0 THEN (SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) * 100.0 / COUNT(*)) ELSE 0 END as pass_rate
           FROM quality_checks
-        `) || qualityPerformance;
-      } catch (e) {
-        // table may not exist
-      }
+        `)) || qualityPerformance;
+        } catch (e) {
+          // table may not exist
+        }
 
-      // Task completion statistics
-      let taskPerformance = { total_tasks: 0, completed_tasks: 0, cancelled_tasks: 0, avg_delay_days: 0 };
-      try {
-        taskPerformance = await db.get(`
+        // Task completion statistics
+        let taskPerformance = {
+          total_tasks: 0,
+          completed_tasks: 0,
+          cancelled_tasks: 0,
+          avg_delay_days: 0,
+        };
+        try {
+          taskPerformance =
+            (await db.get(`
           SELECT
             COUNT(*) as total_tasks,
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks,
             SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_tasks,
             0 as avg_delay_days
           FROM production_tasks
-        `) || taskPerformance;
-      } catch (e) {
-        // table may not exist
-      }
-
-      return {
-        stage_performance: stagePerformance,
-        delivery_performance: {
-          total_completed: deliveryPerformance.total_completed || 0,
-          on_time_deliveries: deliveryPerformance.on_time_deliveries || 0,
-          on_time_rate: parseFloat(deliveryPerformance.on_time_rate || 0).toFixed(2)
-        },
-        quality_performance: {
-          total_checks: qualityPerformance.total_checks || 0,
-          passed_checks: qualityPerformance.passed_checks || 0,
-          failed_checks: qualityPerformance.failed_checks || 0,
-          needs_review: qualityPerformance.needs_review || 0,
-          pass_rate: parseFloat(qualityPerformance.pass_rate || 0).toFixed(2)
-        },
-        task_performance: {
-          total_tasks: taskPerformance.total_tasks || 0,
-          completed_tasks: taskPerformance.completed_tasks || 0,
-          cancelled_tasks: taskPerformance.cancelled_tasks || 0,
-          avg_delay_days: parseFloat(taskPerformance.avg_delay_days || 0).toFixed(2)
+        `)) || taskPerformance;
+        } catch (e) {
+          // table may not exist
         }
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch production performance' });
+
+        return {
+          stage_performance: stagePerformance,
+          delivery_performance: {
+            total_completed: deliveryPerformance.total_completed || 0,
+            on_time_deliveries: deliveryPerformance.on_time_deliveries || 0,
+            on_time_rate: parseFloat(deliveryPerformance.on_time_rate || 0).toFixed(2),
+          },
+          quality_performance: {
+            total_checks: qualityPerformance.total_checks || 0,
+            passed_checks: qualityPerformance.passed_checks || 0,
+            failed_checks: qualityPerformance.failed_checks || 0,
+            needs_review: qualityPerformance.needs_review || 0,
+            pass_rate: parseFloat(qualityPerformance.pass_rate || 0).toFixed(2),
+          },
+          task_performance: {
+            total_tasks: taskPerformance.total_tasks || 0,
+            completed_tasks: taskPerformance.completed_tasks || 0,
+            cancelled_tasks: taskPerformance.cancelled_tasks || 0,
+            avg_delay_days: parseFloat(taskPerformance.avg_delay_days || 0).toFixed(2),
+          },
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.status(500).send({ error: 'Failed to fetch production performance' });
+      }
     }
-  });
+  );
 
   // Get inventory analytics
-  fastify.get('/inventory-analytics', {
-    preHandler: [fastify.authenticate]
-  }, async (request, reply) => {
-    try {
-      // Inventory turnover by material
-      const turnover = await db.all(`
+  fastify.get(
+    '/inventory-analytics',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      try {
+        // Inventory turnover by material
+        const turnover = await db.all(`
         SELECT
           im.id,
           im.name,
@@ -369,8 +429,8 @@ async function analyticsRoutes(fastify, options) {
         LIMIT 20
       `);
 
-      // Stock alerts summary
-      const alerts = await db.get(`
+        // Stock alerts summary
+        const alerts = await db.get(`
         SELECT
           COUNT(*) as total_materials,
           SUM(CASE WHEN current_stock <= 0 THEN 1 ELSE 0 END) as out_of_stock,
@@ -379,8 +439,8 @@ async function analyticsRoutes(fastify, options) {
         FROM inventory_materials
       `);
 
-      // Movement trends (last 30 days)
-      const movementTrends = await db.all(`
+        // Movement trends (last 30 days)
+        const movementTrends = await db.all(`
         SELECT
           DATE(created_at) as date,
           type,
@@ -393,16 +453,17 @@ async function analyticsRoutes(fastify, options) {
         ORDER BY date ASC
       `);
 
-      return {
-        top_materials: turnover,
-        stock_alerts: alerts,
-        movement_trends: movementTrends
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.status(500).send({ error: 'Failed to fetch inventory analytics' });
+        return {
+          top_materials: turnover,
+          stock_alerts: alerts,
+          movement_trends: movementTrends,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.status(500).send({ error: 'Failed to fetch inventory analytics' });
+      }
     }
-  });
+  );
 }
 
 module.exports = analyticsRoutes;

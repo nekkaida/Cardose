@@ -20,7 +20,7 @@ class RateLimiterService {
     const userRequests = this.requests.get(identifier);
 
     // Remove old requests outside the window
-    const validRequests = userRequests.filter(timestamp => now - timestamp < windowMs);
+    const validRequests = userRequests.filter((timestamp) => now - timestamp < windowMs);
 
     this.requests.set(identifier, validRequests);
 
@@ -29,7 +29,7 @@ class RateLimiterService {
       return {
         allowed: false,
         remaining: 0,
-        resetIn: Math.ceil((validRequests[0] + windowMs - now) / 1000)
+        resetIn: Math.ceil((validRequests[0] + windowMs - now) / 1000),
       };
     }
 
@@ -40,7 +40,7 @@ class RateLimiterService {
     return {
       allowed: true,
       remaining: maxRequests - validRequests.length,
-      resetIn: windowSeconds
+      resetIn: windowSeconds,
     };
   }
 
@@ -55,19 +55,20 @@ class RateLimiterService {
       return {
         used: 0,
         remaining: maxRequests,
-        resetIn: windowSeconds
+        resetIn: windowSeconds,
       };
     }
 
     const userRequests = this.requests.get(identifier);
-    const validRequests = userRequests.filter(timestamp => now - timestamp < windowMs);
+    const validRequests = userRequests.filter((timestamp) => now - timestamp < windowMs);
 
     return {
       used: validRequests.length,
       remaining: Math.max(0, maxRequests - validRequests.length),
-      resetIn: validRequests.length > 0
-        ? Math.ceil((validRequests[0] + windowMs - now) / 1000)
-        : windowSeconds
+      resetIn:
+        validRequests.length > 0
+          ? Math.ceil((validRequests[0] + windowMs - now) / 1000)
+          : windowSeconds,
     };
   }
 
@@ -91,9 +92,12 @@ class RateLimiterService {
    */
   startCleanup() {
     // Clean up old entries every 5 minutes
-    this.cleanupInterval = setInterval(() => {
-      this.cleanup();
-    }, 5 * 60 * 1000);
+    this.cleanupInterval = setInterval(
+      () => {
+        this.cleanup();
+      },
+      5 * 60 * 1000
+    );
   }
 
   /**
@@ -115,7 +119,7 @@ class RateLimiterService {
     let cleaned = 0;
 
     for (const [identifier, timestamps] of this.requests.entries()) {
-      const validRequests = timestamps.filter(timestamp => now - timestamp < maxAge);
+      const validRequests = timestamps.filter((timestamp) => now - timestamp < maxAge);
 
       if (validRequests.length === 0) {
         this.requests.delete(identifier);
@@ -134,7 +138,7 @@ class RateLimiterService {
   getStats() {
     return {
       total_identifiers: this.requests.size,
-      total_requests: Array.from(this.requests.values()).reduce((sum, arr) => sum + arr.length, 0)
+      total_requests: Array.from(this.requests.values()).reduce((sum, arr) => sum + arr.length, 0),
     };
   }
 }

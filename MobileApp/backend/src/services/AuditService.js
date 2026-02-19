@@ -74,9 +74,9 @@ class AuditService {
       const logs = await this.db.all(query, params);
 
       // Parse details JSON
-      const parsedLogs = logs.map(log => ({
+      const parsedLogs = logs.map((log) => ({
         ...log,
-        details: log.details ? JSON.parse(log.details) : null
+        details: log.details ? JSON.parse(log.details) : null,
       }));
 
       // Get total count
@@ -122,8 +122,8 @@ class AuditService {
           total,
           limit: parseInt(filters.limit || 100),
           offset: parseInt(filters.offset || 0),
-          pages: Math.ceil(total / parseInt(filters.limit || 100))
-        }
+          pages: Math.ceil(total / parseInt(filters.limit || 100)),
+        },
       };
     } catch (error) {
       throw new Error(`Failed to get audit logs: ${error.message}`);
@@ -149,25 +149,32 @@ class AuditService {
       }
 
       // Actions by type
-      const actionStats = await this.db.all(`
+      const actionStats = await this.db.all(
+        `
         SELECT action, COUNT(*) as count
         FROM audit_logs
         WHERE ${dateFilter}
         GROUP BY action
         ORDER BY count DESC
-      `, params);
+      `,
+        params
+      );
 
       // Actions by entity type
-      const entityStats = await this.db.all(`
+      const entityStats = await this.db.all(
+        `
         SELECT entity_type, COUNT(*) as count
         FROM audit_logs
         WHERE ${dateFilter}
         GROUP BY entity_type
         ORDER BY count DESC
-      `, params);
+      `,
+        params
+      );
 
       // Most active users
-      const userStats = await this.db.all(`
+      const userStats = await this.db.all(
+        `
         SELECT
           al.user_id,
           u.username,
@@ -179,10 +186,13 @@ class AuditService {
         GROUP BY al.user_id
         ORDER BY action_count DESC
         LIMIT 10
-      `, params);
+      `,
+        params
+      );
 
       // Daily activity
-      const dailyActivity = await this.db.all(`
+      const dailyActivity = await this.db.all(
+        `
         SELECT
           DATE(created_at) as date,
           COUNT(*) as count
@@ -191,7 +201,9 @@ class AuditService {
         GROUP BY DATE(created_at)
         ORDER BY date DESC
         LIMIT 30
-      `, params);
+      `,
+        params
+      );
 
       return {
         success: true,
@@ -199,8 +211,8 @@ class AuditService {
           actionStats,
           entityStats,
           userStats,
-          dailyActivity
-        }
+          dailyActivity,
+        },
       };
     } catch (error) {
       throw new Error(`Failed to get audit stats: ${error.message}`);
@@ -213,14 +225,14 @@ class AuditService {
   async deleteOldLogs(daysToKeep = 90) {
     try {
       const result = await this.db.run(
-        'DELETE FROM audit_logs WHERE DATE(created_at) < DATE(\'now\', ?)',
+        "DELETE FROM audit_logs WHERE DATE(created_at) < DATE('now', ?)",
         [`-${daysToKeep} days`]
       );
 
       return {
         success: true,
         message: `Deleted audit logs older than ${daysToKeep} days`,
-        deleted: result.changes
+        deleted: result.changes,
       };
     } catch (error) {
       throw new Error(`Failed to delete old logs: ${error.message}`);
@@ -236,33 +248,41 @@ class AuditService {
 
       if (format === 'csv') {
         // Convert to CSV
-        const headers = ['ID', 'User', 'Action', 'Entity Type', 'Entity ID', 'Timestamp', 'IP Address'];
-        const rows = result.logs.map(log => [
+        const headers = [
+          'ID',
+          'User',
+          'Action',
+          'Entity Type',
+          'Entity ID',
+          'Timestamp',
+          'IP Address',
+        ];
+        const rows = result.logs.map((log) => [
           log.id,
           log.username || log.user_id,
           log.action,
           log.entity_type,
           log.entity_id,
           log.created_at,
-          log.ip_address || ''
+          log.ip_address || '',
         ]);
 
         const csv = [
           headers.join(','),
-          ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+          ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
         ].join('\n');
 
         return {
           success: true,
           format: 'csv',
-          data: csv
+          data: csv,
         };
       }
 
       return {
         success: true,
         format: 'json',
-        data: result.logs
+        data: result.logs,
       };
     } catch (error) {
       throw new Error(`Failed to export logs: ${error.message}`);

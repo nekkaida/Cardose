@@ -35,7 +35,10 @@ async function usersRoutes(fastify, options) {
       query += ' ORDER BY created_at DESC';
 
       // Get total count
-      const countQuery = query.replace(/SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at/, 'SELECT COUNT(*) as total');
+      const countQuery = query.replace(
+        /SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at/,
+        'SELECT COUNT(*) as total'
+      );
       const countResult = db.db.prepare(countQuery).get(...params);
       const total = countResult ? countResult.total : 0;
 
@@ -47,7 +50,9 @@ async function usersRoutes(fastify, options) {
       const users = db.db.prepare(query).all(...params);
 
       // Get role counts using SQL aggregates
-      const statsRow = db.db.prepare(`
+      const statsRow = db.db
+        .prepare(
+          `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active,
@@ -56,7 +61,9 @@ async function usersRoutes(fastify, options) {
           SUM(CASE WHEN role = 'manager' THEN 1 ELSE 0 END) as managers,
           SUM(CASE WHEN role = 'employee' THEN 1 ELSE 0 END) as employees
         FROM users
-      `).get();
+      `
+        )
+        .get();
       const stats = {
         total: statsRow.total,
         active: statsRow.active,
@@ -64,8 +71,8 @@ async function usersRoutes(fastify, options) {
         byRole: {
           owner: statsRow.owners,
           manager: statsRow.managers,
-          employee: statsRow.employees
-        }
+          employee: statsRow.employees,
+        },
       };
 
       return {
@@ -75,7 +82,7 @@ async function usersRoutes(fastify, options) {
         page: parseInt(page),
         limit: parseInt(limit),
         totalPages: Math.ceil(total / limit),
-        stats
+        stats,
       };
     } catch (error) {
       fastify.log.error(error);
@@ -89,10 +96,14 @@ async function usersRoutes(fastify, options) {
     try {
       const { id } = request.params;
 
-      const user = db.db.prepare(`
+      const user = db.db
+        .prepare(
+          `
         SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at
         FROM users WHERE id = ?
-      `).get(id);
+      `
+        )
+        .get(id);
 
       if (!user) {
         reply.code(404);
@@ -108,182 +119,235 @@ async function usersRoutes(fastify, options) {
   });
 
   // Create user (requires authentication)
-  fastify.post('/', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      body: {
-        type: 'object',
-        required: ['username', 'email', 'password', 'full_name'],
-        properties: {
-          username: { type: 'string', minLength: 3 },
-          email: { type: 'string', format: 'email' },
-          password: { type: 'string', minLength: 6 },
-          full_name: { type: 'string', minLength: 1 },
-          phone: { type: 'string' },
-          role: { type: 'string', enum: ['owner', 'manager', 'employee'] }
+  fastify.post(
+    '/',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        body: {
+          type: 'object',
+          required: ['username', 'email', 'password', 'full_name'],
+          properties: {
+            username: { type: 'string', minLength: 3 },
+            email: { type: 'string', format: 'email' },
+            password: { type: 'string', minLength: 6 },
+            full_name: { type: 'string', minLength: 1 },
+            phone: { type: 'string' },
+            role: { type: 'string', enum: ['owner', 'manager', 'employee'] },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { username, email, password, full_name, phone, role = 'employee' } = request.body;
+
+        if (!username || !email || !password || !full_name) {
+          reply.code(400);
+          return { success: false, error: 'Username, email, password, and full_name are required' };
         }
-      }
-    }
-  }, async (request, reply) => {
-    try {
-      const { username, email, password, full_name, phone, role = 'employee' } = request.body;
 
-      if (!username || !email || !password || !full_name) {
-        reply.code(400);
-        return { success: false, error: 'Username, email, password, and full_name are required' };
-      }
+        // Check if user exists
+        const existing = db.db
+          .prepare('SELECT id FROM users WHERE username = ? OR email = ?')
+          .get(username, email);
+        if (existing) {
+          reply.code(409);
+          return { success: false, error: 'Username or email already exists' };
+        }
 
-      // Check if user exists
-      const existing = db.db.prepare('SELECT id FROM users WHERE username = ? OR email = ?').get(username, email);
-      if (existing) {
-        reply.code(409);
-        return { success: false, error: 'Username or email already exists' };
-      }
+        const id = uuidv4();
+        const passwordHash = await bcrypt.hash(password, 10);
 
-      const id = uuidv4();
-      const passwordHash = await bcrypt.hash(password, 10);
-
-      db.db.prepare(`
+        db.db
+          .prepare(
+            `
         INSERT INTO users (id, username, email, password_hash, full_name, phone, role, is_active, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-      `).run(id, username, email, passwordHash, full_name, phone, role);
+      `
+          )
+          .run(id, username, email, passwordHash, full_name, phone, role);
 
-      const user = db.db.prepare(`
+        const user = db.db
+          .prepare(
+            `
         SELECT id, username, email, full_name, phone, role, is_active, created_at
         FROM users WHERE id = ?
-      `).get(id);
+      `
+          )
+          .get(id);
 
-      return {
-        success: true,
-        message: 'User created successfully',
-        userId: id,
-        user
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        return {
+          success: true,
+          message: 'User created successfully',
+          userId: id,
+          user,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 
   // Update user (requires authentication)
-  fastify.put('/:id', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      body: {
-        type: 'object',
-        properties: {
-          username: { type: 'string' },
-          email: { type: 'string' },
-          full_name: { type: 'string' },
-          phone: { type: 'string' },
-          role: { type: 'string', enum: ['owner', 'manager', 'employee'] },
-          is_active: { type: 'boolean' },
-          password: { type: 'string', minLength: 6 }
+  fastify.put(
+    '/:id',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            username: { type: 'string' },
+            email: { type: 'string' },
+            full_name: { type: 'string' },
+            phone: { type: 'string' },
+            role: { type: 'string', enum: ['owner', 'manager', 'employee'] },
+            is_active: { type: 'boolean' },
+            password: { type: 'string', minLength: 6 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const updates = request.body;
+
+        const existing = db.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        if (!existing) {
+          reply.code(404);
+          return { success: false, error: 'User not found' };
         }
-      }
-    }
-  }, async (request, reply) => {
-    try {
-      const { id } = request.params;
-      const updates = request.body;
 
-      const existing = db.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
-      if (!existing) {
-        reply.code(404);
-        return { success: false, error: 'User not found' };
-      }
+        const fields = [];
+        const values = [];
 
-      const fields = [];
-      const values = [];
+        if (updates.username !== undefined) {
+          fields.push('username = ?');
+          values.push(updates.username);
+        }
+        if (updates.email !== undefined) {
+          fields.push('email = ?');
+          values.push(updates.email);
+        }
+        if (updates.full_name !== undefined) {
+          fields.push('full_name = ?');
+          values.push(updates.full_name);
+        }
+        if (updates.phone !== undefined) {
+          fields.push('phone = ?');
+          values.push(updates.phone);
+        }
+        if (updates.role !== undefined) {
+          fields.push('role = ?');
+          values.push(updates.role);
+        }
+        if (updates.is_active !== undefined) {
+          fields.push('is_active = ?');
+          values.push(updates.is_active ? 1 : 0);
+        }
+        if (updates.password) {
+          const passwordHash = await bcrypt.hash(updates.password, 10);
+          fields.push('password_hash = ?');
+          values.push(passwordHash);
+        }
 
-      if (updates.username !== undefined) { fields.push('username = ?'); values.push(updates.username); }
-      if (updates.email !== undefined) { fields.push('email = ?'); values.push(updates.email); }
-      if (updates.full_name !== undefined) { fields.push('full_name = ?'); values.push(updates.full_name); }
-      if (updates.phone !== undefined) { fields.push('phone = ?'); values.push(updates.phone); }
-      if (updates.role !== undefined) { fields.push('role = ?'); values.push(updates.role); }
-      if (updates.is_active !== undefined) { fields.push('is_active = ?'); values.push(updates.is_active ? 1 : 0); }
-      if (updates.password) {
-        const passwordHash = await bcrypt.hash(updates.password, 10);
-        fields.push('password_hash = ?');
-        values.push(passwordHash);
-      }
+        if (fields.length === 0) {
+          return { success: true, message: 'No changes made' };
+        }
 
-      if (fields.length === 0) {
-        return { success: true, message: 'No changes made' };
-      }
+        fields.push('updated_at = CURRENT_TIMESTAMP');
+        values.push(id);
 
-      fields.push('updated_at = CURRENT_TIMESTAMP');
-      values.push(id);
+        db.db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...values);
 
-      db.db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...values);
-
-      const user = db.db.prepare(`
+        const user = db.db
+          .prepare(
+            `
         SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at
         FROM users WHERE id = ?
-      `).get(id);
+      `
+          )
+          .get(id);
 
-      return { success: true, message: 'User updated successfully', user };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        return { success: true, message: 'User updated successfully', user };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 
   // Activate/Deactivate user (requires authentication)
-  fastify.patch('/:id/status', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      body: {
-        type: 'object',
-        required: ['is_active'],
-        properties: {
-          is_active: { type: 'boolean' }
+  fastify.patch(
+    '/:id/status',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        body: {
+          type: 'object',
+          required: ['is_active'],
+          properties: {
+            is_active: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const { is_active } = request.body;
+
+        const existing = db.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        if (!existing) {
+          reply.code(404);
+          return { success: false, error: 'User not found' };
         }
+
+        db.db
+          .prepare('UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+          .run(is_active ? 1 : 0, id);
+
+        return {
+          success: true,
+          message: `User ${is_active ? 'activated' : 'deactivated'} successfully`,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
       }
     }
-  }, async (request, reply) => {
-    try {
-      const { id } = request.params;
-      const { is_active } = request.body;
-
-      const existing = db.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
-      if (!existing) {
-        reply.code(404);
-        return { success: false, error: 'User not found' };
-      }
-
-      db.db.prepare('UPDATE users SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(is_active ? 1 : 0, id);
-
-      return { success: true, message: `User ${is_active ? 'activated' : 'deactivated'} successfully` };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
-    }
-  });
+  );
 
   // Delete user (owner only)
-  fastify.delete('/:id', { preHandler: [fastify.authenticate, fastify.authorize(['owner'])] }, async (request, reply) => {
-    try {
-      const { id } = request.params;
+  fastify.delete(
+    '/:id',
+    { preHandler: [fastify.authenticate, fastify.authorize(['owner'])] },
+    async (request, reply) => {
+      try {
+        const { id } = request.params;
 
-      const existing = db.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
-      if (!existing) {
-        reply.code(404);
-        return { success: false, error: 'User not found' };
+        const existing = db.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        if (!existing) {
+          reply.code(404);
+          return { success: false, error: 'User not found' };
+        }
+
+        db.db.prepare('DELETE FROM users WHERE id = ?').run(id);
+
+        return { success: true, message: 'User deleted successfully' };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
       }
-
-      db.db.prepare('DELETE FROM users WHERE id = ?').run(id);
-
-      return { success: true, message: 'User deleted successfully' };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
     }
-  });
+  );
 }
 
 module.exports = usersRoutes;

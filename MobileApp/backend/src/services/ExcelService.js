@@ -23,12 +23,7 @@ class ExcelService {
     const worksheet = workbook.addWorksheet('Invoice');
 
     // Set column widths
-    worksheet.columns = [
-      { width: 30 },
-      { width: 15 },
-      { width: 20 },
-      { width: 20 }
-    ];
+    worksheet.columns = [{ width: 30 }, { width: 15 }, { width: 20 }, { width: 20 }];
 
     // Header - Company Name
     worksheet.mergeCells('A1:D1');
@@ -55,12 +50,22 @@ class ExcelService {
       worksheet.addRow(['Jakarta, Indonesia', '', '', '']);
     }
     worksheet.addRow(['NPWP: 01.234.567.8-901.000', '', customer.address || '', '']);
-    worksheet.addRow(['Phone: +62 21 1234 5678', '', customer.phone ? `Phone: ${customer.phone}` : '', '']);
+    worksheet.addRow([
+      'Phone: +62 21 1234 5678',
+      '',
+      customer.phone ? `Phone: ${customer.phone}` : '',
+      '',
+    ]);
 
     worksheet.addRow([]);
 
     // Invoice Details
-    worksheet.addRow(['Invoice Number:', invoice.invoice_number, 'Status:', invoice.status.toUpperCase()]);
+    worksheet.addRow([
+      'Invoice Number:',
+      invoice.invoice_number,
+      'Status:',
+      invoice.status.toUpperCase(),
+    ]);
     worksheet.addRow(['Issue Date:', this.formatDate(invoice.issue_date), '', '']);
     if (invoice.due_date) {
       worksheet.addRow(['Due Date:', this.formatDate(invoice.due_date), '', '']);
@@ -73,23 +78,28 @@ class ExcelService {
 
     // Line Items Header
     const headerRowIndex = worksheet.rowCount + 1;
-    const itemsHeader = worksheet.addRow(['Description', 'Quantity', 'Unit Price (IDR)', 'Amount (IDR)']);
+    const itemsHeader = worksheet.addRow([
+      'Description',
+      'Quantity',
+      'Unit Price (IDR)',
+      'Amount (IDR)',
+    ]);
     itemsHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     itemsHeader.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF2C5530' }
+      fgColor: { argb: 'FF2C5530' },
     };
     itemsHeader.alignment = { horizontal: 'center' };
 
     // Line Items
     if (items && items.length > 0) {
-      items.forEach(item => {
+      items.forEach((item) => {
         worksheet.addRow([
           item.description || item.name,
           item.quantity || 1,
           this.formatNumber(item.unit_price || 0),
-          this.formatNumber(item.total || item.unit_price || 0)
+          this.formatNumber(item.total || item.unit_price || 0),
         ]);
       });
     } else {
@@ -97,7 +107,7 @@ class ExcelService {
         'Premium Gift Box Order',
         1,
         this.formatNumber(invoice.subtotal),
-        this.formatNumber(invoice.subtotal)
+        this.formatNumber(invoice.subtotal),
       ]);
     }
 
@@ -108,19 +118,24 @@ class ExcelService {
     if (invoice.discount > 0) {
       worksheet.addRow(['', '', 'Discount:', `-${this.formatNumber(invoice.discount)}`]);
     }
-    worksheet.addRow(['', '', `PPN (${invoice.ppn_rate}%):`, this.formatNumber(invoice.ppn_amount)]);
+    worksheet.addRow([
+      '',
+      '',
+      `PPN (${invoice.ppn_rate}%):`,
+      this.formatNumber(invoice.ppn_amount),
+    ]);
 
     const totalRow = worksheet.addRow(['', '', 'TOTAL:', this.formatNumber(invoice.total_amount)]);
     totalRow.font = { bold: true, size: 12 };
     totalRow.getCell(3).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFE8F5E9' }
+      fgColor: { argb: 'FFE8F5E9' },
     };
     totalRow.getCell(4).fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFE8F5E9' }
+      fgColor: { argb: 'FFE8F5E9' },
     };
 
     worksheet.addRow([]);
@@ -190,10 +205,7 @@ class ExcelService {
    * Create Summary Sheet
    */
   createSummarySheet(worksheet, reportData, period) {
-    worksheet.columns = [
-      { width: 30 },
-      { width: 25 }
-    ];
+    worksheet.columns = [{ width: 30 }, { width: 25 }];
 
     // Header
     worksheet.mergeCells('A1:B1');
@@ -203,7 +215,10 @@ class ExcelService {
     headerCell.alignment = { horizontal: 'center' };
 
     worksheet.addRow([]);
-    worksheet.addRow(['Period:', `${this.formatDate(period.start)} - ${this.formatDate(period.end)}`]);
+    worksheet.addRow([
+      'Period:',
+      `${this.formatDate(period.start)} - ${this.formatDate(period.end)}`,
+    ]);
     worksheet.addRow(['Generated:', this.formatDate(new Date().toISOString())]);
     worksheet.addRow([]);
 
@@ -228,17 +243,17 @@ class ExcelService {
     worksheet.addRow(['Total Materials:', reportData.inventory.total_materials]);
     worksheet.addRow(['Out of Stock:', reportData.inventory.out_of_stock]);
     worksheet.addRow(['Low Stock:', reportData.inventory.low_stock]);
-    worksheet.addRow(['Total Inventory Value:', this.formatCurrency(reportData.inventory.total_value)]);
+    worksheet.addRow([
+      'Total Inventory Value:',
+      this.formatCurrency(reportData.inventory.total_value),
+    ]);
   }
 
   /**
    * Create Revenue Details Sheet
    */
   createRevenueSheet(worksheet, revenueData) {
-    worksheet.columns = [
-      { width: 30 },
-      { width: 25 }
-    ];
+    worksheet.columns = [{ width: 30 }, { width: 25 }];
 
     this.addSectionHeader(worksheet, 'REVENUE BREAKDOWN');
     worksheet.addRow(['Metric', 'Value']);
@@ -248,24 +263,24 @@ class ExcelService {
     headerRow.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF2C5530' }
+      fgColor: { argb: 'FF2C5530' },
     };
 
     worksheet.addRow(['Total Revenue', this.formatCurrency(revenueData.total_revenue)]);
     worksheet.addRow(['Paid Revenue', this.formatCurrency(revenueData.paid_revenue)]);
     worksheet.addRow(['Pending Revenue', this.formatCurrency(revenueData.pending_revenue)]);
     worksheet.addRow(['Invoice Count', revenueData.invoice_count]);
-    worksheet.addRow(['Average Invoice Value', this.formatCurrency(revenueData.total_revenue / (revenueData.invoice_count || 1))]);
+    worksheet.addRow([
+      'Average Invoice Value',
+      this.formatCurrency(revenueData.total_revenue / (revenueData.invoice_count || 1)),
+    ]);
   }
 
   /**
    * Create Orders Sheet
    */
   createOrdersSheet(worksheet, ordersData) {
-    worksheet.columns = [
-      { width: 30 },
-      { width: 25 }
-    ];
+    worksheet.columns = [{ width: 30 }, { width: 25 }];
 
     this.addSectionHeader(worksheet, 'ORDERS BREAKDOWN');
     worksheet.addRow(['Metric', 'Value']);
@@ -275,7 +290,7 @@ class ExcelService {
     headerRow.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF2C5530' }
+      fgColor: { argb: 'FF2C5530' },
     };
 
     worksheet.addRow(['Total Orders', ordersData.total_orders]);
@@ -288,10 +303,7 @@ class ExcelService {
    * Create Inventory Sheet
    */
   createInventorySheet(worksheet, inventoryData) {
-    worksheet.columns = [
-      { width: 30 },
-      { width: 25 }
-    ];
+    worksheet.columns = [{ width: 30 }, { width: 25 }];
 
     this.addSectionHeader(worksheet, 'INVENTORY BREAKDOWN');
     worksheet.addRow(['Metric', 'Value']);
@@ -301,14 +313,17 @@ class ExcelService {
     headerRow.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF2C5530' }
+      fgColor: { argb: 'FF2C5530' },
     };
 
     worksheet.addRow(['Total Materials', inventoryData.total_materials]);
     worksheet.addRow(['Out of Stock', inventoryData.out_of_stock]);
     worksheet.addRow(['Low Stock', inventoryData.low_stock]);
     worksheet.addRow(['Total Inventory Value', this.formatCurrency(inventoryData.total_value)]);
-    worksheet.addRow(['Average Material Value', this.formatCurrency(inventoryData.total_value / (inventoryData.total_materials || 1))]);
+    worksheet.addRow([
+      'Average Material Value',
+      this.formatCurrency(inventoryData.total_value / (inventoryData.total_materials || 1)),
+    ]);
   }
 
   /**

@@ -6,15 +6,17 @@ const path = require('path');
 fastify.register(require('@fastify/helmet'));
 
 fastify.register(require('@fastify/cors'), {
-  origin: env.CORS_ORIGIN ? env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8081'],
-  credentials: true
+  origin: env.CORS_ORIGIN
+    ? env.CORS_ORIGIN.split(',')
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8081'],
+  credentials: true,
 });
 
 fastify.register(require('@fastify/rate-limit'), {
   max: 100,
   timeWindow: '1 minute',
   keyGenerator: (request) => request.ip,
-  hook: 'onRequest'
+  hook: 'onRequest',
 });
 
 // Stricter rate limit for auth endpoints (applied per-route below)
@@ -22,13 +24,13 @@ fastify.decorate('authRateLimit', {
   config: {
     rateLimit: {
       max: 10,
-      timeWindow: '1 minute'
-    }
-  }
+      timeWindow: '1 minute',
+    },
+  },
 });
 
 fastify.register(require('@fastify/jwt'), {
-  secret: env.JWT_SECRET
+  secret: env.JWT_SECRET,
 });
 
 fastify.register(require('@fastify/multipart'));
@@ -60,7 +62,7 @@ fastify.register(require('./middleware/auth'));
 // Register routes
 fastify.register(require('./routes/auth'), {
   prefix: '/api/auth',
-  config: { rateLimit: { max: 10, timeWindow: '1 minute' } }
+  config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
 });
 fastify.register(require('./routes/files'), { prefix: '/api/files' });
 fastify.register(require('./routes/orders'), { prefix: '/api/orders' });
@@ -105,7 +107,7 @@ const start = async () => {
   try {
     // Initialize database
     await db.initialize();
-    
+
     await fastify.listen({ port: env.PORT, host: env.HOST });
     fastify.log.info('Premium Gift Box Server running on http://%s:%s', env.HOST, env.PORT);
 
@@ -116,7 +118,9 @@ const start = async () => {
       fastify.log.warn(emailCheck.configWarning);
     }
     if (!env.WHATSAPP_PHONE_NUMBER_ID || !env.WHATSAPP_ACCESS_TOKEN) {
-      fastify.log.warn('WhatsApp credentials not set (WHATSAPP_PHONE_NUMBER_ID/WHATSAPP_ACCESS_TOKEN) - WhatsApp features disabled');
+      fastify.log.warn(
+        'WhatsApp credentials not set (WHATSAPP_PHONE_NUMBER_ID/WHATSAPP_ACCESS_TOKEN) - WhatsApp features disabled'
+      );
     }
 
     // Start automatic backup if enabled

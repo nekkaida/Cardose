@@ -80,11 +80,11 @@ function initializeDatabase(logger) {
       payment_method TEXT,
       transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`
+    )`,
   ];
 
   try {
-    createTables.forEach(sql => {
+    createTables.forEach((sql) => {
       db.exec(sql);
     });
     log.info('Database initialized successfully.');

@@ -17,7 +17,7 @@ class NotificationService {
   async sendNotification(customer, subject, message, channels = ['email']) {
     const results = {
       sent: [],
-      failed: []
+      failed: [],
     };
 
     for (const channel of channels) {
@@ -78,7 +78,12 @@ class NotificationService {
             );
             results.push({ invoice_id: invoice.id, status: 'sent', channel: 'whatsapp' });
           } catch (error) {
-            results.push({ invoice_id: invoice.id, status: 'failed', channel: 'whatsapp', error: error.message });
+            results.push({
+              invoice_id: invoice.id,
+              status: 'failed',
+              channel: 'whatsapp',
+              error: error.message,
+            });
           }
         }
 
@@ -92,7 +97,12 @@ class NotificationService {
             );
             results.push({ invoice_id: invoice.id, status: 'sent', channel: 'email' });
           } catch (error) {
-            results.push({ invoice_id: invoice.id, status: 'failed', channel: 'email', error: error.message });
+            results.push({
+              invoice_id: invoice.id,
+              status: 'failed',
+              channel: 'email',
+              error: error.message,
+            });
           }
         }
       }
@@ -100,7 +110,7 @@ class NotificationService {
       return {
         success: true,
         checked: overdueInvoices.length,
-        results
+        results,
       };
     } catch (error) {
       throw new Error(`Failed to check overdue invoices: ${error.message}`);
@@ -131,9 +141,12 @@ class NotificationService {
         AND email IS NOT NULL
       `);
 
-      const itemsList = lowStockItems.map(item =>
-        `- ${item.material_name}: ${item.current_stock} ${item.unit} (Reorder level: ${item.reorder_level})`
-      ).join('\n');
+      const itemsList = lowStockItems
+        .map(
+          (item) =>
+            `- ${item.material_name}: ${item.current_stock} ${item.unit} (Reorder level: ${item.reorder_level})`
+        )
+        .join('\n');
 
       const subject = `Low Stock Alert - ${lowStockItems.length} items`;
       const message = `
@@ -163,7 +176,7 @@ Premium Gift Box System
         success: true,
         alerts: lowStockItems.length,
         items: lowStockItems,
-        notifications: results
+        notifications: results,
       };
     } catch (error) {
       throw new Error(`Failed to check low stock: ${error.message}`);
@@ -208,7 +221,12 @@ Premium Gift Box
             await this.whatsappService.sendTextMessage(order.phone, message);
             results.push({ order_id: order.id, status: 'sent', channel: 'whatsapp' });
           } catch (error) {
-            results.push({ order_id: order.id, status: 'failed', channel: 'whatsapp', error: error.message });
+            results.push({
+              order_id: order.id,
+              status: 'failed',
+              channel: 'whatsapp',
+              error: error.message,
+            });
           }
         }
       }
@@ -216,7 +234,7 @@ Premium Gift Box
       return {
         success: true,
         checked: upcomingDeadlines.length,
-        results
+        results,
       };
     } catch (error) {
       throw new Error(`Failed to check order deadlines: ${error.message}`);
@@ -249,9 +267,9 @@ Premium Gift Box
         AND email IS NOT NULL
       `);
 
-      const issuesList = failedQC.map(qc =>
-        `- Order #${qc.order_number}: ${qc.notes || 'Quality check failed'}`
-      ).join('\n');
+      const issuesList = failedQC
+        .map((qc) => `- Order #${qc.order_number}: ${qc.notes || 'Quality check failed'}`)
+        .join('\n');
 
       const subject = `Quality Control Issues - ${failedQC.length} orders`;
       const message = `
@@ -280,7 +298,7 @@ Premium Gift Box System
       return {
         success: true,
         issues: failedQC.length,
-        notifications: results
+        notifications: results,
       };
     } catch (error) {
       throw new Error(`Failed to check quality issues: ${error.message}`);
@@ -356,7 +374,7 @@ Premium Gift Box System
       return {
         success: true,
         stats,
-        notifications: results
+        notifications: results,
       };
     } catch (error) {
       throw new Error(`Failed to send daily digest: ${error.message}`);
@@ -368,14 +386,17 @@ Premium Gift Box System
    */
   startAutomatedChecks() {
     // Check overdue invoices every 6 hours
-    const overdueInterval = setInterval(async () => {
-      try {
-        await this.checkOverdueInvoices();
-        this.log.info('Overdue invoice check completed');
-      } catch (error) {
-        this.log.error('Overdue invoice check failed: %s', error.message);
-      }
-    }, 6 * 60 * 60 * 1000);
+    const overdueInterval = setInterval(
+      async () => {
+        try {
+          await this.checkOverdueInvoices();
+          this.log.info('Overdue invoice check completed');
+        } catch (error) {
+          this.log.error('Overdue invoice check failed: %s', error.message);
+        }
+      },
+      6 * 60 * 60 * 1000
+    );
 
     // Check low stock daily at 9 AM
     const lowStockInterval = setInterval(async () => {

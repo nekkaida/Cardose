@@ -37,9 +37,9 @@ async function purchaseOrdersRoutes(fastify, options) {
       const purchaseOrders = db.db.prepare(query).all(...params);
 
       // Parse items JSON
-      const ordersWithParsedItems = purchaseOrders.map(po => ({
+      const ordersWithParsedItems = purchaseOrders.map((po) => ({
         ...po,
-        items: safeJsonParse(po.items, [])
+        items: safeJsonParse(po.items, []),
       }));
 
       return {
@@ -49,7 +49,7 @@ async function purchaseOrdersRoutes(fastify, options) {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       fastify.log.error(error);
@@ -74,8 +74,8 @@ async function purchaseOrdersRoutes(fastify, options) {
         success: true,
         purchaseOrder: {
           ...purchaseOrder,
-          items: safeJsonParse(purchaseOrder.items, [])
-        }
+          items: safeJsonParse(purchaseOrder.items, []),
+        },
       };
     } catch (error) {
       fastify.log.error(error);
@@ -85,96 +85,152 @@ async function purchaseOrdersRoutes(fastify, options) {
   });
 
   // Create purchase order (requires authentication)
-  fastify.post('/', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['supplier'], properties: { supplier: { type: 'string', minLength: 1 }, items: { type: 'array' }, total_amount: { type: 'number' }, expected_date: { type: 'string' }, notes: { type: 'string' } } } } }, async (request, reply) => {
-    try {
-      const { supplier, items, total_amount, expected_date, notes } = request.body;
+  fastify.post(
+    '/',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        body: {
+          type: 'object',
+          required: ['supplier'],
+          properties: {
+            supplier: { type: 'string', minLength: 1 },
+            items: { type: 'array' },
+            total_amount: { type: 'number' },
+            expected_date: { type: 'string' },
+            notes: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { supplier, items, total_amount, expected_date, notes } = request.body;
 
-      if (!supplier || !items) {
-        reply.code(400);
-        return { success: false, error: 'Supplier and items are required' };
-      }
+        if (!supplier || !items) {
+          reply.code(400);
+          return { success: false, error: 'Supplier and items are required' };
+        }
 
-      const id = uuidv4();
-      const poNumber = await generatePONumber(db);
+        const id = uuidv4();
+        const poNumber = await generatePONumber(db);
 
-      db.db.prepare(`
+        db.db
+          .prepare(
+            `
         INSERT INTO purchase_orders (id, po_number, supplier, items, total_amount, status, expected_date, notes, created_at)
         VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, CURRENT_TIMESTAMP)
-      `).run(id, poNumber, supplier, JSON.stringify(items), total_amount || 0, expected_date, notes);
+      `
+          )
+          .run(
+            id,
+            poNumber,
+            supplier,
+            JSON.stringify(items),
+            total_amount || 0,
+            expected_date,
+            notes
+          );
 
-      const purchaseOrder = db.db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(id);
+        const purchaseOrder = db.db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(id);
 
-      return {
-        success: true,
-        message: 'Purchase order created successfully',
-        purchaseOrderId: id,
-        purchaseOrder: {
-          ...purchaseOrder,
-          items: safeJsonParse(purchaseOrder.items, [])
-        }
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        return {
+          success: true,
+          message: 'Purchase order created successfully',
+          purchaseOrderId: id,
+          purchaseOrder: {
+            ...purchaseOrder,
+            items: safeJsonParse(purchaseOrder.items, []),
+          },
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 
   // Update purchase order status (requires authentication)
-  fastify.patch('/:id/status', { preHandler: [fastify.authenticate], schema: { body: { type: 'object', required: ['status'], properties: { status: { type: 'string', enum: ['pending', 'approved', 'ordered', 'received', 'cancelled'] }, received_date: { type: 'string' } } } } }, async (request, reply) => {
-    try {
-      const { id } = request.params;
-      const { status, received_date } = request.body;
+  fastify.patch(
+    '/:id/status',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        body: {
+          type: 'object',
+          required: ['status'],
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['pending', 'approved', 'ordered', 'received', 'cancelled'],
+            },
+            received_date: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { id } = request.params;
+        const { status, received_date } = request.body;
 
-      if (!status) {
-        reply.code(400);
-        return { success: false, error: 'Status is required' };
-      }
+        if (!status) {
+          reply.code(400);
+          return { success: false, error: 'Status is required' };
+        }
 
-      const validStatuses = ['pending', 'ordered', 'shipped', 'received', 'cancelled'];
-      if (!validStatuses.includes(status)) {
-        reply.code(400);
-        return { success: false, error: 'Invalid status value' };
-      }
+        const validStatuses = ['pending', 'ordered', 'shipped', 'received', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+          reply.code(400);
+          return { success: false, error: 'Invalid status value' };
+        }
 
-      const existing = db.db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(id);
-      if (!existing) {
-        reply.code(404);
-        return { success: false, error: 'Purchase order not found' };
-      }
+        const existing = db.db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(id);
+        if (!existing) {
+          reply.code(404);
+          return { success: false, error: 'Purchase order not found' };
+        }
 
-      const fields = ['status = ?'];
-      const values = [status];
+        const fields = ['status = ?'];
+        const values = [status];
 
-      if (status === 'received') {
-        fields.push('received_date = ?');
-        values.push(received_date || new Date().toISOString().split('T')[0]);
+        if (status === 'received') {
+          fields.push('received_date = ?');
+          values.push(received_date || new Date().toISOString().split('T')[0]);
 
-        // Update inventory if received
-        const items = safeJsonParse(existing.items, []);
-        for (const item of items) {
-          if (item.material_id) {
-            db.db.prepare(`
+          // Update inventory if received
+          const items = safeJsonParse(existing.items, []);
+          for (const item of items) {
+            if (item.material_id) {
+              db.db
+                .prepare(
+                  `
               UPDATE inventory_materials
               SET current_stock = current_stock + ?, updated_at = CURRENT_TIMESTAMP
               WHERE id = ?
-            `).run(item.quantity || 0, item.material_id);
+            `
+                )
+                .run(item.quantity || 0, item.material_id);
+            }
           }
         }
+
+        fields.push('updated_at = CURRENT_TIMESTAMP');
+        values.push(id);
+
+        db.db
+          .prepare(`UPDATE purchase_orders SET ${fields.join(', ')} WHERE id = ?`)
+          .run(...values);
+
+        return { success: true, message: 'Purchase order status updated successfully' };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
       }
-
-      fields.push('updated_at = CURRENT_TIMESTAMP');
-      values.push(id);
-
-      db.db.prepare(`UPDATE purchase_orders SET ${fields.join(', ')} WHERE id = ?`).run(...values);
-
-      return { success: true, message: 'Purchase order status updated successfully' };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
     }
-  });
+  );
 
   // Delete purchase order (requires authentication)
   fastify.delete('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
@@ -203,9 +259,11 @@ async function generatePONumber(db) {
   const year = new Date().getFullYear();
   const prefix = `PO-${year}-`;
 
-  const latestPO = db.db.prepare(
-    "SELECT po_number FROM purchase_orders WHERE po_number LIKE ? ORDER BY po_number DESC LIMIT 1"
-  ).get(`${prefix}%`);
+  const latestPO = db.db
+    .prepare(
+      'SELECT po_number FROM purchase_orders WHERE po_number LIKE ? ORDER BY po_number DESC LIMIT 1'
+    )
+    .get(`${prefix}%`);
 
   let nextNumber = 1;
   if (latestPO) {

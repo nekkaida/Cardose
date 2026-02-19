@@ -47,7 +47,10 @@ async function auditRoutes(fastify, options) {
       query += ' ORDER BY al.created_at DESC';
 
       // Get total count
-      const countQuery = query.replace(/SELECT al\.\*, u\.full_name as user_name/, 'SELECT COUNT(*) as total');
+      const countQuery = query.replace(
+        /SELECT al\.\*, u\.full_name as user_name/,
+        'SELECT COUNT(*) as total'
+      );
       const countResult = db.db.prepare(countQuery).get(...params);
       const total = countResult ? countResult.total : 0;
 
@@ -58,9 +61,9 @@ async function auditRoutes(fastify, options) {
       const logs = db.db.prepare(query).all(...params);
 
       // Parse details JSON
-      const logsWithParsedDetails = logs.map(log => ({
+      const logsWithParsedDetails = logs.map((log) => ({
         ...log,
-        details: safeJsonParse(log.details)
+        details: safeJsonParse(log.details),
       }));
 
       return {
@@ -69,7 +72,7 @@ async function auditRoutes(fastify, options) {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       fastify.log.error(error);
@@ -95,28 +98,40 @@ async function auditRoutes(fastify, options) {
       }
 
       // Total logs
-      const totalLogs = db.db.prepare(`SELECT COUNT(*) as count FROM audit_logs WHERE 1=1 ${dateFilter}`).get(...params);
+      const totalLogs = db.db
+        .prepare(`SELECT COUNT(*) as count FROM audit_logs WHERE 1=1 ${dateFilter}`)
+        .get(...params);
 
       // By action
-      const byAction = db.db.prepare(`
+      const byAction = db.db
+        .prepare(
+          `
         SELECT action, COUNT(*) as count
         FROM audit_logs
         WHERE 1=1 ${dateFilter}
         GROUP BY action
         ORDER BY count DESC
-      `).all(...params);
+      `
+        )
+        .all(...params);
 
       // By entity type
-      const byEntityType = db.db.prepare(`
+      const byEntityType = db.db
+        .prepare(
+          `
         SELECT entity_type, COUNT(*) as count
         FROM audit_logs
         WHERE 1=1 ${dateFilter}
         GROUP BY entity_type
         ORDER BY count DESC
-      `).all(...params);
+      `
+        )
+        .all(...params);
 
       // By user
-      const byUser = db.db.prepare(`
+      const byUser = db.db
+        .prepare(
+          `
         SELECT al.user_id, u.full_name, COUNT(*) as count
         FROM audit_logs al
         LEFT JOIN users u ON al.user_id = u.id
@@ -124,14 +139,20 @@ async function auditRoutes(fastify, options) {
         GROUP BY al.user_id
         ORDER BY count DESC
         LIMIT 10
-      `).all(...params);
+      `
+        )
+        .all(...params);
 
       // Recent activity (last 24 hours)
-      const recentActivity = db.db.prepare(`
+      const recentActivity = db.db
+        .prepare(
+          `
         SELECT COUNT(*) as count
         FROM audit_logs
         WHERE created_at >= datetime('now', '-24 hours')
-      `).get();
+      `
+        )
+        .get();
 
       return {
         success: true,
@@ -140,8 +161,8 @@ async function auditRoutes(fastify, options) {
           recentActivity: recentActivity?.count || 0,
           byAction,
           byEntityType,
-          byUser
-        }
+          byUser,
+        },
       };
     } catch (error) {
       fastify.log.error(error);
@@ -151,49 +172,65 @@ async function auditRoutes(fastify, options) {
   });
 
   // Log action (requires authentication)
-  fastify.post('/log', {
-    preHandler: [fastify.authenticate],
-    schema: {
-      body: {
-        type: 'object',
-        required: ['action'],
-        properties: {
-          user_id: { type: 'string' },
-          action: { type: 'string', minLength: 1 },
-          entity_type: { type: 'string' },
-          entity_id: { type: 'string' },
-          details: { type: 'object' },
-          ip_address: { type: 'string' }
+  fastify.post(
+    '/log',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        body: {
+          type: 'object',
+          required: ['action'],
+          properties: {
+            user_id: { type: 'string' },
+            action: { type: 'string', minLength: 1 },
+            entity_type: { type: 'string' },
+            entity_id: { type: 'string' },
+            details: { type: 'object' },
+            ip_address: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { user_id, action, entity_type, entity_id, details, ip_address } = request.body;
+
+        if (!action) {
+          reply.code(400);
+          return { success: false, error: 'Action is required' };
         }
-      }
-    }
-  }, async (request, reply) => {
-    try {
-      const { user_id, action, entity_type, entity_id, details, ip_address } = request.body;
 
-      if (!action) {
-        reply.code(400);
-        return { success: false, error: 'Action is required' };
-      }
+        const id = uuidv4();
 
-      const id = uuidv4();
-
-      db.db.prepare(`
+        db.db
+          .prepare(
+            `
         INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, details, ip_address, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `).run(id, user_id, action, entity_type, entity_id, details ? JSON.stringify(details) : null, ip_address);
+      `
+          )
+          .run(
+            id,
+            user_id,
+            action,
+            entity_type,
+            entity_id,
+            details ? JSON.stringify(details) : null,
+            ip_address
+          );
 
-      return {
-        success: true,
-        message: 'Action logged successfully',
-        logId: id
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        return {
+          success: true,
+          message: 'Action logged successfully',
+          logId: id,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 
   // Export audit logs (requires authentication)
   fastify.get('/export', { preHandler: [fastify.authenticate] }, async (request, reply) => {
@@ -230,8 +267,17 @@ async function auditRoutes(fastify, options) {
       const logs = db.db.prepare(query).all(...params);
 
       if (format === 'csv') {
-        const headers = ['ID', 'User', 'Action', 'Entity Type', 'Entity ID', 'Details', 'IP Address', 'Created At'];
-        const rows = logs.map(log => [
+        const headers = [
+          'ID',
+          'User',
+          'Action',
+          'Entity Type',
+          'Entity ID',
+          'Details',
+          'IP Address',
+          'Created At',
+        ];
+        const rows = logs.map((log) => [
           log.id,
           log.user_name || log.user_id || '',
           log.action,
@@ -239,10 +285,15 @@ async function auditRoutes(fastify, options) {
           log.entity_id || '',
           log.details || '',
           log.ip_address || '',
-          log.created_at
+          log.created_at,
         ]);
 
-        const csv = [headers.join(','), ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))].join('\n');
+        const csv = [
+          headers.join(','),
+          ...rows.map((row) =>
+            row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+          ),
+        ].join('\n');
 
         reply.header('Content-Type', 'text/csv');
         reply.header('Content-Disposition', `attachment; filename="audit_logs_${Date.now()}.csv"`);
@@ -251,11 +302,11 @@ async function auditRoutes(fastify, options) {
 
       return {
         success: true,
-        logs: logs.map(log => ({
+        logs: logs.map((log) => ({
           ...log,
-          details: safeJsonParse(log.details)
+          details: safeJsonParse(log.details),
         })),
-        count: logs.length
+        count: logs.length,
       };
     } catch (error) {
       fastify.log.error(error);
@@ -269,15 +320,19 @@ async function auditRoutes(fastify, options) {
     try {
       const { days_to_keep = 90 } = request.query;
 
-      const result = db.db.prepare(`
+      const result = db.db
+        .prepare(
+          `
         DELETE FROM audit_logs
         WHERE DATE(created_at) < DATE('now', '-' || ? || ' days')
-      `).run(parseInt(days_to_keep));
+      `
+        )
+        .run(parseInt(days_to_keep));
 
       return {
         success: true,
         message: `Deleted ${result.changes} old audit logs`,
-        deleted: result.changes
+        deleted: result.changes,
       };
     } catch (error) {
       fastify.log.error(error);

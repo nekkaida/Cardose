@@ -18,14 +18,15 @@ class EmailService {
       secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
       auth: {
         user: process.env.SMTP_USER || '',
-        pass: process.env.SMTP_PASS || ''
-      }
+        pass: process.env.SMTP_PASS || '',
+      },
     };
 
     if (smtpConfig.auth.user && smtpConfig.auth.pass) {
       this.transporter = nodemailer.createTransport(smtpConfig);
     } else {
-      this.configWarning = 'SMTP credentials not set (SMTP_USER/SMTP_PASS) - email features disabled';
+      this.configWarning =
+        'SMTP credentials not set (SMTP_USER/SMTP_PASS) - email features disabled';
     }
   }
 
@@ -43,7 +44,7 @@ class EmailService {
       subject,
       html,
       text: text || this.stripHtml(html),
-      attachments
+      attachments,
     };
 
     return await this.transporter.sendMail(mailOptions);
@@ -99,12 +100,16 @@ class EmailService {
                     <strong>Total Amount:</strong>
                     <span>${this.formatCurrency(order.final_price)}</span>
                 </div>
-                ${order.estimated_completion ? `
+                ${
+                  order.estimated_completion
+                    ? `
                 <div class="detail-row">
                     <strong>Estimated Completion:</strong>
                     <span>${this.formatDate(order.estimated_completion)}</span>
                 </div>
-                ` : ''}
+                `
+                    : ''
+                }
             </div>
 
             <h3>Next Steps</h3>
@@ -184,12 +189,16 @@ class EmailService {
                     <strong>Subtotal:</strong>
                     <span>${this.formatCurrency(invoice.subtotal)}</span>
                 </div>
-                ${invoice.discount > 0 ? `
+                ${
+                  invoice.discount > 0
+                    ? `
                 <div class="detail-row">
                     <strong>Discount:</strong>
                     <span>-${this.formatCurrency(invoice.discount)}</span>
                 </div>
-                ` : ''}
+                `
+                    : ''
+                }
                 <div class="detail-row">
                     <strong>PPN (${invoice.ppn_rate}%):</strong>
                     <span>${this.formatCurrency(invoice.ppn_amount)}</span>
@@ -200,7 +209,9 @@ class EmailService {
                 </div>
             </div>
 
-            ${invoice.status === 'unpaid' || invoice.status === 'overdue' ? `
+            ${
+              invoice.status === 'unpaid' || invoice.status === 'overdue'
+                ? `
             <div class="payment-info">
                 <h3>Payment Information</h3>
                 <p><strong>Bank:</strong> Bank Mandiri<br>
@@ -208,9 +219,11 @@ class EmailService {
                 <strong>Account Name:</strong> Premium Gift Box</p>
                 <p>Please include your invoice number (${invoice.invoice_number}) as the payment reference.</p>
             </div>
-            ` : `
+            `
+                : `
             <p style="color: #4CAF50; font-weight: bold;">✓ Thank you for your payment!</p>
-            `}
+            `
+            }
 
             ${attachmentPath ? '<p>Please find the detailed invoice PDF attached to this email.</p>' : ''}
 
@@ -233,7 +246,7 @@ class EmailService {
     if (attachmentPath && fs.existsSync(attachmentPath)) {
       attachments.push({
         filename: path.basename(attachmentPath),
-        path: attachmentPath
+        path: attachmentPath,
       });
     }
 
@@ -251,7 +264,7 @@ class EmailService {
       approved: 'Your design has been approved and is ready for production',
       production: 'Your order is currently in production',
       quality_control: 'Your order is undergoing quality control checks',
-      completed: 'Your order is complete and ready for pickup/delivery'
+      completed: 'Your order is complete and ready for pickup/delivery',
     };
 
     const html = `
@@ -281,9 +294,13 @@ class EmailService {
             <div class="status-update">
                 <h3 style="color: #2C5530;">Current Status: ${this.translateStatus(stage)}</h3>
                 <p>${stageMessages[stage] || 'Your order is being processed.'}</p>
-                ${stage === 'completed' && order.estimated_completion ? `
+                ${
+                  stage === 'completed' && order.estimated_completion
+                    ? `
                 <p><strong>Completion Date:</strong> ${this.formatDate(order.estimated_completion)}</p>
-                ` : ''}
+                `
+                    : ''
+                }
             </div>
 
             <p>Thank you for your patience and trust in Premium Gift Box.</p>
@@ -311,11 +328,12 @@ class EmailService {
     const urgency = daysOverdue > 0 ? 'Overdue' : 'Upcoming';
     const subject = `Payment Reminder: Invoice ${invoice.invoice_number} ${daysOverdue > 0 ? '(Overdue)' : ''}`;
 
-    const urgencyMessage = daysOverdue === 0
-      ? 'Your invoice is due today.'
-      : daysOverdue > 0
-        ? `Your invoice is overdue by ${daysOverdue} days.`
-        : `Your invoice will be due in ${Math.abs(daysOverdue)} days.`;
+    const urgencyMessage =
+      daysOverdue === 0
+        ? 'Your invoice is due today.'
+        : daysOverdue > 0
+          ? `Your invoice is overdue by ${daysOverdue} days.`
+          : `Your invoice will be due in ${Math.abs(daysOverdue)} days.`;
 
     const html = `
 <!DOCTYPE html>
@@ -391,7 +409,7 @@ class EmailService {
           recipient: recipient.email,
           name: recipient.name,
           success: true,
-          messageId: result.messageId
+          messageId: result.messageId,
         });
 
         // Rate limiting: wait 500ms between emails
@@ -401,16 +419,16 @@ class EmailService {
           recipient: recipient.email,
           name: recipient.name,
           success: false,
-          error: error.message
+          error: error.message,
         });
       }
     }
 
     return {
       total: recipients.length,
-      successful: results.filter(r => r.success).length,
-      failed: results.filter(r => !r.success).length,
-      results
+      successful: results.filter((r) => r.success).length,
+      failed: results.filter((r) => !r.success).length,
+      results,
     };
   }
 
@@ -450,7 +468,7 @@ class EmailService {
       quality_control: 'Quality Control',
       completed: 'Selesai',
       delivered: 'Terkirim',
-      cancelled: 'Dibatalkan'
+      cancelled: 'Dibatalkan',
     };
     return translations[status] || status;
   }
@@ -463,7 +481,7 @@ class EmailService {
       unpaid: 'Belum Dibayar',
       paid: 'Sudah Dibayar',
       overdue: 'Terlambat',
-      cancelled: 'Dibatalkan'
+      cancelled: 'Dibatalkan',
     };
     return translations[status] || status;
   }
@@ -476,7 +494,7 @@ class EmailService {
       paid: '#4CAF50',
       unpaid: '#FF9800',
       overdue: '#F44336',
-      cancelled: '#9E9E9E'
+      cancelled: '#9E9E9E',
     };
     return colors[status] || '#000000';
   }
@@ -485,14 +503,17 @@ class EmailService {
    * Strip HTML tags
    */
   stripHtml(html) {
-    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    return html
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   /**
    * Sleep helper for rate limiting
    */
   sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 

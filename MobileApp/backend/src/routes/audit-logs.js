@@ -47,7 +47,10 @@ async function auditLogsRoutes(fastify, options) {
       query += ' ORDER BY al.created_at DESC';
 
       // Get total count
-      const countQuery = query.replace(/SELECT al\.\*, u\.full_name as user_name/, 'SELECT COUNT(*) as total');
+      const countQuery = query.replace(
+        /SELECT al\.\*, u\.full_name as user_name/,
+        'SELECT COUNT(*) as total'
+      );
       const countResult = db.db.prepare(countQuery).get(...params);
       const total = countResult ? countResult.total : 0;
 
@@ -58,9 +61,9 @@ async function auditLogsRoutes(fastify, options) {
       const logs = db.db.prepare(query).all(...params);
 
       // Parse details JSON
-      const logsWithParsedDetails = logs.map(log => ({
+      const logsWithParsedDetails = logs.map((log) => ({
         ...log,
-        details: safeJsonParse(log.details)
+        details: safeJsonParse(log.details),
       }));
 
       return {
@@ -69,7 +72,7 @@ async function auditLogsRoutes(fastify, options) {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       fastify.log.error(error);

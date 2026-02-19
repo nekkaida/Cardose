@@ -24,7 +24,7 @@ class WebhookService {
       return {
         success: true,
         webhookId: id,
-        message: 'Webhook registered successfully'
+        message: 'Webhook registered successfully',
       };
     } catch (error) {
       throw new Error(`Failed to register webhook: ${error.message}`);
@@ -48,21 +48,27 @@ class WebhookService {
 
       const webhooks = await this.db.all(query, params);
 
-      return webhooks.map(webhook => {
+      return webhooks.map((webhook) => {
         let events = webhook.events || '';
         // Handle both JSON array and comma-separated string formats
         if (events.startsWith('[')) {
           try {
             events = JSON.parse(events);
           } catch (e) {
-            events = events.split(',').map(e => e.trim()).filter(e => e);
+            events = events
+              .split(',')
+              .map((e) => e.trim())
+              .filter((e) => e);
           }
         } else {
-          events = events.split(',').map(e => e.trim()).filter(e => e);
+          events = events
+            .split(',')
+            .map((e) => e.trim())
+            .filter((e) => e);
         }
         return {
           ...webhook,
-          events
+          events,
         };
       });
     } catch (error) {
@@ -111,7 +117,7 @@ class WebhookService {
 
       return {
         success: true,
-        message: 'Webhook updated successfully'
+        message: 'Webhook updated successfully',
       };
     } catch (error) {
       throw new Error(`Failed to update webhook: ${error.message}`);
@@ -127,7 +133,7 @@ class WebhookService {
 
       return {
         success: true,
-        message: 'Webhook deleted successfully'
+        message: 'Webhook deleted successfully',
       };
     } catch (error) {
       throw new Error(`Failed to delete webhook: ${error.message}`);
@@ -139,9 +145,7 @@ class WebhookService {
    */
   async triggerEvent(eventType, eventData) {
     try {
-      const webhooks = await this.db.all(
-        'SELECT * FROM webhooks WHERE is_active = 1'
-      );
+      const webhooks = await this.db.all('SELECT * FROM webhooks WHERE is_active = 1');
 
       const results = [];
 
@@ -157,7 +161,7 @@ class WebhookService {
       return {
         success: true,
         triggered: results.length,
-        results
+        results,
       };
     } catch (error) {
       throw new Error(`Failed to trigger event: ${error.message}`);
@@ -172,7 +176,7 @@ class WebhookService {
       const payload = {
         event: eventType,
         timestamp: new Date().toISOString(),
-        data: eventData
+        data: eventData,
       };
 
       const postData = JSON.stringify(payload);
@@ -189,8 +193,8 @@ class WebhookService {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData),
           'X-Webhook-Secret': webhook.secret,
-          'X-Webhook-Event': eventType
-        }
+          'X-Webhook-Event': eventType,
+        },
       };
 
       const startTime = Date.now();
@@ -221,7 +225,7 @@ class WebhookService {
             webhookId: webhook.id,
             success,
             statusCode: res.statusCode,
-            duration
+            duration,
           });
         });
       });
@@ -229,20 +233,13 @@ class WebhookService {
       req.on('error', async (error) => {
         const duration = Date.now() - startTime;
 
-        await this.logWebhookDelivery(
-          webhook.id,
-          eventType,
-          false,
-          null,
-          duration,
-          error.message
-        );
+        await this.logWebhookDelivery(webhook.id, eventType, false, null, duration, error.message);
 
         resolve({
           webhookId: webhook.id,
           success: false,
           error: error.message,
-          duration
+          duration,
         });
       });
 
@@ -264,15 +261,13 @@ class WebhookService {
 
       // Update webhook stats
       if (success) {
-        await this.db.run(
-          'UPDATE webhooks SET last_success = CURRENT_TIMESTAMP WHERE id = ?',
-          [webhookId]
-        );
+        await this.db.run('UPDATE webhooks SET last_success = CURRENT_TIMESTAMP WHERE id = ?', [
+          webhookId,
+        ]);
       } else {
-        await this.db.run(
-          'UPDATE webhooks SET last_failure = CURRENT_TIMESTAMP WHERE id = ?',
-          [webhookId]
-        );
+        await this.db.run('UPDATE webhooks SET last_failure = CURRENT_TIMESTAMP WHERE id = ?', [
+          webhookId,
+        ]);
       }
     } catch (error) {
       this.log.error('Failed to log webhook delivery: %s', error.message);
@@ -291,7 +286,7 @@ class WebhookService {
 
       return {
         success: true,
-        logs
+        logs,
       };
     } catch (error) {
       throw new Error(`Failed to get webhook logs: ${error.message}`);
@@ -312,7 +307,7 @@ class WebhookService {
       const testData = {
         test: true,
         message: 'This is a test webhook delivery',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
       const result = await this.sendWebhook(webhook, 'test', testData);
@@ -320,7 +315,7 @@ class WebhookService {
       return {
         success: result.success,
         message: result.success ? 'Test webhook delivered successfully' : 'Test webhook failed',
-        result
+        result,
       };
     } catch (error) {
       throw new Error(`Failed to test webhook: ${error.message}`);

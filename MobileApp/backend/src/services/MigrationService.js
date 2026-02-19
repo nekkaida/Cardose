@@ -20,8 +20,10 @@ class MigrationService {
   }
 
   getAppliedMigrations() {
-    return this.db.prepare('SELECT name FROM schema_migrations ORDER BY id').all()
-      .map(row => row.name);
+    return this.db
+      .prepare('SELECT name FROM schema_migrations ORDER BY id')
+      .all()
+      .map((row) => row.name);
   }
 
   getPendingMigrations() {
@@ -31,10 +33,11 @@ class MigrationService {
       return [];
     }
 
-    return fs.readdirSync(this.migrationsDir)
-      .filter(f => f.endsWith('.js'))
+    return fs
+      .readdirSync(this.migrationsDir)
+      .filter((f) => f.endsWith('.js'))
       .sort()
-      .filter(f => !applied.has(f));
+      .filter((f) => !applied.has(f));
   }
 
   runAll() {
@@ -73,7 +76,7 @@ class MigrationService {
       applied: applied.length,
       pending: pending.length,
       appliedMigrations: applied,
-      pendingMigrations: pending
+      pendingMigrations: pending,
     };
   }
 }

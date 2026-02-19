@@ -5,7 +5,8 @@ const MigrationService = require('./MigrationService');
 
 class DatabaseService {
   constructor(logger) {
-    this.dbPath = process.env.DATABASE_PATH || path.join(__dirname, '../database/premium_gift_box.db');
+    this.dbPath =
+      process.env.DATABASE_PATH || path.join(__dirname, '../database/premium_gift_box.db');
     this.db = null;
     this.log = logger || { info: console.log, error: console.error, warn: console.warn };
   }
@@ -492,7 +493,7 @@ class DatabaseService {
         FOREIGN KEY (item_id) REFERENCES inventory_materials (id),
         FOREIGN KEY (created_by) REFERENCES users (id),
         FOREIGN KEY (acknowledged_by) REFERENCES users (id)
-      )`
+      )`,
     ];
 
     for (const sql of tables) {
@@ -557,7 +558,7 @@ class DatabaseService {
       user.role,
       user.full_name,
       user.phone,
-      user.is_active
+      user.is_active,
     ]);
   }
 
@@ -583,10 +584,10 @@ class DatabaseService {
 
   updateUser(userId, updates) {
     const allowedFields = ['full_name', 'email', 'phone', 'role', 'is_active', 'username'];
-    const fields = Object.keys(updates).filter(f => allowedFields.includes(f));
+    const fields = Object.keys(updates).filter((f) => allowedFields.includes(f));
     if (fields.length === 0) return { changes: 0 };
-    const values = fields.map(f => updates[f]);
-    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    const values = fields.map((f) => updates[f]);
+    const setClause = fields.map((field) => `${field} = ?`).join(', ');
     const sql = `UPDATE users SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
     return this.run(sql, [...values, userId]);
   }
@@ -607,12 +608,14 @@ class DatabaseService {
   }
 
   getAllUsers() {
-    const sql = 'SELECT id, username, email, role, full_name, phone, is_active, created_at FROM users ORDER BY created_at DESC';
+    const sql =
+      'SELECT id, username, email, role, full_name, phone, is_active, created_at FROM users ORDER BY created_at DESC';
     return this.all(sql);
   }
 
   getUsersByRole(role) {
-    const sql = 'SELECT id, username, email, role, full_name, phone, is_active, created_at FROM users WHERE role = ? ORDER BY created_at DESC';
+    const sql =
+      'SELECT id, username, email, role, full_name, phone, is_active, created_at FROM users WHERE role = ? ORDER BY created_at DESC';
     return this.all(sql, [role]);
   }
 
@@ -630,7 +633,7 @@ class DatabaseService {
       file.mimetype,
       file.size,
       file.uploaded_by,
-      file.has_thumbnail ? 1 : 0
+      file.has_thumbnail ? 1 : 0,
     ]);
   }
 
@@ -695,7 +698,7 @@ class DatabaseService {
       invoice.issue_date,
       invoice.due_date,
       invoice.notes,
-      invoice.created_by
+      invoice.created_by,
     ]);
   }
 
@@ -734,11 +737,23 @@ class DatabaseService {
   }
 
   updateInvoice(invoiceId, updates) {
-    const allowedFields = ['status', 'subtotal', 'discount', 'discount_type', 'ppn_rate', 'ppn_amount', 'total_amount', 'paid_amount', 'due_date', 'notes', 'payment_date'];
-    const fields = Object.keys(updates).filter(f => allowedFields.includes(f));
+    const allowedFields = [
+      'status',
+      'subtotal',
+      'discount',
+      'discount_type',
+      'ppn_rate',
+      'ppn_amount',
+      'total_amount',
+      'paid_amount',
+      'due_date',
+      'notes',
+      'payment_date',
+    ];
+    const fields = Object.keys(updates).filter((f) => allowedFields.includes(f));
     if (fields.length === 0) return { changes: 0 };
-    const values = fields.map(f => updates[f]);
-    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    const values = fields.map((f) => updates[f]);
+    const setClause = fields.map((field) => `${field} = ?`).join(', ');
     const sql = `UPDATE invoices SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
     return this.run(sql, [...values, invoiceId]);
   }
@@ -763,7 +778,7 @@ class DatabaseService {
       budget.start_date,
       budget.end_date,
       budget.notes,
-      budget.created_by
+      budget.created_by,
     ]);
   }
 
@@ -791,10 +806,10 @@ class DatabaseService {
 
   updateBudget(budgetId, updates) {
     const allowedFields = ['category', 'amount', 'period', 'start_date', 'end_date', 'notes'];
-    const fields = Object.keys(updates).filter(f => allowedFields.includes(f));
+    const fields = Object.keys(updates).filter((f) => allowedFields.includes(f));
     if (fields.length === 0) return { changes: 0 };
-    const values = fields.map(f => updates[f]);
-    const setClause = fields.map(field => `${field} = ?`).join(', ');
+    const values = fields.map((f) => updates[f]);
+    const setClause = fields.map((field) => `${field} = ?`).join(', ');
     const sql = `UPDATE budgets SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
     return this.run(sql, [...values, budgetId]);
   }

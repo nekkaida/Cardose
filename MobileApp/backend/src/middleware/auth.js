@@ -12,7 +12,9 @@ async function authPlugin(fastify, options) {
       // Check if token has been revoked (logout blacklist)
       if (request.user.jti) {
         try {
-          const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
+          const revoked = db.db
+            .prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?')
+            .get(request.user.jti);
           if (revoked) {
             return reply.status(401).send({ error: 'Token has been revoked' });
           }
@@ -49,7 +51,9 @@ async function authPlugin(fastify, options) {
         // Check if token has been revoked (logout blacklist)
         if (request.user.jti) {
           try {
-            const revoked = db.db.prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?').get(request.user.jti);
+            const revoked = db.db
+              .prepare('SELECT 1 FROM revoked_tokens WHERE token_jti = ?')
+              .get(request.user.jti);
             if (revoked) {
               return reply.status(401).send({ error: 'Token has been revoked' });
             }
@@ -60,7 +64,9 @@ async function authPlugin(fastify, options) {
 
         // Check if user account is still active
         try {
-          const user = db.db.prepare('SELECT is_active FROM users WHERE id = ?').get(request.user.id);
+          const user = db.db
+            .prepare('SELECT is_active FROM users WHERE id = ?')
+            .get(request.user.id);
           if (!user || !user.is_active) {
             return reply.status(401).send({ error: 'Account is deactivated' });
           }
