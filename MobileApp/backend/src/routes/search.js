@@ -3,7 +3,20 @@ async function searchRoutes(fastify, options) {
   const db = fastify.db;
 
   // Global search (requires authentication)
-  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.get('/', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          q: { type: 'string' },
+          query: { type: 'string' },
+          type: { type: 'string', enum: ['customers', 'orders', 'invoices', 'inventory'] },
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { q, query, type, limit = 20 } = request.query;
 
@@ -93,7 +106,25 @@ async function searchRoutes(fastify, options) {
   });
 
   // Advanced order search (requires authentication)
-  fastify.post('/orders', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/orders', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          customer_id: { type: 'string' },
+          status: { type: 'string' },
+          priority: { type: 'string' },
+          startDate: { type: 'string' },
+          endDate: { type: 'string' },
+          minAmount: { type: 'number', minimum: 0 },
+          maxAmount: { type: 'number', minimum: 0 },
+          boxType: { type: 'string' },
+          limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const {
         customer_id,
@@ -166,7 +197,20 @@ async function searchRoutes(fastify, options) {
   });
 
   // Search customers (requires authentication)
-  fastify.get('/customers', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.get('/customers', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          q: { type: 'string' },
+          business_type: { type: 'string' },
+          loyalty_status: { type: 'string' },
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { q, business_type, loyalty_status, limit = 20 } = request.query;
 
