@@ -528,8 +528,10 @@ async function productionRoutes(fastify, options) {
                 'quality_control',
                 'completed',
                 'delivered',
+                'cancelled',
               ],
             },
+            notes: { type: 'string' },
           },
         },
       },
@@ -919,60 +921,82 @@ async function productionRoutes(fastify, options) {
   );
 
   // Create production issue (requires authentication)
-  fastify.post('/issues', { preHandler: [fastify.authenticate] }, async (request, reply) => {
-    try {
-      const {
-        order_id,
-        task_id,
-        type,
-        severity = 'medium',
-        title,
-        description,
-        assigned_to,
-      } = request.body;
-
-      if (!type || !title) {
-        reply.code(400);
-        return { success: false, error: 'Type and title are required' };
-      }
-
-      const id = uuidv4();
-
-      db.db
-        .prepare(
-          `
-        INSERT INTO production_issues (id, order_id, task_id, type, severity, title, description, reported_by, assigned_to)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `
-        )
-        .run(
-          id,
+  fastify.post(
+    '/issues',
+    {
+      preHandler: [fastify.authenticate],
+      schema: {
+        body: {
+          type: 'object',
+          required: ['type', 'title'],
+          properties: {
+            order_id: { type: 'string' },
+            task_id: { type: 'string' },
+            type: { type: 'string' },
+            severity: { type: 'string' },
+            title: { type: 'string' },
+            description: { type: 'string' },
+            assigned_to: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const {
           order_id,
           task_id,
           type,
-          severity,
+          severity = 'medium',
           title,
           description,
-          request.user.id,
-          assigned_to
-        );
+          assigned_to,
+        } = request.body;
 
-      const issue = db.db.prepare('SELECT * FROM production_issues WHERE id = ?').get(id);
+        if (!type || !title) {
+          reply.code(400);
+          return { success: false, error: 'Type and title are required' };
+        }
 
-      return {
-        success: true,
-        message: 'Production issue created successfully',
-        issueId: id,
-        issue,
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        const id = uuidv4();
+
+        db.db
+          .prepare(
+            `
+        INSERT INTO production_issues (id, order_id, task_id, type, severity, title, description, reported_by, assigned_to)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+          )
+          .run(
+            id,
+            order_id,
+            task_id,
+            type,
+            severity,
+            title,
+            description,
+            request.user.id,
+            assigned_to
+          );
+
+        const issue = db.db.prepare('SELECT * FROM production_issues WHERE id = ?').get(id);
+
+        return {
+          success: true,
+          message: 'Production issue created successfully',
+          issueId: id,
+          issue,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 
   // Get production schedule (requires authentication)
+
   fastify.get('/schedule', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { date } = request.query;
