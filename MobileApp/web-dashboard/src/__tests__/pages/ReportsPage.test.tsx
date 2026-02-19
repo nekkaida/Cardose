@@ -25,40 +25,50 @@ const mockGetFinancialReport = vi.fn();
 
 vi.mock('../../contexts/ApiContext', () => ({
   useApi: () => ({
-    getDashboardAnalytics: vi.fn(),
-    getOrders: vi.fn(),
-    createOrder: vi.fn(),
-    updateOrder: vi.fn(),
-    getCustomers: vi.fn(),
-    createCustomer: vi.fn(),
-    updateCustomer: vi.fn(),
-    getInventory: vi.fn(),
-    createInventoryItem: vi.fn(),
-    updateInventoryStock: vi.fn(),
-    getFinancialSummary: vi.fn(),
-    getTransactions: vi.fn(),
-    createTransaction: vi.fn(),
-    calculatePricing: vi.fn(),
-    getRevenueAnalytics: vi.fn(),
-    getCustomerAnalytics: vi.fn(),
-    getInventoryAnalytics: vi.fn(),
-    getProductionAnalytics: vi.fn(),
-    getProductionBoard: vi.fn(),
-    getProductionTasks: vi.fn(),
-    getProductionStats: vi.fn(),
+    getDashboardAnalytics: vi.fn().mockResolvedValue({}),
+    getOrders: vi.fn().mockResolvedValue({}),
+    createOrder: vi.fn().mockResolvedValue({}),
+    updateOrder: vi.fn().mockResolvedValue({}),
+    updateOrderStatus: vi.fn().mockResolvedValue({}),
+    deleteOrder: vi.fn().mockResolvedValue({}),
+    getCustomers: vi.fn().mockResolvedValue({}),
+    createCustomer: vi.fn().mockResolvedValue({}),
+    updateCustomer: vi.fn().mockResolvedValue({}),
+    deleteCustomer: vi.fn().mockResolvedValue({}),
+    getInventory: vi.fn().mockResolvedValue({}),
+    createInventoryItem: vi.fn().mockResolvedValue({}),
+    updateInventoryItem: vi.fn().mockResolvedValue({}),
+    updateInventoryStock: vi.fn().mockResolvedValue({}),
+    deleteInventoryItem: vi.fn().mockResolvedValue({}),
+    createInventoryMovement: vi.fn().mockResolvedValue({}),
+    getFinancialSummary: vi.fn().mockResolvedValue({}),
+    getTransactions: vi.fn().mockResolvedValue({}),
+    createTransaction: vi.fn().mockResolvedValue({}),
+    calculatePricing: vi.fn().mockResolvedValue({}),
+    getInvoices: vi.fn().mockResolvedValue({}),
+    createInvoice: vi.fn().mockResolvedValue({}),
+    updateInvoiceStatus: vi.fn().mockResolvedValue({}),
+    getRevenueAnalytics: vi.fn().mockResolvedValue({}),
+    getCustomerAnalytics: vi.fn().mockResolvedValue({}),
+    getInventoryAnalytics: vi.fn().mockResolvedValue({}),
+    getProductionAnalytics: vi.fn().mockResolvedValue({}),
+    getProductionBoard: vi.fn().mockResolvedValue({}),
+    getProductionTasks: vi.fn().mockResolvedValue({}),
+    getProductionStats: vi.fn().mockResolvedValue({}),
+    updateProductionStage: vi.fn().mockResolvedValue({}),
     getSalesReport: mockGetSalesReport,
     getInventoryReport: mockGetInventoryReport,
     getProductionReport: mockGetProductionReport,
     getCustomerReport: mockGetCustomerReport,
     getFinancialReport: mockGetFinancialReport,
-    getUsers: vi.fn(),
-    createUser: vi.fn(),
-    updateUser: vi.fn(),
-    updateUserStatus: vi.fn(),
-    deleteUser: vi.fn(),
-    getSettings: vi.fn(),
-    updateSetting: vi.fn(),
-    deleteSetting: vi.fn(),
+    getUsers: vi.fn().mockResolvedValue({}),
+    createUser: vi.fn().mockResolvedValue({}),
+    updateUser: vi.fn().mockResolvedValue({}),
+    updateUserStatus: vi.fn().mockResolvedValue({}),
+    deleteUser: vi.fn().mockResolvedValue({}),
+    getSettings: vi.fn().mockResolvedValue({}),
+    updateSetting: vi.fn().mockResolvedValue({}),
+    deleteSetting: vi.fn().mockResolvedValue({}),
   }),
 }));
 
@@ -78,11 +88,18 @@ vi.mock('../../contexts/LanguageContext', () => ({
   }),
 }));
 
+// Mock data that matches the SalesReportData interface
 const mockSalesReportData = {
   report: {
-    total_orders: 50,
-    total_revenue: 150000000,
-    average_order_value: 3000000,
+    period: { start: '2025-01-01', end: '2025-01-31' },
+    sales: [{ date: '2025-01-15', invoice_count: 5, revenue: 25000000, tax_collected: 2500000 }],
+    summary: {
+      totalInvoices: 50,
+      totalRevenue: 150000000,
+      totalTax: 15000000,
+      averageInvoice: 3000000,
+    },
+    topCustomers: [{ name: 'Customer A', revenue: 50000000, invoice_count: 10 }],
   },
 };
 
@@ -92,12 +109,13 @@ describe('ReportsPage', () => {
   });
 
   describe('Loading state', () => {
-    it('should show loading spinner initially', () => {
+    it('should show loading skeleton initially', () => {
       mockGetSalesReport.mockImplementation(() => new Promise(() => {}));
       render(<ReportsPage />);
 
-      const spinnerContainer = document.querySelector('.animate-spin');
-      expect(spinnerContainer).toBeInTheDocument();
+      // ReportsPage uses ReportSkeleton with animate-pulse
+      const skeletonElement = document.querySelector('.animate-pulse');
+      expect(skeletonElement).toBeInTheDocument();
     });
   });
 
@@ -108,7 +126,10 @@ describe('ReportsPage', () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
+        // Error heading uses tr('common.error', 'Error'), which returns 'Error' from our translations
         expect(screen.getByText('Error')).toBeInTheDocument();
+        // Error message: tr('reports.loadError', 'Failed to load report. Please try again.')
+        // Since 'reports.loadError' is not in translations, t returns key, tr returns fallback
         expect(screen.getByText('Failed to load report. Please try again.')).toBeInTheDocument();
       });
     });
@@ -137,7 +158,7 @@ describe('ReportsPage', () => {
       await userEvent.click(screen.getByText('Try Again'));
 
       await waitFor(() => {
-        // "Sales Report" appears in both the select option and the heading
+        // "Sales Report" appears in the tab button and h2 heading
         const salesReportElements = screen.getAllByText('Sales Report');
         expect(salesReportElements.length).toBeGreaterThanOrEqual(1);
       });
@@ -161,6 +182,7 @@ describe('ReportsPage', () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
+        // tr('reports.subtitle', 'Generate and view business reports') - falls back
         expect(screen.getByText('Generate and view business reports')).toBeInTheDocument();
       });
     });
@@ -169,36 +191,41 @@ describe('ReportsPage', () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
-        // "Sales Report" appears in both the select option and the h2 heading
+        // "Sales Report" appears in both the tab button and the h2 heading
         const salesReportElements = screen.getAllByText('Sales Report');
         expect(salesReportElements.length).toBeGreaterThanOrEqual(2);
       });
     });
 
-    it('should display report data fields', async () => {
+    it('should display report summary cards', async () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('total orders')).toBeInTheDocument();
-        expect(screen.getByText('50')).toBeInTheDocument();
+        // Sales report summary cards: Total Invoices, Total Revenue, Total Tax, Average Invoice
+        expect(screen.getByText('Total Invoices')).toBeInTheDocument();
+        expect(screen.getByText('Total Revenue')).toBeInTheDocument();
       });
     });
 
-    it('should display report type selector', async () => {
+    it('should display report tab buttons', async () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Reports')).toBeInTheDocument();
+        // Tab buttons (not a select): Sales Report, Inventory Report, etc.
+        // "Sales Report" appears in both the tab button and the h2 heading, so use getAllByText
+        expect(screen.getAllByText('Sales Report').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByText('Inventory Report')).toBeInTheDocument();
+        expect(screen.getByText('Production Report')).toBeInTheDocument();
+        expect(screen.getByText('Customer Report')).toBeInTheDocument();
+        expect(screen.getByText('Financial Report')).toBeInTheDocument();
       });
-
-      const select = screen.getByDisplayValue('Sales Report');
-      expect(select).toBeInTheDocument();
     });
 
     it('should display Generate button for sales report', async () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
+        // "Generate" button appears in the date filter section for reports that support date filter
         expect(screen.getByText('Generate')).toBeInTheDocument();
       });
     });
@@ -211,22 +238,28 @@ describe('ReportsPage', () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
-        // "Sales Report" appears in both the select option and the h2 heading
         const salesReportElements = screen.getAllByText('Sales Report');
         expect(salesReportElements.length).toBeGreaterThanOrEqual(2);
       });
 
       const mockInventoryReportData = {
         report: {
-          total_items: 200,
-          low_stock_count: 5,
-          total_value: 75000000,
+          summary: {
+            totalItems: 200,
+            outOfStock: 2,
+            lowStock: 5,
+            totalValue: 75000000,
+          },
+          byCategory: [],
+          lowStockItems: [],
+          recentMovements: [],
         },
       };
       mockGetInventoryReport.mockResolvedValueOnce(mockInventoryReportData);
 
-      const select = screen.getByDisplayValue('Sales Report');
-      await userEvent.selectOptions(select, 'inventory');
+      // Click the Inventory Report tab button
+      const inventoryTab = screen.getByText('Inventory Report');
+      await userEvent.click(inventoryTab);
 
       await waitFor(() => {
         expect(mockGetInventoryReport).toHaveBeenCalled();
