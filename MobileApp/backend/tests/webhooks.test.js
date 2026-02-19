@@ -25,10 +25,16 @@ describe('Webhooks API', () => {
         url: 'https://example.com/webhook',
         event_type: 'order.created',
         events: ['order.created'],
-        description: 'Test webhook'
+        description: 'Test webhook',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/webhooks', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/webhooks',
+        authToken,
+        payload
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -40,10 +46,16 @@ describe('Webhooks API', () => {
     test('should reject creation without url (schema requires url + event_type)', async () => {
       const payload = {
         event_type: 'order.created',
-        description: 'Missing URL webhook'
+        description: 'Missing URL webhook',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/webhooks', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/webhooks',
+        authToken,
+        payload
+      );
 
       expect(response.statusCode).toBe(400);
     });
@@ -51,10 +63,16 @@ describe('Webhooks API', () => {
     test('should reject creation without event_type (schema requires url + event_type)', async () => {
       const payload = {
         url: 'https://example.com/webhook',
-        description: 'Missing event_type webhook'
+        description: 'Missing event_type webhook',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/webhooks', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/webhooks',
+        authToken,
+        payload
+      );
 
       expect(response.statusCode).toBe(400);
     });
@@ -63,13 +81,13 @@ describe('Webhooks API', () => {
       const payload = {
         url: 'https://example.com/webhook',
         event_type: 'order.created',
-        description: 'Unauthorized webhook'
+        description: 'Unauthorized webhook',
       };
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/webhooks',
-        payload
+        payload,
       });
 
       expect(response.statusCode).toBe(401);
@@ -94,7 +112,7 @@ describe('Webhooks API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/webhooks'
+        url: '/api/webhooks',
       });
 
       expect(response.statusCode).toBe(401);
@@ -114,9 +132,15 @@ describe('Webhooks API', () => {
         url: 'https://example.com/webhook-update',
         event_type: 'order.updated',
         events: ['order.updated'],
-        description: 'Webhook to update'
+        description: 'Webhook to update',
       };
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/webhooks', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/webhooks',
+        authToken,
+        payload
+      );
       const data = JSON.parse(response.body);
       createdWebhookId = data.webhookId;
     });
@@ -130,7 +154,11 @@ describe('Webhooks API', () => {
 
       const payload = { url: 'https://example.com/webhook-updated' };
       const response = await makeAuthenticatedRequest(
-        app, 'PUT', `/api/webhooks/${createdWebhookId}`, authToken, payload
+        app,
+        'PUT',
+        `/api/webhooks/${createdWebhookId}`,
+        authToken,
+        payload
       );
 
       expect(response.statusCode).toBe(200);
@@ -142,7 +170,11 @@ describe('Webhooks API', () => {
     test('should handle update of non-existent webhook ID', async () => {
       const payload = { description: 'Updated webhook' };
       const response = await makeAuthenticatedRequest(
-        app, 'PUT', '/api/webhooks/non-existent-id-12345', authToken, payload
+        app,
+        'PUT',
+        '/api/webhooks/non-existent-id-12345',
+        authToken,
+        payload
       );
 
       // The service update runs SQL with 0 rows affected but does not check for existence
@@ -155,7 +187,7 @@ describe('Webhooks API', () => {
       const response = await app.inject({
         method: 'PUT',
         url: '/api/webhooks/some-id',
-        payload: { description: 'No auth' }
+        payload: { description: 'No auth' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -170,7 +202,11 @@ describe('Webhooks API', () => {
 
       const payload = { description: 'Employee trying to update' };
       const response = await makeAuthenticatedRequest(
-        app, 'PUT', '/api/webhooks/some-id', employeeToken, payload
+        app,
+        'PUT',
+        '/api/webhooks/some-id',
+        employeeToken,
+        payload
       );
 
       expect(response.statusCode).toBe(403);
@@ -190,9 +226,15 @@ describe('Webhooks API', () => {
         url: 'https://example.com/webhook-delete',
         event_type: 'order.deleted',
         events: ['order.deleted'],
-        description: 'Webhook to delete'
+        description: 'Webhook to delete',
       };
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/webhooks', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/webhooks',
+        authToken,
+        payload
+      );
       const data = JSON.parse(response.body);
       createdWebhookId = data.webhookId;
     });
@@ -205,7 +247,10 @@ describe('Webhooks API', () => {
       }
 
       const response = await makeAuthenticatedRequest(
-        app, 'DELETE', `/api/webhooks/${createdWebhookId}`, authToken
+        app,
+        'DELETE',
+        `/api/webhooks/${createdWebhookId}`,
+        authToken
       );
 
       expect(response.statusCode).toBe(200);
@@ -216,7 +261,10 @@ describe('Webhooks API', () => {
 
     test('should handle deletion of non-existent webhook ID', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'DELETE', '/api/webhooks/non-existent-id-12345', authToken
+        app,
+        'DELETE',
+        '/api/webhooks/non-existent-id-12345',
+        authToken
       );
 
       // The DELETE SQL runs without error even for non-existent IDs (0 rows affected)
@@ -227,7 +275,7 @@ describe('Webhooks API', () => {
     test('should reject delete without authentication', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: '/api/webhooks/some-id'
+        url: '/api/webhooks/some-id',
       });
 
       expect(response.statusCode).toBe(401);
@@ -241,7 +289,10 @@ describe('Webhooks API', () => {
       const { token: employeeToken } = await createTestUserAndGetToken(app, { role: 'employee' });
 
       const response = await makeAuthenticatedRequest(
-        app, 'DELETE', '/api/webhooks/some-id', employeeToken
+        app,
+        'DELETE',
+        '/api/webhooks/some-id',
+        employeeToken
       );
 
       expect(response.statusCode).toBe(403);
@@ -261,9 +312,15 @@ describe('Webhooks API', () => {
         url: 'https://example.com/webhook-logs',
         event_type: 'order.created',
         events: ['order.created'],
-        description: 'Webhook for logs test'
+        description: 'Webhook for logs test',
       };
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/webhooks', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/webhooks',
+        authToken,
+        payload
+      );
       const data = JSON.parse(response.body);
       createdWebhookId = data.webhookId;
     });
@@ -276,7 +333,10 @@ describe('Webhooks API', () => {
       }
 
       const response = await makeAuthenticatedRequest(
-        app, 'GET', `/api/webhooks/${createdWebhookId}/logs`, authToken
+        app,
+        'GET',
+        `/api/webhooks/${createdWebhookId}/logs`,
+        authToken
       );
 
       expect(response.statusCode).toBe(200);
@@ -294,7 +354,10 @@ describe('Webhooks API', () => {
       }
 
       const response = await makeAuthenticatedRequest(
-        app, 'GET', `/api/webhooks/${createdWebhookId}/logs?limit=10`, authToken
+        app,
+        'GET',
+        `/api/webhooks/${createdWebhookId}/logs?limit=10`,
+        authToken
       );
 
       expect(response.statusCode).toBe(200);
@@ -306,7 +369,7 @@ describe('Webhooks API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/webhooks/some-id/logs'
+        url: '/api/webhooks/some-id/logs',
       });
 
       expect(response.statusCode).toBe(401);
