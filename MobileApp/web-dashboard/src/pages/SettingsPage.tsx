@@ -172,6 +172,7 @@ const SettingsPage: React.FC = () => {
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
                         className="rounded-lg border border-gray-300 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+                        /* eslint-disable-next-line jsx-a11y/no-autofocus */
                         autoFocus
                       />
                       <button
@@ -220,8 +221,14 @@ const SettingsPage: React.FC = () => {
             <h2 className="mb-4 text-lg font-semibold text-gray-900">Add New Setting</h2>
             <form onSubmit={handleAdd} className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Key</label>
+                <label
+                  htmlFor="setting-key"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Key
+                </label>
                 <input
+                  id="setting-key"
                   type="text"
                   required
                   value={newKey}
@@ -231,8 +238,14 @@ const SettingsPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Value</label>
+                <label
+                  htmlFor="setting-value"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Value
+                </label>
                 <input
+                  id="setting-value"
                   type="text"
                   required
                   value={newValue}
@@ -241,8 +254,14 @@ const SettingsPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+                <label
+                  htmlFor="setting-description"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Description
+                </label>
                 <input
+                  id="setting-description"
                   type="text"
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
