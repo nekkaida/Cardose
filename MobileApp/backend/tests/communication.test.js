@@ -22,7 +22,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/whatsapp/send',
-        payload: { to: '08123456789', message: 'Hello' }
+        payload: { to: '08123456789', message: 'Hello' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -33,7 +33,10 @@ describe('Communication API', () => {
 
     test('should reject with missing "to" field (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/send', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/send',
+        authToken,
         { message: 'Hello' }
       );
 
@@ -44,7 +47,10 @@ describe('Communication API', () => {
 
     test('should reject with missing "message" field (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/send', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/send',
+        authToken,
         { to: '08123456789' }
       );
 
@@ -55,7 +61,10 @@ describe('Communication API', () => {
 
     test('should reject with empty body (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/send', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/send',
+        authToken,
         {}
       );
 
@@ -69,7 +78,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/whatsapp/notify/order',
-        payload: { orderId: 'some-id' }
+        payload: { orderId: 'some-id' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -80,7 +89,10 @@ describe('Communication API', () => {
 
     test('should reject with missing orderId (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/notify/order', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/notify/order',
+        authToken,
         {}
       );
 
@@ -91,7 +103,10 @@ describe('Communication API', () => {
 
     test('should return 404 for non-existent order', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/notify/order', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/notify/order',
+        authToken,
         { orderId: 'non-existent-order-id' }
       );
 
@@ -107,7 +122,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/whatsapp/notify/invoice',
-        payload: { invoiceId: 'some-id' }
+        payload: { invoiceId: 'some-id' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -118,7 +133,10 @@ describe('Communication API', () => {
 
     test('should reject with missing invoiceId (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/notify/invoice', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/notify/invoice',
+        authToken,
         {}
       );
 
@@ -129,7 +147,10 @@ describe('Communication API', () => {
 
     test('should return 404 for non-existent invoice', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/notify/invoice', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/notify/invoice',
+        authToken,
         { invoiceId: 'non-existent-invoice-id' }
       );
 
@@ -145,7 +166,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/whatsapp/notify/production',
-        payload: { orderId: 'some-id', stage: 'cutting' }
+        payload: { orderId: 'some-id', stage: 'cutting' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -156,7 +177,10 @@ describe('Communication API', () => {
 
     test('should reject with missing orderId (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/notify/production', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/notify/production',
+        authToken,
         { stage: 'cutting' }
       );
 
@@ -167,7 +191,10 @@ describe('Communication API', () => {
 
     test('should reject with missing stage (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/notify/production', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/notify/production',
+        authToken,
         { orderId: 'some-id' }
       );
 
@@ -178,7 +205,10 @@ describe('Communication API', () => {
 
     test('should return 404 for non-existent order', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/notify/production', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/notify/production',
+        authToken,
         { orderId: 'non-existent-order-id', stage: 'cutting' }
       );
 
@@ -194,7 +224,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/whatsapp/notify/payment-reminder',
-        payload: { invoiceId: 'some-id' }
+        payload: { invoiceId: 'some-id' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -205,7 +235,10 @@ describe('Communication API', () => {
 
     test('should reject with missing invoiceId (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/notify/payment-reminder', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/notify/payment-reminder',
+        authToken,
         {}
       );
 
@@ -216,7 +249,10 @@ describe('Communication API', () => {
 
     test('should return 404 for non-existent invoice', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/notify/payment-reminder', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/notify/payment-reminder',
+        authToken,
         { invoiceId: 'non-existent-invoice-id' }
       );
 
@@ -232,7 +268,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/whatsapp/bulk-send',
-        payload: { customerIds: ['id1'], message: 'Hello' }
+        payload: { customerIds: ['id1'], message: 'Hello' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -243,7 +279,10 @@ describe('Communication API', () => {
 
     test('should reject with missing customerIds (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/bulk-send', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/bulk-send',
+        authToken,
         { message: 'Hello' }
       );
 
@@ -254,7 +293,10 @@ describe('Communication API', () => {
 
     test('should reject with empty customerIds array', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/bulk-send', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/bulk-send',
+        authToken,
         { customerIds: [], message: 'Hello' }
       );
 
@@ -265,7 +307,10 @@ describe('Communication API', () => {
 
     test('should reject with missing message (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/bulk-send', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/bulk-send',
+        authToken,
         { customerIds: ['id1'] }
       );
 
@@ -276,7 +321,10 @@ describe('Communication API', () => {
 
     test('should reject with non-existent customer IDs (no phone numbers found)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/whatsapp/bulk-send', authToken,
+        app,
+        'POST',
+        '/api/communication/whatsapp/bulk-send',
+        authToken,
         { customerIds: ['non-existent-1', 'non-existent-2'], message: 'Hello' }
       );
 
@@ -290,7 +338,10 @@ describe('Communication API', () => {
   describe('GET /api/communication/logs', () => {
     test('should return logs with authentication', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET', '/api/communication/logs', authToken
+        app,
+        'GET',
+        '/api/communication/logs',
+        authToken
       );
 
       expect(response.statusCode).toBe(200);
@@ -307,7 +358,10 @@ describe('Communication API', () => {
 
     test('should support query parameters for filtering', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET', '/api/communication/logs?type=whatsapp&limit=10&offset=0', authToken
+        app,
+        'GET',
+        '/api/communication/logs?type=whatsapp&limit=10&offset=0',
+        authToken
       );
 
       expect(response.statusCode).toBe(200);
@@ -320,7 +374,7 @@ describe('Communication API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/communication/logs'
+        url: '/api/communication/logs',
       });
 
       expect(response.statusCode).toBe(401);
@@ -338,7 +392,7 @@ describe('Communication API', () => {
 
       const response = await app.inject({
         method: 'GET',
-        url: `/api/communication/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=${verifyToken}&hub.challenge=${challenge}`
+        url: `/api/communication/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=${verifyToken}&hub.challenge=${challenge}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -348,7 +402,7 @@ describe('Communication API', () => {
     test('should return 403 with invalid verify token', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/communication/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=wrong-token&hub.challenge=test'
+        url: '/api/communication/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=wrong-token&hub.challenge=test',
       });
 
       expect(response.statusCode).toBe(403);
@@ -357,7 +411,7 @@ describe('Communication API', () => {
     test('should return 403 with missing mode', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/communication/whatsapp/webhook?hub.verify_token=premium-gift-box-webhook-token&hub.challenge=test'
+        url: '/api/communication/whatsapp/webhook?hub.verify_token=premium-gift-box-webhook-token&hub.challenge=test',
       });
 
       expect(response.statusCode).toBe(403);
@@ -366,7 +420,7 @@ describe('Communication API', () => {
     test('should return 403 with wrong mode', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/communication/whatsapp/webhook?hub.mode=unsubscribe&hub.verify_token=premium-gift-box-webhook-token&hub.challenge=test'
+        url: '/api/communication/whatsapp/webhook?hub.mode=unsubscribe&hub.verify_token=premium-gift-box-webhook-token&hub.challenge=test',
       });
 
       expect(response.statusCode).toBe(403);
@@ -379,7 +433,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/email/send',
-        payload: { to: 'test@example.com', subject: 'Test', html: '<p>Hello</p>' }
+        payload: { to: 'test@example.com', subject: 'Test', html: '<p>Hello</p>' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -390,7 +444,10 @@ describe('Communication API', () => {
 
     test('should reject with missing "to" field (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/send', authToken,
+        app,
+        'POST',
+        '/api/communication/email/send',
+        authToken,
         { subject: 'Test', html: '<p>Hello</p>' }
       );
 
@@ -401,7 +458,10 @@ describe('Communication API', () => {
 
     test('should reject with missing "subject" field (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/send', authToken,
+        app,
+        'POST',
+        '/api/communication/email/send',
+        authToken,
         { to: 'test@example.com', html: '<p>Hello</p>' }
       );
 
@@ -412,7 +472,10 @@ describe('Communication API', () => {
 
     test('should reject with missing "html" field (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/send', authToken,
+        app,
+        'POST',
+        '/api/communication/email/send',
+        authToken,
         { to: 'test@example.com', subject: 'Test' }
       );
 
@@ -428,7 +491,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/email/notify/order',
-        payload: { orderId: 'some-id' }
+        payload: { orderId: 'some-id' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -439,7 +502,10 @@ describe('Communication API', () => {
 
     test('should reject with missing orderId (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/notify/order', authToken,
+        app,
+        'POST',
+        '/api/communication/email/notify/order',
+        authToken,
         {}
       );
 
@@ -450,7 +516,10 @@ describe('Communication API', () => {
 
     test('should return 404 for non-existent order', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/notify/order', authToken,
+        app,
+        'POST',
+        '/api/communication/email/notify/order',
+        authToken,
         { orderId: 'non-existent-order-id' }
       );
 
@@ -466,7 +535,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/email/notify/invoice',
-        payload: { invoiceId: 'some-id' }
+        payload: { invoiceId: 'some-id' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -477,7 +546,10 @@ describe('Communication API', () => {
 
     test('should reject with missing invoiceId (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/notify/invoice', authToken,
+        app,
+        'POST',
+        '/api/communication/email/notify/invoice',
+        authToken,
         {}
       );
 
@@ -488,7 +560,10 @@ describe('Communication API', () => {
 
     test('should return 404 for non-existent invoice', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/notify/invoice', authToken,
+        app,
+        'POST',
+        '/api/communication/email/notify/invoice',
+        authToken,
         { invoiceId: 'non-existent-invoice-id' }
       );
 
@@ -504,7 +579,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/email/notify/production',
-        payload: { orderId: 'some-id', stage: 'printing' }
+        payload: { orderId: 'some-id', stage: 'printing' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -515,7 +590,10 @@ describe('Communication API', () => {
 
     test('should reject with missing orderId (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/notify/production', authToken,
+        app,
+        'POST',
+        '/api/communication/email/notify/production',
+        authToken,
         { stage: 'printing' }
       );
 
@@ -526,7 +604,10 @@ describe('Communication API', () => {
 
     test('should reject with missing stage (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/notify/production', authToken,
+        app,
+        'POST',
+        '/api/communication/email/notify/production',
+        authToken,
         { orderId: 'some-id' }
       );
 
@@ -537,7 +618,10 @@ describe('Communication API', () => {
 
     test('should return 404 for non-existent order', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/notify/production', authToken,
+        app,
+        'POST',
+        '/api/communication/email/notify/production',
+        authToken,
         { orderId: 'non-existent-order-id', stage: 'printing' }
       );
 
@@ -553,7 +637,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/email/notify/payment-reminder',
-        payload: { invoiceId: 'some-id' }
+        payload: { invoiceId: 'some-id' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -564,7 +648,10 @@ describe('Communication API', () => {
 
     test('should reject with missing invoiceId (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/notify/payment-reminder', authToken,
+        app,
+        'POST',
+        '/api/communication/email/notify/payment-reminder',
+        authToken,
         {}
       );
 
@@ -575,7 +662,10 @@ describe('Communication API', () => {
 
     test('should return 404 for non-existent invoice', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/notify/payment-reminder', authToken,
+        app,
+        'POST',
+        '/api/communication/email/notify/payment-reminder',
+        authToken,
         { invoiceId: 'non-existent-invoice-id' }
       );
 
@@ -591,7 +681,7 @@ describe('Communication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/communication/email/bulk-send',
-        payload: { customerIds: ['id1'], subject: 'Test', html: '<p>Hi</p>' }
+        payload: { customerIds: ['id1'], subject: 'Test', html: '<p>Hi</p>' },
       });
 
       expect(response.statusCode).toBe(401);
@@ -602,7 +692,10 @@ describe('Communication API', () => {
 
     test('should reject with missing customerIds (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/bulk-send', authToken,
+        app,
+        'POST',
+        '/api/communication/email/bulk-send',
+        authToken,
         { subject: 'Test', html: '<p>Hi</p>' }
       );
 
@@ -613,7 +706,10 @@ describe('Communication API', () => {
 
     test('should reject with empty customerIds array', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/bulk-send', authToken,
+        app,
+        'POST',
+        '/api/communication/email/bulk-send',
+        authToken,
         { customerIds: [], subject: 'Test', html: '<p>Hi</p>' }
       );
 
@@ -624,7 +720,10 @@ describe('Communication API', () => {
 
     test('should reject with missing subject (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/bulk-send', authToken,
+        app,
+        'POST',
+        '/api/communication/email/bulk-send',
+        authToken,
         { customerIds: ['id1'], html: '<p>Hi</p>' }
       );
 
@@ -635,7 +734,10 @@ describe('Communication API', () => {
 
     test('should reject with missing html (schema validation)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/bulk-send', authToken,
+        app,
+        'POST',
+        '/api/communication/email/bulk-send',
+        authToken,
         { customerIds: ['id1'], subject: 'Test' }
       );
 
@@ -646,7 +748,10 @@ describe('Communication API', () => {
 
     test('should reject with non-existent customer IDs (no email addresses found)', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/communication/email/bulk-send', authToken,
+        app,
+        'POST',
+        '/api/communication/email/bulk-send',
+        authToken,
         { customerIds: ['non-existent-1', 'non-existent-2'], subject: 'Test', html: '<p>Hi</p>' }
       );
 
