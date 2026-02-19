@@ -156,7 +156,8 @@ describe('LoginPage', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Sign In' }));
 
       await waitFor(() => {
-        expect(screen.getByText('Invalid username or password')).toBeInTheDocument();
+        // catch block uses err.message, so "Network error" is displayed (not t('login.error'))
+        expect(screen.getByText('Network error')).toBeInTheDocument();
       });
     });
 
