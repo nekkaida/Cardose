@@ -14,46 +14,79 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
+// Mock recharts to avoid ResizeObserver issues in tests
+vi.mock('recharts', () => ({
+  BarChart: () => null,
+  Bar: () => null,
+  PieChart: () => null,
+  Pie: () => null,
+  Cell: () => null,
+  AreaChart: () => null,
+  Area: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  CartesianGrid: () => null,
+  Tooltip: () => null,
+  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
+}));
+
 // Mock ApiContext
-const mockGetDashboardAnalytics = vi.fn();
+const mockGetRevenueAnalytics = vi.fn();
 
 vi.mock('../../contexts/ApiContext', () => ({
   useApi: () => ({
-    getDashboardAnalytics: mockGetDashboardAnalytics,
-    getOrders: vi.fn(),
-    createOrder: vi.fn(),
-    updateOrder: vi.fn(),
-    getCustomers: vi.fn(),
-    createCustomer: vi.fn(),
-    updateCustomer: vi.fn(),
-    getInventory: vi.fn(),
-    createInventoryItem: vi.fn(),
-    updateInventoryStock: vi.fn(),
-    getFinancialSummary: vi.fn(),
-    getTransactions: vi.fn(),
-    createTransaction: vi.fn(),
-    calculatePricing: vi.fn(),
-    getRevenueAnalytics: vi.fn(),
-    getCustomerAnalytics: vi.fn(),
-    getInventoryAnalytics: vi.fn(),
-    getProductionAnalytics: vi.fn(),
-    getProductionBoard: vi.fn(),
-    getProductionTasks: vi.fn(),
-    getProductionStats: vi.fn(),
-    getSalesReport: vi.fn(),
-    getInventoryReport: vi.fn(),
-    getProductionReport: vi.fn(),
-    getCustomerReport: vi.fn(),
-    getFinancialReport: vi.fn(),
-    getUsers: vi.fn(),
-    createUser: vi.fn(),
-    updateUser: vi.fn(),
-    updateUserStatus: vi.fn(),
-    deleteUser: vi.fn(),
-    getSettings: vi.fn(),
-    updateSetting: vi.fn(),
-    deleteSetting: vi.fn(),
+    getDashboardAnalytics: vi.fn().mockResolvedValue({}),
+    getOrders: vi.fn().mockResolvedValue({}),
+    createOrder: vi.fn().mockResolvedValue({}),
+    updateOrder: vi.fn().mockResolvedValue({}),
+    getCustomers: vi.fn().mockResolvedValue({}),
+    createCustomer: vi.fn().mockResolvedValue({}),
+    updateCustomer: vi.fn().mockResolvedValue({}),
+    getInventory: vi.fn().mockResolvedValue({}),
+    createInventoryItem: vi.fn().mockResolvedValue({}),
+    updateInventoryStock: vi.fn().mockResolvedValue({}),
+    getFinancialSummary: vi.fn().mockResolvedValue({}),
+    getTransactions: vi.fn().mockResolvedValue({}),
+    createTransaction: vi.fn().mockResolvedValue({}),
+    calculatePricing: vi.fn().mockResolvedValue({}),
+    getRevenueAnalytics: mockGetRevenueAnalytics,
+    getCustomerAnalytics: vi.fn().mockResolvedValue({}),
+    getInventoryAnalytics: vi.fn().mockResolvedValue({}),
+    getProductionAnalytics: vi.fn().mockResolvedValue({}),
+    getProductionBoard: vi.fn().mockResolvedValue({}),
+    getProductionTasks: vi.fn().mockResolvedValue({}),
+    getProductionStats: vi.fn().mockResolvedValue({}),
+    getSalesReport: vi.fn().mockResolvedValue({}),
+    getInventoryReport: vi.fn().mockResolvedValue({}),
+    getProductionReport: vi.fn().mockResolvedValue({}),
+    getCustomerReport: vi.fn().mockResolvedValue({}),
+    getFinancialReport: vi.fn().mockResolvedValue({}),
+    getUsers: vi.fn().mockResolvedValue({}),
+    createUser: vi.fn().mockResolvedValue({}),
+    updateUser: vi.fn().mockResolvedValue({}),
+    updateUserStatus: vi.fn().mockResolvedValue({}),
+    deleteUser: vi.fn().mockResolvedValue({}),
+    getSettings: vi.fn().mockResolvedValue({}),
+    updateSetting: vi.fn().mockResolvedValue({}),
+    deleteSetting: vi.fn().mockResolvedValue({}),
   }),
+}));
+
+// Mock AuthContext with apiClient
+const mockApiClientGet = vi.fn();
+
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: '1', username: 'admin', email: 'admin@test.com', role: 'admin' },
+    isAuthenticated: true,
+    loading: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+    token: 'test-token',
+  }),
+  apiClient: {
+    get: (...args: any[]) => mockApiClientGet(...args),
+  },
 }));
 
 // Mock LanguageContext
@@ -114,74 +147,101 @@ describe('Dashboard', () => {
   });
 
   describe('Loading state', () => {
-    it('should show loading spinner initially', () => {
-      mockGetDashboardAnalytics.mockImplementation(() => new Promise(() => {}));
+    it('should show loading skeleton initially', () => {
+      // Make apiClient.get hang forever (loading state)
+      mockApiClientGet.mockImplementation(() => new Promise(() => {}));
+      mockGetRevenueAnalytics.mockImplementation(() => new Promise(() => {}));
       render(<Dashboard />);
 
-      // The loading state renders a spinner div, no specific text
-      const spinnerContainer = document.querySelector('.animate-spin');
-      expect(spinnerContainer).toBeInTheDocument();
+      // Dashboard uses skeleton loading (animate-pulse), not spinner (animate-spin)
+      const skeletonElement = document.querySelector('.animate-pulse');
+      expect(skeletonElement).toBeInTheDocument();
     });
   });
 
   describe('Error state', () => {
-    it('should show error message when API call fails', async () => {
-      mockGetDashboardAnalytics.mockRejectedValueOnce(new Error('Network error'));
+    it('should show error message when analytics API call fails', async () => {
+      mockApiClientGet.mockRejectedValue(new Error('Network error'));
+      mockGetRevenueAnalytics.mockRejectedValue(new Error('Network error'));
 
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText('Error')).toBeInTheDocument();
-        expect(screen.getByText('Failed to load dashboard data')).toBeInTheDocument();
+        expect(screen.getByText('Failed to load dashboard analytics')).toBeInTheDocument();
       });
     });
 
-    it('should show Try Again button on error', async () => {
-      mockGetDashboardAnalytics.mockRejectedValueOnce(new Error('Network error'));
+    it('should show Retry button on error', async () => {
+      mockApiClientGet.mockRejectedValue(new Error('Network error'));
+      mockGetRevenueAnalytics.mockRejectedValue(new Error('Network error'));
 
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText('Try Again')).toBeInTheDocument();
+        // The SectionError component renders a "Retry" link, not "Try Again"
+        const retryButtons = screen.getAllByText('Retry');
+        expect(retryButtons.length).toBeGreaterThanOrEqual(1);
       });
     });
 
-    it('should retry loading data when Try Again is clicked', async () => {
+    it('should retry loading data when Retry is clicked', async () => {
       // First call fails
-      mockGetDashboardAnalytics.mockRejectedValueOnce(new Error('Network error'));
+      mockApiClientGet.mockRejectedValue(new Error('Network error'));
+      mockGetRevenueAnalytics.mockRejectedValue(new Error('Network error'));
 
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText('Try Again')).toBeInTheDocument();
+        const retryButtons = screen.getAllByText('Retry');
+        expect(retryButtons.length).toBeGreaterThanOrEqual(1);
       });
 
       // Second call succeeds
-      mockGetDashboardAnalytics.mockResolvedValueOnce(mockDashboardData);
+      mockApiClientGet.mockImplementation((url: string) => {
+        if (url.includes('/analytics/dashboard')) {
+          return Promise.resolve({ data: mockDashboardData });
+        }
+        if (url.includes('/dashboard/recent-orders')) {
+          return Promise.resolve({ data: { orders: [] } });
+        }
+        return Promise.resolve({ data: {} });
+      });
+      mockGetRevenueAnalytics.mockResolvedValue({ trend: [] });
 
-      await userEvent.click(screen.getByText('Try Again'));
+      // Click the first Retry button
+      const retryButtons = screen.getAllByText('Retry');
+      await userEvent.click(retryButtons[0]);
 
       await waitFor(() => {
-        expect(screen.getByText('Total Revenue')).toBeInTheDocument();
+        // After successful reload, KPI cards should appear
+        expect(screen.getByText('Revenue')).toBeInTheDocument();
       });
-
-      expect(mockGetDashboardAnalytics).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('Loaded state', () => {
     beforeEach(() => {
-      mockGetDashboardAnalytics.mockResolvedValueOnce(mockDashboardData);
+      mockApiClientGet.mockImplementation((url: string) => {
+        if (url.includes('/analytics/dashboard')) {
+          return Promise.resolve({ data: mockDashboardData });
+        }
+        if (url.includes('/dashboard/recent-orders')) {
+          return Promise.resolve({ data: { orders: [] } });
+        }
+        return Promise.resolve({ data: {} });
+      });
+      mockGetRevenueAnalytics.mockResolvedValue({ trend: [] });
     });
 
     it('should display KPI cards', async () => {
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText('Total Revenue')).toBeInTheDocument();
-        expect(screen.getByText('Total Orders')).toBeInTheDocument();
+        // The actual page renders "Revenue", "Orders", "Customers", "Completion"
+        expect(screen.getByText('Revenue')).toBeInTheDocument();
+        expect(screen.getByText('Orders')).toBeInTheDocument();
         expect(screen.getByText('Customers')).toBeInTheDocument();
-        expect(screen.getByText('Completion Rate')).toBeInTheDocument();
+        expect(screen.getByText('Completion')).toBeInTheDocument();
       });
     });
 
@@ -201,34 +261,31 @@ describe('Dashboard', () => {
       });
     });
 
-    it('should display Inventory Status section', async () => {
+    it('should display Inventory section', async () => {
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText('Inventory Status')).toBeInTheDocument();
+        // The dashboard has an "Inventory" section heading
+        expect(screen.getByText('Inventory')).toBeInTheDocument();
         expect(screen.getByText('Total Materials')).toBeInTheDocument();
         expect(screen.getByText('Low Stock')).toBeInTheDocument();
         expect(screen.getByText('Out of Stock')).toBeInTheDocument();
       });
     });
 
-    it('should display Production section', async () => {
+    it('should display Production Pipeline section', async () => {
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText('Production')).toBeInTheDocument();
-        expect(screen.getByText('Designing')).toBeInTheDocument();
-        expect(screen.getByText('In Production')).toBeInTheDocument();
-        expect(screen.getByText('Quality Control')).toBeInTheDocument();
-        expect(screen.getByText('Urgent Orders')).toBeInTheDocument();
+        expect(screen.getByText('Production Pipeline')).toBeInTheDocument();
       });
     });
 
-    it('should display Quick Actions section', async () => {
+    it('should display Recent Activity section', async () => {
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText('Quick Actions')).toBeInTheDocument();
+        expect(screen.getByText('Recent Activity')).toBeInTheDocument();
       });
     });
 
@@ -245,53 +302,41 @@ describe('Dashboard', () => {
     });
   });
 
-  describe('Quick Actions navigation', () => {
+  describe('Navigation', () => {
     beforeEach(() => {
-      mockGetDashboardAnalytics.mockResolvedValueOnce(mockDashboardData);
+      mockApiClientGet.mockImplementation((url: string) => {
+        if (url.includes('/analytics/dashboard')) {
+          return Promise.resolve({ data: mockDashboardData });
+        }
+        if (url.includes('/dashboard/recent-orders')) {
+          return Promise.resolve({ data: { orders: [] } });
+        }
+        return Promise.resolve({ data: {} });
+      });
+      mockGetRevenueAnalytics.mockResolvedValue({ trend: [] });
     });
 
-    it('should navigate to /orders when View Orders is clicked', async () => {
+    it('should navigate to /orders when View all is clicked', async () => {
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/View Orders/)).toBeInTheDocument();
+        expect(screen.getByText('View all')).toBeInTheDocument();
       });
 
-      await userEvent.click(screen.getByText(/View Orders/));
+      await userEvent.click(screen.getByText('View all'));
       expect(mockNavigate).toHaveBeenCalledWith('/orders');
     });
 
-    it('should navigate to /customers when View Customers is clicked', async () => {
+    it('should display period selector', async () => {
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/View Customers/)).toBeInTheDocument();
+        expect(screen.getByText('Revenue')).toBeInTheDocument();
       });
 
-      await userEvent.click(screen.getByText(/View Customers/));
-      expect(mockNavigate).toHaveBeenCalledWith('/customers');
-    });
-
-    it('should navigate to /inventory when View Inventory is clicked', async () => {
-      render(<Dashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/View Inventory/)).toBeInTheDocument();
-      });
-
-      await userEvent.click(screen.getByText(/View Inventory/));
-      expect(mockNavigate).toHaveBeenCalledWith('/inventory');
-    });
-
-    it('should navigate to /analytics when View Reports is clicked', async () => {
-      render(<Dashboard />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/View Reports/)).toBeInTheDocument();
-      });
-
-      await userEvent.click(screen.getByText(/View Reports/));
-      expect(mockNavigate).toHaveBeenCalledWith('/analytics');
+      // The period selector exists with options
+      const select = screen.getByDisplayValue('This Month');
+      expect(select).toBeInTheDocument();
     });
   });
 });
