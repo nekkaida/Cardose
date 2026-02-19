@@ -256,7 +256,9 @@ const ProductionPage: React.FC = () => {
   // ---- Data fetching ----
   // Use a ref for tr so loadProduction doesn't re-trigger on language changes
   const trRef = React.useRef(tr);
-  trRef.current = tr;
+  React.useEffect(() => {
+    trRef.current = tr;
+  }, [tr]);
 
   const loadProduction = useCallback(async () => {
     setLoading(true);
@@ -300,7 +302,7 @@ const ProductionPage: React.FC = () => {
   }, [getProductionBoard, getProductionStats]);
 
   useEffect(() => {
-    loadProduction();
+    loadProduction(); // eslint-disable-line react-hooks/set-state-in-effect -- async data fetch on mount, standard pattern
   }, [loadProduction]);
 
   // ---- Drag-and-drop handlers ----
@@ -547,6 +549,8 @@ const ProductionPage: React.FC = () => {
           return (
             <div
               key={stage.key}
+              role={isSelectedTarget ? 'button' : undefined}
+              tabIndex={isSelectedTarget ? 0 : undefined}
               className={`rounded-xl border-t-4 bg-white shadow-sm ${stage.borderColor} flex flex-col border border-gray-100 transition-all duration-200 ${
                 isDropTarget ? 'bg-primary-50 ring-2 ring-primary-400' : ''
               } ${isSelectedTarget ? 'cursor-pointer hover:ring-2 hover:ring-primary-300' : ''}`}
@@ -554,6 +558,12 @@ const ProductionPage: React.FC = () => {
               onDragLeave={(e) => handleDragLeave(e, stage.key)}
               onDrop={(e) => handleDrop(e, stage.key)}
               onClick={() => handleColumnHeaderTap(stage.key)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleColumnHeaderTap(stage.key);
+                }
+              }}
             >
               {/* Column header */}
               <div className="flex items-center justify-between border-b border-gray-100 p-4">
@@ -593,12 +603,21 @@ const ProductionPage: React.FC = () => {
                     return (
                       <div
                         key={order.id}
+                        role="button"
+                        tabIndex={0}
                         draggable={canMoveOrders}
                         onDragStart={(e) => handleDragStart(e, order)}
                         onDragEnd={handleDragEnd}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleCardTap(order);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleCardTap(order);
+                          }
                         }}
                         className={`rounded-lg border bg-gray-50 p-3 transition-all duration-150 ${
                           canMoveOrders ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
