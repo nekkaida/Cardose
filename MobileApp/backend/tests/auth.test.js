@@ -23,13 +23,13 @@ describe('Authentication API', () => {
         email: `test${Date.now()}@example.com`,
         password: 'Test123!',
         fullName: 'Test User',
-        role: 'employee'
+        role: 'employee',
       };
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/auth/register',
-        payload: userData
+        payload: userData,
       });
 
       expect(response.statusCode).toBe(200);
@@ -53,8 +53,8 @@ describe('Authentication API', () => {
           username: testUser.username,
           email: 'different@example.com',
           password: 'Test123!',
-          fullName: 'Another User'
-        }
+          fullName: 'Another User',
+        },
       });
 
       expect(response.statusCode).toBe(409);
@@ -70,8 +70,8 @@ describe('Authentication API', () => {
           username: 'different_user_' + Date.now(),
           email: testUser.email,
           password: 'Test123!',
-          fullName: 'Another User'
-        }
+          fullName: 'Another User',
+        },
       });
 
       expect(response.statusCode).toBe(409);
@@ -87,8 +87,8 @@ describe('Authentication API', () => {
           username: 'newuser_' + Date.now(),
           email: `new${Date.now()}@example.com`,
           password: '12345',
-          fullName: 'New User'
-        }
+          fullName: 'New User',
+        },
       });
 
       expect(response.statusCode).toBe(400);
@@ -105,8 +105,8 @@ describe('Authentication API', () => {
         payload: {
           email: 'test@example.com',
           password: 'Test123!',
-          fullName: 'Test User'
-        }
+          fullName: 'Test User',
+        },
       });
       expect(response.statusCode).toBe(400);
 
@@ -117,8 +117,8 @@ describe('Authentication API', () => {
         payload: {
           username: 'testuser',
           password: 'Test123!',
-          fullName: 'Test User'
-        }
+          fullName: 'Test User',
+        },
       });
       expect(response.statusCode).toBe(400);
 
@@ -129,8 +129,8 @@ describe('Authentication API', () => {
         payload: {
           username: 'testuser',
           email: 'test@example.com',
-          fullName: 'Test User'
-        }
+          fullName: 'Test User',
+        },
       });
       expect(response.statusCode).toBe(400);
 
@@ -141,8 +141,8 @@ describe('Authentication API', () => {
         payload: {
           username: 'testuser',
           email: 'test@example.com',
-          password: 'Test123!'
-        }
+          password: 'Test123!',
+        },
       });
       expect(response.statusCode).toBe(400);
     });
@@ -156,8 +156,8 @@ describe('Authentication API', () => {
         url: '/api/auth/login',
         payload: {
           username: testUser.username,
-          password: testUser.password
-        }
+          password: testUser.password,
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -177,8 +177,8 @@ describe('Authentication API', () => {
         url: '/api/auth/login',
         payload: {
           username: testUser.username,
-          password: 'wrongpassword'
-        }
+          password: 'wrongpassword',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -193,8 +193,8 @@ describe('Authentication API', () => {
         url: '/api/auth/login',
         payload: {
           username: 'nonexistent_user_xyz',
-          password: 'Test123!'
-        }
+          password: 'Test123!',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -208,8 +208,8 @@ describe('Authentication API', () => {
         method: 'POST',
         url: '/api/auth/login',
         payload: {
-          password: 'Test123!'
-        }
+          password: 'Test123!',
+        },
       });
       expect(response.statusCode).toBe(400);
 
@@ -218,8 +218,8 @@ describe('Authentication API', () => {
         method: 'POST',
         url: '/api/auth/login',
         payload: {
-          username: testUser.username
-        }
+          username: testUser.username,
+        },
       });
       expect(response.statusCode).toBe(400);
     });
@@ -232,8 +232,8 @@ describe('Authentication API', () => {
         method: 'POST',
         url: '/api/auth/logout',
         headers: {
-          Authorization: `Bearer ${authToken}`
-        }
+          Authorization: `Bearer ${authToken}`,
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -244,7 +244,7 @@ describe('Authentication API', () => {
     test('should reject logout without token', async () => {
       const response = await app.inject({
         method: 'POST',
-        url: '/api/auth/logout'
+        url: '/api/auth/logout',
       });
 
       expect(response.statusCode).toBe(401);
@@ -258,8 +258,8 @@ describe('Authentication API', () => {
         method: 'GET',
         url: '/api/auth/me',
         headers: {
-          Authorization: `Bearer ${authToken}`
-        }
+          Authorization: `Bearer ${authToken}`,
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -272,7 +272,7 @@ describe('Authentication API', () => {
     test('should reject without token (401)', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/auth/me'
+        url: '/api/auth/me',
       });
 
       expect(response.statusCode).toBe(401);
@@ -283,8 +283,8 @@ describe('Authentication API', () => {
         method: 'GET',
         url: '/api/auth/me',
         headers: {
-          Authorization: 'Bearer invalid_token_here'
-        }
+          Authorization: 'Bearer invalid_token_here',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -298,12 +298,12 @@ describe('Authentication API', () => {
         method: 'PUT',
         url: '/api/auth/profile',
         headers: {
-          Authorization: `Bearer ${authToken}`
+          Authorization: `Bearer ${authToken}`,
         },
         payload: {
           fullName: 'Updated Name',
-          phone: '08123456789'
-        }
+          phone: '08123456789',
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -316,8 +316,8 @@ describe('Authentication API', () => {
         method: 'PUT',
         url: '/api/auth/profile',
         payload: {
-          fullName: 'Updated Name'
-        }
+          fullName: 'Updated Name',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -328,9 +328,9 @@ describe('Authentication API', () => {
         method: 'PUT',
         url: '/api/auth/profile',
         headers: {
-          Authorization: `Bearer ${authToken}`
+          Authorization: `Bearer ${authToken}`,
         },
-        payload: {}
+        payload: {},
       });
 
       expect(response.statusCode).toBe(400);
@@ -344,12 +344,12 @@ describe('Authentication API', () => {
         method: 'POST',
         url: '/api/auth/change-password',
         headers: {
-          Authorization: `Bearer ${authToken}`
+          Authorization: `Bearer ${authToken}`,
         },
         payload: {
           currentPassword: testUser.password,
-          newPassword: 'NewPassword123!'
-        }
+          newPassword: 'NewPassword123!',
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -365,8 +365,8 @@ describe('Authentication API', () => {
         url: '/api/auth/login',
         payload: {
           username: testUser.username,
-          password: testUser.password
-        }
+          password: testUser.password,
+        },
       });
       const loginData = JSON.parse(loginResponse.body);
       authToken = loginData.token;
@@ -377,12 +377,12 @@ describe('Authentication API', () => {
         method: 'POST',
         url: '/api/auth/change-password',
         headers: {
-          Authorization: `Bearer ${authToken}`
+          Authorization: `Bearer ${authToken}`,
         },
         payload: {
           currentPassword: 'wrongpassword',
-          newPassword: 'NewPassword456!'
-        }
+          newPassword: 'NewPassword456!',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -395,12 +395,12 @@ describe('Authentication API', () => {
         method: 'POST',
         url: '/api/auth/change-password',
         headers: {
-          Authorization: `Bearer ${authToken}`
+          Authorization: `Bearer ${authToken}`,
         },
         payload: {
           currentPassword: testUser.password,
-          newPassword: '12345'
-        }
+          newPassword: '12345',
+        },
       });
 
       expect(response.statusCode).toBe(400);
@@ -412,8 +412,8 @@ describe('Authentication API', () => {
         url: '/api/auth/change-password',
         payload: {
           currentPassword: 'oldpassword',
-          newPassword: 'newpassword'
-        }
+          newPassword: 'newpassword',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -427,8 +427,8 @@ describe('Authentication API', () => {
         method: 'POST',
         url: '/api/auth/request-reset',
         payload: {
-          email: testUser.email
-        }
+          email: testUser.email,
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -443,8 +443,8 @@ describe('Authentication API', () => {
         method: 'POST',
         url: '/api/auth/request-reset',
         payload: {
-          email: 'nonexistent@example.com'
-        }
+          email: 'nonexistent@example.com',
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -456,7 +456,7 @@ describe('Authentication API', () => {
       const response = await app.inject({
         method: 'POST',
         url: '/api/auth/request-reset',
-        payload: {}
+        payload: {},
       });
 
       expect(response.statusCode).toBe(400);
@@ -468,7 +468,9 @@ describe('Authentication API', () => {
 
     beforeAll(async () => {
       // Generate a reset token directly via JWT (token is no longer exposed in API response)
-      const user = app.db.db.prepare('SELECT id, email FROM users WHERE email = ?').get(testUser.email);
+      const user = app.db.db
+        .prepare('SELECT id, email FROM users WHERE email = ?')
+        .get(testUser.email);
       resetToken = app.jwt.sign(
         { id: user.id, email: user.email, type: 'reset' },
         { expiresIn: '1h' }
@@ -481,8 +483,8 @@ describe('Authentication API', () => {
         url: '/api/auth/reset-password',
         payload: {
           resetToken: resetToken,
-          newPassword: 'ResetPassword123!'
-        }
+          newPassword: 'ResetPassword123!',
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -499,8 +501,8 @@ describe('Authentication API', () => {
         url: '/api/auth/reset-password',
         payload: {
           resetToken: 'invalid_token_here',
-          newPassword: 'NewPassword123!'
-        }
+          newPassword: 'NewPassword123!',
+        },
       });
 
       expect(response.statusCode).toBe(500);
@@ -512,8 +514,8 @@ describe('Authentication API', () => {
         url: '/api/auth/reset-password',
         payload: {
           resetToken: resetToken,
-          newPassword: '12345'
-        }
+          newPassword: '12345',
+        },
       });
 
       expect(response.statusCode).toBe(400);
@@ -525,8 +527,8 @@ describe('Authentication API', () => {
         method: 'POST',
         url: '/api/auth/reset-password',
         payload: {
-          newPassword: 'NewPassword123!'
-        }
+          newPassword: 'NewPassword123!',
+        },
       });
       expect(response.statusCode).toBe(400);
 
@@ -535,8 +537,8 @@ describe('Authentication API', () => {
         method: 'POST',
         url: '/api/auth/reset-password',
         payload: {
-          resetToken: resetToken
-        }
+          resetToken: resetToken,
+        },
       });
       expect(response.statusCode).toBe(400);
     });
@@ -551,8 +553,8 @@ describe('Authentication API', () => {
         url: '/api/auth/login',
         payload: {
           username: testUser.username,
-          password: testUser.password
-        }
+          password: testUser.password,
+        },
       });
       const loginData = JSON.parse(loginResponse.body);
       const freshToken = loginData.token;
@@ -561,8 +563,8 @@ describe('Authentication API', () => {
         method: 'GET',
         url: '/api/auth/verify',
         headers: {
-          Authorization: `Bearer ${freshToken}`
-        }
+          Authorization: `Bearer ${freshToken}`,
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -576,8 +578,8 @@ describe('Authentication API', () => {
         method: 'GET',
         url: '/api/auth/verify',
         headers: {
-          Authorization: 'Bearer invalid_token'
-        }
+          Authorization: 'Bearer invalid_token',
+        },
       });
 
       expect(response.statusCode).toBe(401);
