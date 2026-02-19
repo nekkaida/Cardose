@@ -26,10 +26,16 @@ describe('Notifications API', () => {
         title: 'Test Notification',
         message: 'Test notification message',
         type: 'info',
-        priority: 'normal'
+        priority: 'normal',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/notifications', authToken, notificationData);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/notifications',
+        authToken,
+        notificationData
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -40,17 +46,29 @@ describe('Notifications API', () => {
     });
 
     test('should reject notification creation without title', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/notifications', authToken, {
-        message: 'Test message without title'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/notifications',
+        authToken,
+        {
+          message: 'Test message without title',
+        }
+      );
 
       expect(response.statusCode).toBe(400);
     });
 
     test('should reject notification creation without message', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/notifications', authToken, {
-        title: 'Test title without message'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/notifications',
+        authToken,
+        {
+          title: 'Test title without message',
+        }
+      );
 
       expect(response.statusCode).toBe(400);
     });
@@ -61,8 +79,8 @@ describe('Notifications API', () => {
         url: '/api/notifications',
         payload: {
           title: 'Test Notification',
-          message: 'Test message'
-        }
+          message: 'Test message',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -83,7 +101,7 @@ describe('Notifications API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/notifications'
+        url: '/api/notifications',
       });
 
       expect(response.statusCode).toBe(401);
@@ -93,7 +111,12 @@ describe('Notifications API', () => {
   // ==================== MARK AS READ TESTS ====================
   describe('PATCH /api/notifications/:id/read', () => {
     test('should mark notification as read', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PATCH', `/api/notifications/${testNotificationId}/read`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/notifications/${testNotificationId}/read`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -101,7 +124,12 @@ describe('Notifications API', () => {
     });
 
     test('should return 404 for non-existent notification', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PATCH', '/api/notifications/non-existent-id-123/read', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        '/api/notifications/non-existent-id-123/read',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -109,7 +137,7 @@ describe('Notifications API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'PATCH',
-        url: `/api/notifications/${testNotificationId}/read`
+        url: `/api/notifications/${testNotificationId}/read`,
       });
 
       expect(response.statusCode).toBe(401);
@@ -122,17 +150,28 @@ describe('Notifications API', () => {
 
     beforeAll(async () => {
       // Create a notification to delete
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/notifications', authToken, {
-        title: 'Notification To Delete',
-        message: 'This notification will be deleted',
-        type: 'info'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/notifications',
+        authToken,
+        {
+          title: 'Notification To Delete',
+          message: 'This notification will be deleted',
+          type: 'info',
+        }
+      );
       const data = JSON.parse(response.body);
       notificationToDelete = data.notificationId;
     });
 
     test('should delete notification', async () => {
-      const response = await makeAuthenticatedRequest(app, 'DELETE', `/api/notifications/${notificationToDelete}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'DELETE',
+        `/api/notifications/${notificationToDelete}`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -140,7 +179,12 @@ describe('Notifications API', () => {
     });
 
     test('should return 404 for non-existent notification', async () => {
-      const response = await makeAuthenticatedRequest(app, 'DELETE', '/api/notifications/non-existent-id-123', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'DELETE',
+        '/api/notifications/non-existent-id-123',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -148,7 +192,7 @@ describe('Notifications API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/notifications/${testNotificationId}`
+        url: `/api/notifications/${testNotificationId}`,
       });
 
       expect(response.statusCode).toBe(401);
