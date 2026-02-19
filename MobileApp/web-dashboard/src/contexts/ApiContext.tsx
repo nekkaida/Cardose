@@ -1,5 +1,8 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { apiClient } from './AuthContext';
+import type {
+  SalesReportData, InventoryReportData, ProductionReportData, CustomerReportData, FinancialReportData,
+} from '@shared/types';
 
 interface ApiContextType {
   // Orders
@@ -51,12 +54,12 @@ interface ApiContextType {
   deleteProductionTask: (id: string) => Promise<any>;
   updateProductionStage: (id: string, stage: string, notes?: string) => Promise<any>;
 
-  // Reports
-  getSalesReport: (params?: Record<string, any>) => Promise<any>;
-  getInventoryReport: () => Promise<any>;
-  getProductionReport: (params?: Record<string, any>) => Promise<any>;
-  getCustomerReport: () => Promise<any>;
-  getFinancialReport: (params?: Record<string, any>) => Promise<any>;
+  // Reports (typed — these pages have been audited)
+  getSalesReport: (params?: Record<string, any>) => Promise<{ success: boolean; report: SalesReportData }>;
+  getInventoryReport: () => Promise<{ success: boolean; report: InventoryReportData }>;
+  getProductionReport: (params?: Record<string, any>) => Promise<{ success: boolean; report: ProductionReportData }>;
+  getCustomerReport: () => Promise<{ success: boolean; report: CustomerReportData }>;
+  getFinancialReport: (params?: Record<string, any>) => Promise<{ success: boolean; report: FinancialReportData }>;
 
   // Users
   getUsers: (params?: Record<string, any>) => Promise<any>;
