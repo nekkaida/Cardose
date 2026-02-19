@@ -33,7 +33,12 @@ describe('Audit Logs API', () => {
     });
 
     test('should support pagination', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/audit-logs?page=1&limit=5', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/audit-logs?page=1&limit=5',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -44,14 +49,19 @@ describe('Audit Logs API', () => {
     });
 
     test('should filter by action', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/audit-logs?action=login', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/audit-logs?action=login',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
       expect(data.success).toBe(true);
       expect(Array.isArray(data.logs)).toBe(true);
       // All returned logs should have the filtered action
-      data.logs.forEach(log => {
+      data.logs.forEach((log) => {
         expect(log.action).toBe('login');
       });
     });
@@ -59,7 +69,7 @@ describe('Audit Logs API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/audit-logs'
+        url: '/api/audit-logs',
       });
 
       expect(response.statusCode).toBe(401);
