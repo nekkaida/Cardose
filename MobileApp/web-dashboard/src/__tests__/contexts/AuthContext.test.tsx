@@ -8,10 +8,34 @@ import userEvent from '@testing-library/user-event';
 import axios from 'axios';
 import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 
-// Mock axios
-vi.mock('axios');
-import type { Mocked } from 'vitest';
-const mockedAxios = axios as Mocked<typeof axios>;
+// Mock axios — provide a create() that returns an object with interceptors
+vi.mock('axios', () => {
+  const instance = {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    defaults: { headers: { common: {} } },
+    interceptors: {
+      request: { use: vi.fn(), eject: vi.fn() },
+      response: { use: vi.fn(), eject: vi.fn() },
+    },
+  };
+  return {
+    default: {
+      create: vi.fn(() => instance),
+      defaults: { headers: { common: {} } },
+      get: vi.fn(),
+      post: vi.fn(),
+    },
+    __esModule: true,
+  };
+});
+
+// Get a reference to the mocked axios instance used by AuthContext
+import { apiClient } from '../../contexts/AuthContext';
+const mockedAxios = apiClient as any;
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -36,7 +60,11 @@ const TestComponent: React.FC = () => {
   const { user, isAuthenticated, loading, login, logout, token } = useAuth();
 
   const handleLogin = async () => {
-    await login('testuser', 'testpass');
+    try {
+      await login('testuser', 'testpass');
+    } catch {
+      // Expected in error tests
+    }
   };
 
   return (
