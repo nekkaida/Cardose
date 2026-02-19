@@ -24,10 +24,16 @@ describe('Templates API', () => {
         type: 'email',
         body: '<h1>Invoice</h1>',
         content: '<h1>Invoice</h1>',
-        category: 'business'
+        category: 'business',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/templates', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/templates',
+        authToken,
+        payload
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -41,10 +47,16 @@ describe('Templates API', () => {
         type: 'email',
         body: '<h1>Invoice</h1>',
         content: '<h1>Invoice</h1>',
-        category: 'business'
+        category: 'business',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/templates', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/templates',
+        authToken,
+        payload
+      );
 
       expect(response.statusCode).toBe(400);
     });
@@ -54,10 +66,16 @@ describe('Templates API', () => {
         name: 'Test Template No Type',
         body: '<h1>Invoice</h1>',
         content: '<h1>Invoice</h1>',
-        category: 'business'
+        category: 'business',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/templates', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/templates',
+        authToken,
+        payload
+      );
 
       expect(response.statusCode).toBe(400);
     });
@@ -68,13 +86,13 @@ describe('Templates API', () => {
         type: 'email',
         body: '<h1>Invoice</h1>',
         content: '<h1>Invoice</h1>',
-        category: 'business'
+        category: 'business',
       };
 
       const response = await app.inject({
         method: 'POST',
         url: '/api/templates',
-        payload
+        payload,
       });
 
       expect(response.statusCode).toBe(401);
@@ -97,7 +115,12 @@ describe('Templates API', () => {
     });
 
     test('should filter templates by type', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/templates?type=email', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/templates?type=email',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -109,7 +132,7 @@ describe('Templates API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/templates'
+        url: '/api/templates',
       });
 
       expect(response.statusCode).toBe(401);
@@ -130,9 +153,15 @@ describe('Templates API', () => {
         type: 'email',
         body: '<h1>Email Template</h1>',
         content: '<h1>Email Template</h1>',
-        category: 'general'
+        category: 'general',
       };
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/templates', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/templates',
+        authToken,
+        payload
+      );
       const data = JSON.parse(response.body);
       createdTemplateId = data.templateId;
     });
@@ -145,7 +174,10 @@ describe('Templates API', () => {
       }
 
       const response = await makeAuthenticatedRequest(
-        app, 'GET', `/api/templates/${createdTemplateId}`, authToken
+        app,
+        'GET',
+        `/api/templates/${createdTemplateId}`,
+        authToken
       );
 
       expect(response.statusCode).toBe(200);
@@ -156,7 +188,10 @@ describe('Templates API', () => {
 
     test('should return 500 for non-existent template ID', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET', '/api/templates/non-existent-id-12345', authToken
+        app,
+        'GET',
+        '/api/templates/non-existent-id-12345',
+        authToken
       );
 
       // The service throws an error which the route catches and returns 500
@@ -177,9 +212,15 @@ describe('Templates API', () => {
         type: 'email',
         body: '<h1>Original</h1>',
         content: '<h1>Original</h1>',
-        category: 'general'
+        category: 'general',
       };
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/templates', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/templates',
+        authToken,
+        payload
+      );
       const data = JSON.parse(response.body);
       createdTemplateId = data.templateId;
     });
@@ -193,7 +234,11 @@ describe('Templates API', () => {
 
       const payload = { name: 'Updated Template' };
       const response = await makeAuthenticatedRequest(
-        app, 'PUT', `/api/templates/${createdTemplateId}`, authToken, payload
+        app,
+        'PUT',
+        `/api/templates/${createdTemplateId}`,
+        authToken,
+        payload
       );
 
       expect(response.statusCode).toBe(200);
@@ -205,7 +250,11 @@ describe('Templates API', () => {
     test('should return 500 for non-existent template ID', async () => {
       const payload = { name: 'Updated Template' };
       const response = await makeAuthenticatedRequest(
-        app, 'PUT', '/api/templates/non-existent-id-12345', authToken, payload
+        app,
+        'PUT',
+        '/api/templates/non-existent-id-12345',
+        authToken,
+        payload
       );
 
       // The update succeeds at SQL level (0 rows affected) but the service still returns success
@@ -226,9 +275,15 @@ describe('Templates API', () => {
         type: 'email',
         body: '<h1>Delete Me</h1>',
         content: '<h1>Delete Me</h1>',
-        category: 'general'
+        category: 'general',
       };
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/templates', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/templates',
+        authToken,
+        payload
+      );
       const data = JSON.parse(response.body);
       createdTemplateId = data.templateId;
     });
@@ -241,7 +296,10 @@ describe('Templates API', () => {
       }
 
       const response = await makeAuthenticatedRequest(
-        app, 'DELETE', `/api/templates/${createdTemplateId}`, authToken
+        app,
+        'DELETE',
+        `/api/templates/${createdTemplateId}`,
+        authToken
       );
 
       expect(response.statusCode).toBe(200);
@@ -252,7 +310,10 @@ describe('Templates API', () => {
 
     test('should handle deletion of non-existent template ID', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'DELETE', '/api/templates/non-existent-id-12345', authToken
+        app,
+        'DELETE',
+        '/api/templates/non-existent-id-12345',
+        authToken
       );
 
       // The DELETE SQL runs without error even for non-existent IDs (0 rows affected)
@@ -272,9 +333,15 @@ describe('Templates API', () => {
         type: 'email',
         body: '<h1>Duplicate Me</h1>',
         content: '<h1>Duplicate Me</h1>',
-        category: 'general'
+        category: 'general',
       };
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/templates', authToken, payload);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/templates',
+        authToken,
+        payload
+      );
       const data = JSON.parse(response.body);
       createdTemplateId = data.templateId;
     });
@@ -287,7 +354,11 @@ describe('Templates API', () => {
       }
 
       const response = await makeAuthenticatedRequest(
-        app, 'POST', `/api/templates/${createdTemplateId}/duplicate`, authToken, {}
+        app,
+        'POST',
+        `/api/templates/${createdTemplateId}/duplicate`,
+        authToken,
+        {}
       );
 
       expect(response.statusCode).toBe(200);
@@ -298,7 +369,11 @@ describe('Templates API', () => {
 
     test('should return 500 when duplicating non-existent template', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'POST', '/api/templates/non-existent-id-12345/duplicate', authToken, {}
+        app,
+        'POST',
+        '/api/templates/non-existent-id-12345/duplicate',
+        authToken,
+        {}
       );
 
       // The service tries to get the template first, which throws an error
