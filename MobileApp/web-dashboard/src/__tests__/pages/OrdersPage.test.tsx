@@ -16,45 +16,68 @@ vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/orders', search: '' }),
 }));
 
+// Mock AuthContext
+vi.mock('../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: '1', username: 'admin', email: 'admin@test.com', role: 'admin' },
+    isAuthenticated: true,
+    loading: false,
+    login: vi.fn(),
+    logout: vi.fn(),
+    token: 'test-token',
+  }),
+}));
+
 // Mock ApiContext
 const mockGetOrders = vi.fn();
+const mockGetCustomers = vi.fn();
 
 vi.mock('../../contexts/ApiContext', () => ({
   useApi: () => ({
-    getDashboardAnalytics: vi.fn(),
+    getDashboardAnalytics: vi.fn().mockResolvedValue({}),
     getOrders: mockGetOrders,
-    createOrder: vi.fn(),
-    updateOrder: vi.fn(),
-    getCustomers: vi.fn(),
-    createCustomer: vi.fn(),
-    updateCustomer: vi.fn(),
-    getInventory: vi.fn(),
-    createInventoryItem: vi.fn(),
-    updateInventoryStock: vi.fn(),
-    getFinancialSummary: vi.fn(),
-    getTransactions: vi.fn(),
-    createTransaction: vi.fn(),
-    calculatePricing: vi.fn(),
-    getRevenueAnalytics: vi.fn(),
-    getCustomerAnalytics: vi.fn(),
-    getInventoryAnalytics: vi.fn(),
-    getProductionAnalytics: vi.fn(),
-    getProductionBoard: vi.fn(),
-    getProductionTasks: vi.fn(),
-    getProductionStats: vi.fn(),
-    getSalesReport: vi.fn(),
-    getInventoryReport: vi.fn(),
-    getProductionReport: vi.fn(),
-    getCustomerReport: vi.fn(),
-    getFinancialReport: vi.fn(),
-    getUsers: vi.fn(),
-    createUser: vi.fn(),
-    updateUser: vi.fn(),
-    updateUserStatus: vi.fn(),
-    deleteUser: vi.fn(),
-    getSettings: vi.fn(),
-    updateSetting: vi.fn(),
-    deleteSetting: vi.fn(),
+    createOrder: vi.fn().mockResolvedValue({}),
+    updateOrder: vi.fn().mockResolvedValue({}),
+    updateOrderStatus: vi.fn().mockResolvedValue({}),
+    deleteOrder: vi.fn().mockResolvedValue({}),
+    getCustomers: mockGetCustomers,
+    createCustomer: vi.fn().mockResolvedValue({}),
+    updateCustomer: vi.fn().mockResolvedValue({}),
+    deleteCustomer: vi.fn().mockResolvedValue({}),
+    getInventory: vi.fn().mockResolvedValue({}),
+    createInventoryItem: vi.fn().mockResolvedValue({}),
+    updateInventoryItem: vi.fn().mockResolvedValue({}),
+    updateInventoryStock: vi.fn().mockResolvedValue({}),
+    deleteInventoryItem: vi.fn().mockResolvedValue({}),
+    createInventoryMovement: vi.fn().mockResolvedValue({}),
+    getFinancialSummary: vi.fn().mockResolvedValue({}),
+    getTransactions: vi.fn().mockResolvedValue({}),
+    createTransaction: vi.fn().mockResolvedValue({}),
+    calculatePricing: vi.fn().mockResolvedValue({}),
+    getInvoices: vi.fn().mockResolvedValue({}),
+    createInvoice: vi.fn().mockResolvedValue({}),
+    updateInvoiceStatus: vi.fn().mockResolvedValue({}),
+    getRevenueAnalytics: vi.fn().mockResolvedValue({}),
+    getCustomerAnalytics: vi.fn().mockResolvedValue({}),
+    getInventoryAnalytics: vi.fn().mockResolvedValue({}),
+    getProductionAnalytics: vi.fn().mockResolvedValue({}),
+    getProductionBoard: vi.fn().mockResolvedValue({}),
+    getProductionTasks: vi.fn().mockResolvedValue({}),
+    getProductionStats: vi.fn().mockResolvedValue({}),
+    updateProductionStage: vi.fn().mockResolvedValue({}),
+    getSalesReport: vi.fn().mockResolvedValue({}),
+    getInventoryReport: vi.fn().mockResolvedValue({}),
+    getProductionReport: vi.fn().mockResolvedValue({}),
+    getCustomerReport: vi.fn().mockResolvedValue({}),
+    getFinancialReport: vi.fn().mockResolvedValue({}),
+    getUsers: vi.fn().mockResolvedValue({}),
+    createUser: vi.fn().mockResolvedValue({}),
+    updateUser: vi.fn().mockResolvedValue({}),
+    updateUserStatus: vi.fn().mockResolvedValue({}),
+    deleteUser: vi.fn().mockResolvedValue({}),
+    getSettings: vi.fn().mockResolvedValue({}),
+    updateSetting: vi.fn().mockResolvedValue({}),
+    deleteSetting: vi.fn().mockResolvedValue({}),
   }),
 }));
 
@@ -68,15 +91,14 @@ vi.mock('../../contexts/LanguageContext', () => ({
         'orders.title': 'Orders',
         'orders.new': 'New Order',
         'orders.pending': 'Pending',
-        'orders.inProgress': 'In Progress',
         'orders.completed': 'Completed',
         'orders.cancelled': 'Cancelled',
-        'orders.in_progress': 'In Progress',
         'common.loading': 'Loading...',
         'common.error': 'Error',
         'common.search': 'Search',
         'common.edit': 'Edit',
         'common.delete': 'Delete',
+        'common.cancel': 'Cancel',
       };
       return translations[key] || key;
     },
@@ -89,38 +111,60 @@ const mockOrdersData = {
       id: '1',
       order_number: 'ORD-001',
       customer_name: 'John Doe',
+      customer_id: 'c1',
       status: 'pending',
       priority: 'normal',
       total_amount: 5000000,
       due_date: '2025-02-01',
       created_at: '2025-01-15',
+      box_type: 'standard',
+      special_requests: '',
     },
     {
       id: '2',
       order_number: 'ORD-002',
       customer_name: 'Jane Smith',
+      customer_id: 'c2',
       status: 'completed',
       priority: 'urgent',
       total_amount: 10000000,
       due_date: '2025-01-20',
       created_at: '2025-01-10',
+      box_type: 'premium',
+      special_requests: '',
     },
   ],
   totalPages: 1,
+  total: 2,
+  stats: {
+    total: 2,
+    pending: 1,
+    designing: 0,
+    approved: 0,
+    production: 0,
+    quality_control: 0,
+    completed: 1,
+    cancelled: 0,
+    totalValue: 15000000,
+    overdue: 0,
+  },
 };
 
 describe('OrdersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // getCustomers is also called on mount; provide a default resolve
+    mockGetCustomers.mockResolvedValue({ customers: [] });
   });
 
   describe('Loading state', () => {
-    it('should show loading spinner initially', () => {
+    it('should show loading skeleton initially', () => {
       mockGetOrders.mockImplementation(() => new Promise(() => {}));
       render(<OrdersPage />);
 
-      const spinnerContainer = document.querySelector('.animate-spin');
-      expect(spinnerContainer).toBeInTheDocument();
+      // Page uses skeleton rows (animate-pulse), not spinner
+      const skeletonElement = document.querySelector('.animate-pulse');
+      expect(skeletonElement).toBeInTheDocument();
     });
   });
 
@@ -180,11 +224,11 @@ describe('OrdersPage', () => {
       });
     });
 
-    it('should display subtitle', async () => {
+    it('should display order count subtitle', async () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Manage and track all customer orders')).toBeInTheDocument();
+        expect(screen.getByText(/total orders/)).toBeInTheDocument();
       });
     });
 
@@ -211,12 +255,13 @@ describe('OrdersPage', () => {
       });
     });
 
-    it('should display priority badges', async () => {
+    it('should display priority badges with capitalized labels', async () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('normal')).toBeInTheDocument();
-        expect(screen.getByText('urgent')).toBeInTheDocument();
+        // PRIORITY_LABELS maps 'normal' -> 'Normal', 'urgent' -> 'Urgent'
+        expect(screen.getByText('Normal')).toBeInTheDocument();
+        expect(screen.getByText('Urgent')).toBeInTheDocument();
       });
     });
 
@@ -240,20 +285,22 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+        expect(screen.getByText(/Page 1 of 1/)).toBeInTheDocument();
         expect(screen.getByText('Previous')).toBeInTheDocument();
         expect(screen.getByText('Next')).toBeInTheDocument();
       });
     });
 
-    it('should display Edit and Delete action buttons', async () => {
+    it('should display Edit buttons but not Delete for admin role', async () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
+        // Edit buttons should be present (one per order)
         const editButtons = screen.getAllByText('Edit');
         expect(editButtons.length).toBe(2);
-        const deleteButtons = screen.getAllByText('Delete');
-        expect(deleteButtons.length).toBe(2);
+        // Delete buttons should NOT be visible because canDelete = role === 'owner' || 'manager'
+        // and test user has role 'admin'
+        expect(screen.queryByText('Delete')).not.toBeInTheDocument();
       });
     });
   });
