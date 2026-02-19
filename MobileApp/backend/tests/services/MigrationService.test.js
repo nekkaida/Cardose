@@ -43,9 +43,9 @@ describe('MigrationService', () => {
       const service = new MigrationService(db);
 
       // Verify the table exists
-      const tableInfo = db.prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'"
-      ).get();
+      const tableInfo = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'")
+        .get();
 
       expect(tableInfo).toBeDefined();
       expect(tableInfo.name).toBe('schema_migrations');
@@ -55,7 +55,7 @@ describe('MigrationService', () => {
       const service = new MigrationService(db);
 
       const columns = db.prepare('PRAGMA table_info(schema_migrations)').all();
-      const columnNames = columns.map(c => c.name);
+      const columnNames = columns.map((c) => c.name);
 
       expect(columnNames).toContain('id');
       expect(columnNames).toContain('name');
@@ -144,8 +144,14 @@ describe('MigrationService', () => {
       // Create migration files in temp dir
       const migrationsSubDir = path.join(tempDir, 'migrations');
       fs.mkdirSync(migrationsSubDir);
-      fs.writeFileSync(path.join(migrationsSubDir, '001_first.js'), 'module.exports = { up() {} };');
-      fs.writeFileSync(path.join(migrationsSubDir, '002_second.js'), 'module.exports = { up() {} };');
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_first.js'),
+        'module.exports = { up() {} };'
+      );
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '002_second.js'),
+        'module.exports = { up() {} };'
+      );
 
       service.migrationsDir = migrationsSubDir;
 
@@ -159,9 +165,18 @@ describe('MigrationService', () => {
       // Create migration files in temp dir
       const migrationsSubDir = path.join(tempDir, 'migrations');
       fs.mkdirSync(migrationsSubDir);
-      fs.writeFileSync(path.join(migrationsSubDir, '001_first.js'), 'module.exports = { up() {} };');
-      fs.writeFileSync(path.join(migrationsSubDir, '002_second.js'), 'module.exports = { up() {} };');
-      fs.writeFileSync(path.join(migrationsSubDir, '003_third.js'), 'module.exports = { up() {} };');
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_first.js'),
+        'module.exports = { up() {} };'
+      );
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '002_second.js'),
+        'module.exports = { up() {} };'
+      );
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '003_third.js'),
+        'module.exports = { up() {} };'
+      );
 
       // Mark first migration as applied
       db.prepare('INSERT INTO schema_migrations (name) VALUES (?)').run('001_first.js');
@@ -177,7 +192,10 @@ describe('MigrationService', () => {
 
       const migrationsSubDir = path.join(tempDir, 'migrations');
       fs.mkdirSync(migrationsSubDir);
-      fs.writeFileSync(path.join(migrationsSubDir, '001_first.js'), 'module.exports = { up() {} };');
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_first.js'),
+        'module.exports = { up() {} };'
+      );
       fs.writeFileSync(path.join(migrationsSubDir, 'README.md'), '# Migrations');
       fs.writeFileSync(path.join(migrationsSubDir, '002_second.sql'), 'SELECT 1;');
 
@@ -192,9 +210,18 @@ describe('MigrationService', () => {
 
       const migrationsSubDir = path.join(tempDir, 'migrations');
       fs.mkdirSync(migrationsSubDir);
-      fs.writeFileSync(path.join(migrationsSubDir, '003_third.js'), 'module.exports = { up() {} };');
-      fs.writeFileSync(path.join(migrationsSubDir, '001_first.js'), 'module.exports = { up() {} };');
-      fs.writeFileSync(path.join(migrationsSubDir, '002_second.js'), 'module.exports = { up() {} };');
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '003_third.js'),
+        'module.exports = { up() {} };'
+      );
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_first.js'),
+        'module.exports = { up() {} };'
+      );
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '002_second.js'),
+        'module.exports = { up() {} };'
+      );
 
       service.migrationsDir = migrationsSubDir;
 
@@ -207,7 +234,10 @@ describe('MigrationService', () => {
 
       const migrationsSubDir = path.join(tempDir, 'migrations');
       fs.mkdirSync(migrationsSubDir);
-      fs.writeFileSync(path.join(migrationsSubDir, '001_first.js'), 'module.exports = { up() {} };');
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_first.js'),
+        'module.exports = { up() {} };'
+      );
 
       db.prepare('INSERT INTO schema_migrations (name) VALUES (?)').run('001_first.js');
 
@@ -258,13 +288,13 @@ describe('MigrationService', () => {
       expect(result.migrations).toHaveLength(1);
       expect(result.migrations[0]).toEqual({
         name: '001_create_test_table.js',
-        status: 'applied'
+        status: 'applied',
       });
 
       // Verify the table was actually created
-      const tableInfo = db.prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'"
-      ).get();
+      const tableInfo = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='test_table'")
+        .get();
       expect(tableInfo).toBeDefined();
 
       // Verify the migration was recorded in schema_migrations
@@ -279,21 +309,27 @@ describe('MigrationService', () => {
       fs.mkdirSync(migrationsSubDir);
 
       // Create two migration files
-      fs.writeFileSync(path.join(migrationsSubDir, '001_create_table_a.js'), `
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_create_table_a.js'),
+        `
         module.exports = {
           up(db) {
             db.exec('CREATE TABLE table_a (id INTEGER PRIMARY KEY)');
           }
         };
-      `);
+      `
+      );
 
-      fs.writeFileSync(path.join(migrationsSubDir, '002_create_table_b.js'), `
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '002_create_table_b.js'),
+        `
         module.exports = {
           up(db) {
             db.exec('CREATE TABLE table_b (id INTEGER PRIMARY KEY, a_id INTEGER REFERENCES table_a(id))');
           }
         };
-      `);
+      `
+      );
 
       service.migrationsDir = migrationsSubDir;
 
@@ -304,9 +340,11 @@ describe('MigrationService', () => {
       expect(result.migrations[1].name).toBe('002_create_table_b.js');
 
       // Both tables should exist
-      const tables = db.prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('table_a', 'table_b') ORDER BY name"
-      ).all();
+      const tables = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('table_a', 'table_b') ORDER BY name"
+        )
+        .all();
       expect(tables).toHaveLength(2);
     });
 
@@ -317,21 +355,27 @@ describe('MigrationService', () => {
       fs.mkdirSync(migrationsSubDir);
 
       // Create two migration files
-      fs.writeFileSync(path.join(migrationsSubDir, '001_already_done.js'), `
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_already_done.js'),
+        `
         module.exports = {
           up(db) {
             db.exec('CREATE TABLE already_done (id INTEGER PRIMARY KEY)');
           }
         };
-      `);
+      `
+      );
 
-      fs.writeFileSync(path.join(migrationsSubDir, '002_still_pending.js'), `
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '002_still_pending.js'),
+        `
         module.exports = {
           up(db) {
             db.exec('CREATE TABLE still_pending (id INTEGER PRIMARY KEY)');
           }
         };
-      `);
+      `
+      );
 
       // Mark the first one as already applied
       db.prepare('INSERT INTO schema_migrations (name) VALUES (?)').run('001_already_done.js');
@@ -346,15 +390,15 @@ describe('MigrationService', () => {
       expect(result.migrations[0].name).toBe('002_still_pending.js');
 
       // The already_done table should NOT exist (migration was skipped, not run)
-      const alreadyDoneTable = db.prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='already_done'"
-      ).get();
+      const alreadyDoneTable = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='already_done'")
+        .get();
       expect(alreadyDoneTable).toBeUndefined();
 
       // The still_pending table SHOULD exist
-      const stillPendingTable = db.prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='still_pending'"
-      ).get();
+      const stillPendingTable = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='still_pending'")
+        .get();
       expect(stillPendingTable).toBeDefined();
     });
 
@@ -365,14 +409,17 @@ describe('MigrationService', () => {
       fs.mkdirSync(migrationsSubDir);
 
       // Create a migration that will fail
-      fs.writeFileSync(path.join(migrationsSubDir, '001_will_fail.js'), `
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_will_fail.js'),
+        `
         module.exports = {
           up(db) {
             // This will fail because the table doesn't exist to ALTER
             db.exec('ALTER TABLE nonexistent_table ADD COLUMN foo TEXT');
           }
         };
-      `);
+      `
+      );
 
       service.migrationsDir = migrationsSubDir;
 
@@ -392,22 +439,28 @@ describe('MigrationService', () => {
       fs.mkdirSync(migrationsSubDir);
 
       // First migration succeeds
-      fs.writeFileSync(path.join(migrationsSubDir, '001_good.js'), `
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_good.js'),
+        `
         module.exports = {
           up(db) {
             db.exec('CREATE TABLE good_table (id INTEGER PRIMARY KEY)');
           }
         };
-      `);
+      `
+      );
 
       // Second migration fails
-      fs.writeFileSync(path.join(migrationsSubDir, '002_bad.js'), `
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '002_bad.js'),
+        `
         module.exports = {
           up(db) {
             db.exec('INVALID SQL STATEMENT HERE');
           }
         };
-      `);
+      `
+      );
 
       service.migrationsDir = migrationsSubDir;
 
@@ -419,9 +472,9 @@ describe('MigrationService', () => {
       expect(applied).not.toContain('002_bad.js');
 
       // The good_table should exist
-      const goodTable = db.prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='good_table'"
-      ).get();
+      const goodTable = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='good_table'")
+        .get();
       expect(goodTable).toBeDefined();
     });
 
@@ -432,14 +485,17 @@ describe('MigrationService', () => {
       fs.mkdirSync(migrationsSubDir);
 
       // Migration that uses INSERT - running it twice would cause duplicate records
-      fs.writeFileSync(path.join(migrationsSubDir, '001_insert_data.js'), `
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_insert_data.js'),
+        `
         module.exports = {
           up(db) {
             db.exec('CREATE TABLE config (id INTEGER PRIMARY KEY, key TEXT UNIQUE, value TEXT)');
             db.exec("INSERT INTO config (key, value) VALUES ('version', '1.0')");
           }
         };
-      `);
+      `
+      );
 
       service.migrationsDir = migrationsSubDir;
 
@@ -481,8 +537,14 @@ describe('MigrationService', () => {
 
       const migrationsSubDir = path.join(tempDir, 'migrations');
       fs.mkdirSync(migrationsSubDir);
-      fs.writeFileSync(path.join(migrationsSubDir, '001_pending.js'), 'module.exports = { up() {} };');
-      fs.writeFileSync(path.join(migrationsSubDir, '002_pending.js'), 'module.exports = { up() {} };');
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '001_pending.js'),
+        'module.exports = { up() {} };'
+      );
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '002_pending.js'),
+        'module.exports = { up() {} };'
+      );
 
       service.migrationsDir = migrationsSubDir;
 
@@ -500,8 +562,14 @@ describe('MigrationService', () => {
       const migrationsSubDir = path.join(tempDir, 'migrations');
       fs.mkdirSync(migrationsSubDir);
       fs.writeFileSync(path.join(migrationsSubDir, '001_done.js'), 'module.exports = { up() {} };');
-      fs.writeFileSync(path.join(migrationsSubDir, '002_pending.js'), 'module.exports = { up() {} };');
-      fs.writeFileSync(path.join(migrationsSubDir, '003_pending.js'), 'module.exports = { up() {} };');
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '002_pending.js'),
+        'module.exports = { up() {} };'
+      );
+      fs.writeFileSync(
+        path.join(migrationsSubDir, '003_pending.js'),
+        'module.exports = { up() {} };'
+      );
 
       // Mark the first as applied
       db.prepare('INSERT INTO schema_migrations (name) VALUES (?)').run('001_done.js');
