@@ -8,25 +8,25 @@ import userEvent from '@testing-library/user-event';
 import Header from '../../components/Header';
 
 // Mock AuthContext
-const mockLogout = jest.fn();
+const mockLogout = vi.fn();
 const mockUser = { id: '1', username: 'testadmin', email: 'admin@test.com', role: 'admin' };
 
-jest.mock('../../contexts/AuthContext', () => ({
+vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
     user: mockUser,
     isAuthenticated: true,
     loading: false,
-    login: jest.fn(),
+    login: vi.fn(),
     logout: mockLogout,
     token: 'mock-token',
   }),
 }));
 
 // Mock LanguageContext
-const mockSetLanguage = jest.fn();
+const mockSetLanguage = vi.fn();
 let mockLanguage = 'en';
 
-jest.mock('../../contexts/LanguageContext', () => ({
+vi.mock('../../contexts/LanguageContext', () => ({
   useLanguage: () => ({
     language: mockLanguage,
     setLanguage: mockSetLanguage,
@@ -43,7 +43,7 @@ jest.mock('../../contexts/LanguageContext', () => ({
 
 describe('Header', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockLanguage = 'en';
   });
 

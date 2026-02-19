@@ -8,61 +8,61 @@ import userEvent from '@testing-library/user-event';
 import AnalyticsPage from '../../pages/AnalyticsPage';
 
 // Mock useNavigate
-const mockNavigate = jest.fn();
+const mockNavigate = vi.fn();
 
-jest.mock('react-router-dom', () => ({
+vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
   useParams: () => ({}),
   useLocation: () => ({ pathname: '/analytics', search: '' }),
 }));
 
 // Mock ApiContext
-const mockGetDashboardAnalytics = jest.fn();
+const mockGetDashboardAnalytics = vi.fn();
 
-jest.mock('../../contexts/ApiContext', () => ({
+vi.mock('../../contexts/ApiContext', () => ({
   useApi: () => ({
     getDashboardAnalytics: mockGetDashboardAnalytics,
-    getOrders: jest.fn(),
-    createOrder: jest.fn(),
-    updateOrder: jest.fn(),
-    getCustomers: jest.fn(),
-    createCustomer: jest.fn(),
-    updateCustomer: jest.fn(),
-    getInventory: jest.fn(),
-    createInventoryItem: jest.fn(),
-    updateInventoryStock: jest.fn(),
-    getFinancialSummary: jest.fn(),
-    getTransactions: jest.fn(),
-    createTransaction: jest.fn(),
-    calculatePricing: jest.fn(),
-    getRevenueAnalytics: jest.fn(),
-    getCustomerAnalytics: jest.fn(),
-    getInventoryAnalytics: jest.fn(),
-    getProductionAnalytics: jest.fn(),
-    getProductionBoard: jest.fn(),
-    getProductionTasks: jest.fn(),
-    getProductionStats: jest.fn(),
-    getSalesReport: jest.fn(),
-    getInventoryReport: jest.fn(),
-    getProductionReport: jest.fn(),
-    getCustomerReport: jest.fn(),
-    getFinancialReport: jest.fn(),
-    getUsers: jest.fn(),
-    createUser: jest.fn(),
-    updateUser: jest.fn(),
-    updateUserStatus: jest.fn(),
-    deleteUser: jest.fn(),
-    getSettings: jest.fn(),
-    updateSetting: jest.fn(),
-    deleteSetting: jest.fn(),
+    getOrders: vi.fn(),
+    createOrder: vi.fn(),
+    updateOrder: vi.fn(),
+    getCustomers: vi.fn(),
+    createCustomer: vi.fn(),
+    updateCustomer: vi.fn(),
+    getInventory: vi.fn(),
+    createInventoryItem: vi.fn(),
+    updateInventoryStock: vi.fn(),
+    getFinancialSummary: vi.fn(),
+    getTransactions: vi.fn(),
+    createTransaction: vi.fn(),
+    calculatePricing: vi.fn(),
+    getRevenueAnalytics: vi.fn(),
+    getCustomerAnalytics: vi.fn(),
+    getInventoryAnalytics: vi.fn(),
+    getProductionAnalytics: vi.fn(),
+    getProductionBoard: vi.fn(),
+    getProductionTasks: vi.fn(),
+    getProductionStats: vi.fn(),
+    getSalesReport: vi.fn(),
+    getInventoryReport: vi.fn(),
+    getProductionReport: vi.fn(),
+    getCustomerReport: vi.fn(),
+    getFinancialReport: vi.fn(),
+    getUsers: vi.fn(),
+    createUser: vi.fn(),
+    updateUser: vi.fn(),
+    updateUserStatus: vi.fn(),
+    deleteUser: vi.fn(),
+    getSettings: vi.fn(),
+    updateSetting: vi.fn(),
+    deleteSetting: vi.fn(),
   }),
 }));
 
 // Mock LanguageContext
-jest.mock('../../contexts/LanguageContext', () => ({
+vi.mock('../../contexts/LanguageContext', () => ({
   useLanguage: () => ({
     language: 'en',
-    setLanguage: jest.fn(),
+    setLanguage: vi.fn(),
     t: (key: string) => {
       const translations: Record<string, string> = {
         'analytics.title': 'Analytics',
@@ -99,7 +99,7 @@ const mockAnalyticsData = {
 
 describe('AnalyticsPage', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Loading state', () => {

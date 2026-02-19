@@ -7,7 +7,7 @@ import { render, screen } from '@testing-library/react';
 
 // Mock react-router-dom to avoid ESM import issues
 let mockPathname = '/dashboard';
-jest.mock('react-router-dom', () => ({
+vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: mockPathname }),
   Link: ({ to, children, className }: any) => (
     <a href={to} className={className}>
@@ -19,10 +19,10 @@ jest.mock('react-router-dom', () => ({
 import Sidebar from '../../components/Sidebar';
 
 // Mock LanguageContext
-jest.mock('../../contexts/LanguageContext', () => ({
+vi.mock('../../contexts/LanguageContext', () => ({
   useLanguage: () => ({
     language: 'en',
-    setLanguage: jest.fn(),
+    setLanguage: vi.fn(),
     t: (key: string) => {
       const translations: Record<string, string> = {
         'nav.dashboard': 'Dashboard',

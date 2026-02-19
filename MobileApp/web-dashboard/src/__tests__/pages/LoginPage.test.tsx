@@ -8,23 +8,23 @@ import userEvent from '@testing-library/user-event';
 import LoginPage from '../../pages/LoginPage';
 
 // Mock AuthContext
-const mockLogin = jest.fn();
+const mockLogin = vi.fn();
 
-jest.mock('../../contexts/AuthContext', () => ({
+vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
     user: null,
     isAuthenticated: false,
     loading: false,
     login: mockLogin,
-    logout: jest.fn(),
+    logout: vi.fn(),
     token: null,
   }),
 }));
 
 // Mock LanguageContext
-const mockSetLanguage = jest.fn();
+const mockSetLanguage = vi.fn();
 
-jest.mock('../../contexts/LanguageContext', () => ({
+vi.mock('../../contexts/LanguageContext', () => ({
   useLanguage: () => ({
     language: 'en',
     setLanguage: mockSetLanguage,
@@ -45,7 +45,7 @@ jest.mock('../../contexts/LanguageContext', () => ({
 
 describe('LoginPage', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Rendering', () => {

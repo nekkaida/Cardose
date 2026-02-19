@@ -62,9 +62,7 @@ jobs:
         run: npx prettier --check .
 
       - name: Tests
-        run: npx react-scripts test --watchAll=false --ci
+        run: npm test
 
       - name: Build
         run: npm run build
-        env:
-          CI: true

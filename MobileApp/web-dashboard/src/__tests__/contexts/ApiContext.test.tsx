@@ -9,21 +9,21 @@ import axios from 'axios';
 import { ApiProvider, useApi } from '../../contexts/ApiContext';
 
 // Mock axios.create to return a mock instance
-const mockGet = jest.fn();
-const mockPost = jest.fn();
-const mockPut = jest.fn();
-const mockPatch = jest.fn();
-const mockDelete = jest.fn();
+const mockGet = vi.fn();
+const mockPost = vi.fn();
+const mockPut = vi.fn();
+const mockPatch = vi.fn();
+const mockDelete = vi.fn();
 
-jest.mock('axios', () => {
+vi.mock('axios', () => {
   const mockInterceptors = {
-    request: { use: jest.fn() },
-    response: { use: jest.fn() },
+    request: { use: vi.fn() },
+    response: { use: vi.fn() },
   };
   return {
     __esModule: true,
     default: {
-      create: jest.fn(() => ({
+      create: vi.fn(() => ({
         get: (...args: any[]) => mockGet(...args),
         post: (...args: any[]) => mockPost(...args),
         put: (...args: any[]) => mockPut(...args),
@@ -110,12 +110,12 @@ const TestComponent: React.FC = () => {
 
 describe('ApiContext', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('useApi hook', () => {
     it('should throw error when used outside provider', () => {
-      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       expect(() => {
         render(<TestComponent />);

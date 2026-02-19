@@ -17,10 +17,10 @@ const ThrowingComponent: React.FC<{ shouldThrow: boolean }> = ({ shouldThrow }) 
 
 describe('ErrorBoundary', () => {
   // Suppress console.error for expected errors during tests
-  let consoleError: jest.SpyInstance;
+  let consoleError: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {

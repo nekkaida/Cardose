@@ -28,7 +28,7 @@ const TestComponent: React.FC = () => {
 describe('LanguageContext', () => {
   describe('useLanguage hook', () => {
     it('should throw error when used outside provider', () => {
-      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       expect(() => {
         render(<TestComponent />);
