@@ -59,9 +59,10 @@ describe('DatabaseService', () => {
     test('should create all required tables', () => {
       dbService.initialize();
 
-      const tables = dbService.db.prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-      ).all().map(t => t.name);
+      const tables = dbService.db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        .all()
+        .map((t) => t.name);
 
       // Core tables that should always be created
       const expectedTables = [
@@ -94,7 +95,7 @@ describe('DatabaseService', () => {
         'production_issues',
         'production_templates',
         'reorder_alerts',
-        'schema_migrations'  // Created by MigrationService during initialize
+        'schema_migrations', // Created by MigrationService during initialize
       ];
 
       for (const tableName of expectedTables) {
@@ -105,9 +106,12 @@ describe('DatabaseService', () => {
     test('should create indexes for performance', () => {
       dbService.initialize();
 
-      const indexes = dbService.db.prepare(
-        "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%' ORDER BY name"
-      ).all().map(i => i.name);
+      const indexes = dbService.db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%' ORDER BY name"
+        )
+        .all()
+        .map((i) => i.name);
 
       // Spot-check some key indexes
       expect(indexes).toContain('idx_users_username');
@@ -208,32 +212,33 @@ describe('DatabaseService', () => {
     });
 
     test('should insert a row and return lastInsertRowid', () => {
-      const result = dbService.run(
-        "INSERT INTO customers (id, name) VALUES (?, ?)",
-        ['cust-1', 'Test Customer']
-      );
+      const result = dbService.run('INSERT INTO customers (id, name) VALUES (?, ?)', [
+        'cust-1',
+        'Test Customer',
+      ]);
 
       expect(result).toBeDefined();
       expect(result.changes).toBe(1);
     });
 
     test('should update rows and return changes count', () => {
-      dbService.run(
-        "INSERT INTO customers (id, name, phone) VALUES (?, ?, ?)",
-        ['cust-1', 'Customer A', '123']
-      );
+      dbService.run('INSERT INTO customers (id, name, phone) VALUES (?, ?, ?)', [
+        'cust-1',
+        'Customer A',
+        '123',
+      ]);
 
-      const result = dbService.run(
-        "UPDATE customers SET phone = ? WHERE id = ?",
-        ['456', 'cust-1']
-      );
+      const result = dbService.run('UPDATE customers SET phone = ? WHERE id = ?', [
+        '456',
+        'cust-1',
+      ]);
 
       expect(result.changes).toBe(1);
     });
 
     test('should throw on invalid SQL', () => {
       expect(() => {
-        dbService.run("INSERT INTO nonexistent_table VALUES (?)", ['value']);
+        dbService.run('INSERT INTO nonexistent_table VALUES (?)', ['value']);
       }).toThrow();
     });
   });
@@ -244,12 +249,13 @@ describe('DatabaseService', () => {
     });
 
     test('should return a single row', () => {
-      dbService.run(
-        "INSERT INTO customers (id, name, email) VALUES (?, ?, ?)",
-        ['cust-1', 'Customer One', 'one@test.com']
-      );
+      dbService.run('INSERT INTO customers (id, name, email) VALUES (?, ?, ?)', [
+        'cust-1',
+        'Customer One',
+        'one@test.com',
+      ]);
 
-      const row = dbService.get("SELECT * FROM customers WHERE id = ?", ['cust-1']);
+      const row = dbService.get('SELECT * FROM customers WHERE id = ?', ['cust-1']);
 
       expect(row).toBeDefined();
       expect(row.name).toBe('Customer One');
@@ -257,14 +263,14 @@ describe('DatabaseService', () => {
     });
 
     test('should return undefined for non-existent row', () => {
-      const row = dbService.get("SELECT * FROM customers WHERE id = ?", ['nonexistent']);
+      const row = dbService.get('SELECT * FROM customers WHERE id = ?', ['nonexistent']);
 
       expect(row).toBeUndefined();
     });
 
     test('should throw on invalid SQL', () => {
       expect(() => {
-        dbService.get("SELECT * FROM nonexistent_table WHERE id = ?", ['1']);
+        dbService.get('SELECT * FROM nonexistent_table WHERE id = ?', ['1']);
       }).toThrow();
     });
   });
@@ -275,11 +281,11 @@ describe('DatabaseService', () => {
     });
 
     test('should return all matching rows', () => {
-      dbService.run("INSERT INTO customers (id, name) VALUES (?, ?)", ['c-1', 'Alice']);
-      dbService.run("INSERT INTO customers (id, name) VALUES (?, ?)", ['c-2', 'Bob']);
-      dbService.run("INSERT INTO customers (id, name) VALUES (?, ?)", ['c-3', 'Charlie']);
+      dbService.run('INSERT INTO customers (id, name) VALUES (?, ?)', ['c-1', 'Alice']);
+      dbService.run('INSERT INTO customers (id, name) VALUES (?, ?)', ['c-2', 'Bob']);
+      dbService.run('INSERT INTO customers (id, name) VALUES (?, ?)', ['c-3', 'Charlie']);
 
-      const rows = dbService.all("SELECT * FROM customers ORDER BY name");
+      const rows = dbService.all('SELECT * FROM customers ORDER BY name');
 
       expect(rows).toHaveLength(3);
       expect(rows[0].name).toBe('Alice');
@@ -288,14 +294,14 @@ describe('DatabaseService', () => {
     });
 
     test('should return empty array when no rows match', () => {
-      const rows = dbService.all("SELECT * FROM customers WHERE name = ?", ['Nobody']);
+      const rows = dbService.all('SELECT * FROM customers WHERE name = ?', ['Nobody']);
 
       expect(rows).toEqual([]);
     });
 
     test('should throw on invalid SQL', () => {
       expect(() => {
-        dbService.all("SELECT * FROM nonexistent_table");
+        dbService.all('SELECT * FROM nonexistent_table');
       }).toThrow();
     });
   });
@@ -312,10 +318,10 @@ describe('DatabaseService', () => {
         username: 'johndoe',
         email: 'john@example.com',
         password_hash: 'hashed_pw',
-        role: 'admin',
+        role: 'owner',
         full_name: 'John Doe',
         phone: '555-1234',
-        is_active: 1
+        is_active: 1,
       };
 
       const result = dbService.createUser(user);
@@ -325,13 +331,19 @@ describe('DatabaseService', () => {
       expect(fetched).toBeDefined();
       expect(fetched.username).toBe('johndoe');
       expect(fetched.email).toBe('john@example.com');
-      expect(fetched.role).toBe('admin');
+      expect(fetched.role).toBe('owner');
     });
 
     test('getUserByUsername should find user by username', () => {
       dbService.createUser({
-        id: 'user-1', username: 'alice', email: 'alice@test.com',
-        password_hash: 'hash', role: 'user', full_name: 'Alice', phone: null, is_active: 1
+        id: 'user-1',
+        username: 'alice',
+        email: 'alice@test.com',
+        password_hash: 'hash',
+        role: 'employee',
+        full_name: 'Alice',
+        phone: null,
+        is_active: 1,
       });
 
       const user = dbService.getUserByUsername('alice');
@@ -341,8 +353,14 @@ describe('DatabaseService', () => {
 
     test('getUserByEmail should find user by email', () => {
       dbService.createUser({
-        id: 'user-2', username: 'bob', email: 'bob@test.com',
-        password_hash: 'hash', role: 'user', full_name: 'Bob', phone: null, is_active: 1
+        id: 'user-2',
+        username: 'bob',
+        email: 'bob@test.com',
+        password_hash: 'hash',
+        role: 'employee',
+        full_name: 'Bob',
+        phone: null,
+        is_active: 1,
       });
 
       const user = dbService.getUserByEmail('bob@test.com');
@@ -352,8 +370,14 @@ describe('DatabaseService', () => {
 
     test('getUser should find by username or email', () => {
       dbService.createUser({
-        id: 'user-3', username: 'charlie', email: 'charlie@test.com',
-        password_hash: 'hash', role: 'employee', full_name: 'Charlie', phone: null, is_active: 1
+        id: 'user-3',
+        username: 'charlie',
+        email: 'charlie@test.com',
+        password_hash: 'hash',
+        role: 'employee',
+        full_name: 'Charlie',
+        phone: null,
+        is_active: 1,
       });
 
       // Find by username
@@ -369,14 +393,20 @@ describe('DatabaseService', () => {
 
     test('updateUser should update allowed fields only', () => {
       dbService.createUser({
-        id: 'user-4', username: 'dave', email: 'dave@test.com',
-        password_hash: 'hash', role: 'user', full_name: 'Dave', phone: null, is_active: 1
+        id: 'user-4',
+        username: 'dave',
+        email: 'dave@test.com',
+        password_hash: 'hash',
+        role: 'employee',
+        full_name: 'Dave',
+        phone: null,
+        is_active: 1,
       });
 
       const result = dbService.updateUser('user-4', {
         full_name: 'Dave Updated',
         phone: '999-9999',
-        password_hash: 'should_not_be_updated'  // not in allowedFields
+        password_hash: 'should_not_be_updated', // not in allowedFields
       });
 
       expect(result.changes).toBe(1);
@@ -384,17 +414,23 @@ describe('DatabaseService', () => {
       const updated = dbService.getUserById('user-4');
       expect(updated.full_name).toBe('Dave Updated');
       expect(updated.phone).toBe('999-9999');
-      expect(updated.password_hash).toBe('hash');  // should remain unchanged
+      expect(updated.password_hash).toBe('hash'); // should remain unchanged
     });
 
     test('updateUser should return zero changes for empty update', () => {
       dbService.createUser({
-        id: 'user-5', username: 'eve', email: 'eve@test.com',
-        password_hash: 'hash', role: 'user', full_name: 'Eve', phone: null, is_active: 1
+        id: 'user-5',
+        username: 'eve',
+        email: 'eve@test.com',
+        password_hash: 'hash',
+        role: 'employee',
+        full_name: 'Eve',
+        phone: null,
+        is_active: 1,
       });
 
       const result = dbService.updateUser('user-5', {
-        password_hash: 'not_allowed'
+        password_hash: 'not_allowed',
       });
 
       expect(result.changes).toBe(0);
@@ -402,8 +438,14 @@ describe('DatabaseService', () => {
 
     test('deleteUser should remove the user', () => {
       dbService.createUser({
-        id: 'user-6', username: 'frank', email: 'frank@test.com',
-        password_hash: 'hash', role: 'user', full_name: 'Frank', phone: null, is_active: 1
+        id: 'user-6',
+        username: 'frank',
+        email: 'frank@test.com',
+        password_hash: 'hash',
+        role: 'employee',
+        full_name: 'Frank',
+        phone: null,
+        is_active: 1,
       });
 
       const result = dbService.deleteUser('user-6');
@@ -415,8 +457,14 @@ describe('DatabaseService', () => {
 
     test('deactivateUser / activateUser should toggle is_active', () => {
       dbService.createUser({
-        id: 'user-7', username: 'grace', email: 'grace@test.com',
-        password_hash: 'hash', role: 'user', full_name: 'Grace', phone: null, is_active: 1
+        id: 'user-7',
+        username: 'grace',
+        email: 'grace@test.com',
+        password_hash: 'hash',
+        role: 'employee',
+        full_name: 'Grace',
+        phone: null,
+        is_active: 1,
       });
 
       dbService.deactivateUser('user-7');
@@ -430,12 +478,24 @@ describe('DatabaseService', () => {
 
     test('getAllUsers should return all users', () => {
       dbService.createUser({
-        id: 'u1', username: 'user1', email: 'u1@test.com',
-        password_hash: 'h', role: 'admin', full_name: 'User 1', phone: null, is_active: 1
+        id: 'u1',
+        username: 'user1',
+        email: 'u1@test.com',
+        password_hash: 'h',
+        role: 'owner',
+        full_name: 'User 1',
+        phone: null,
+        is_active: 1,
       });
       dbService.createUser({
-        id: 'u2', username: 'user2', email: 'u2@test.com',
-        password_hash: 'h', role: 'employee', full_name: 'User 2', phone: null, is_active: 1
+        id: 'u2',
+        username: 'user2',
+        email: 'u2@test.com',
+        password_hash: 'h',
+        role: 'employee',
+        full_name: 'User 2',
+        phone: null,
+        is_active: 1,
       });
 
       const users = dbService.getAllUsers();
@@ -446,19 +506,37 @@ describe('DatabaseService', () => {
 
     test('getUsersByRole should filter by role', () => {
       dbService.createUser({
-        id: 'u1', username: 'admin1', email: 'a1@test.com',
-        password_hash: 'h', role: 'admin', full_name: 'Admin 1', phone: null, is_active: 1
+        id: 'u1',
+        username: 'admin1',
+        email: 'a1@test.com',
+        password_hash: 'h',
+        role: 'owner',
+        full_name: 'Admin 1',
+        phone: null,
+        is_active: 1,
       });
       dbService.createUser({
-        id: 'u2', username: 'emp1', email: 'e1@test.com',
-        password_hash: 'h', role: 'employee', full_name: 'Employee 1', phone: null, is_active: 1
+        id: 'u2',
+        username: 'emp1',
+        email: 'e1@test.com',
+        password_hash: 'h',
+        role: 'employee',
+        full_name: 'Employee 1',
+        phone: null,
+        is_active: 1,
       });
       dbService.createUser({
-        id: 'u3', username: 'emp2', email: 'e2@test.com',
-        password_hash: 'h', role: 'employee', full_name: 'Employee 2', phone: null, is_active: 1
+        id: 'u3',
+        username: 'emp2',
+        email: 'e2@test.com',
+        password_hash: 'h',
+        role: 'employee',
+        full_name: 'Employee 2',
+        phone: null,
+        is_active: 1,
       });
 
-      const admins = dbService.getUsersByRole('admin');
+      const admins = dbService.getUsersByRole('owner');
       expect(admins).toHaveLength(1);
       expect(admins[0].username).toBe('admin1');
 
@@ -473,8 +551,14 @@ describe('DatabaseService', () => {
       dbService.initialize();
       // Create a user for the uploaded_by foreign key
       dbService.createUser({
-        id: 'uploader-1', username: 'uploader', email: 'uploader@test.com',
-        password_hash: 'h', role: 'user', full_name: 'Uploader', phone: null, is_active: 1
+        id: 'uploader-1',
+        username: 'uploader',
+        email: 'uploader@test.com',
+        password_hash: 'h',
+        role: 'employee',
+        full_name: 'Uploader',
+        phone: null,
+        is_active: 1,
       });
     });
 
@@ -486,7 +570,7 @@ describe('DatabaseService', () => {
         mimetype: 'application/pdf',
         size: 1024,
         uploaded_by: 'uploader-1',
-        has_thumbnail: false
+        has_thumbnail: false,
       };
 
       const result = dbService.createFile(file);
@@ -501,12 +585,22 @@ describe('DatabaseService', () => {
 
     test('getFilesByUser should return files uploaded by a specific user', () => {
       dbService.createFile({
-        id: 'f1', filename: 'a.png', stored_filename: 'a.png',
-        mimetype: 'image/png', size: 100, uploaded_by: 'uploader-1', has_thumbnail: true
+        id: 'f1',
+        filename: 'a.png',
+        stored_filename: 'a.png',
+        mimetype: 'image/png',
+        size: 100,
+        uploaded_by: 'uploader-1',
+        has_thumbnail: true,
       });
       dbService.createFile({
-        id: 'f2', filename: 'b.png', stored_filename: 'b.png',
-        mimetype: 'image/png', size: 200, uploaded_by: 'uploader-1', has_thumbnail: false
+        id: 'f2',
+        filename: 'b.png',
+        stored_filename: 'b.png',
+        mimetype: 'image/png',
+        size: 200,
+        uploaded_by: 'uploader-1',
+        has_thumbnail: false,
       });
 
       const files = dbService.getFilesByUser('uploader-1');
@@ -515,8 +609,13 @@ describe('DatabaseService', () => {
 
     test('deleteFile should remove a file record', () => {
       dbService.createFile({
-        id: 'f-del', filename: 'delete-me.txt', stored_filename: 'del.txt',
-        mimetype: 'text/plain', size: 50, uploaded_by: 'uploader-1', has_thumbnail: false
+        id: 'f-del',
+        filename: 'delete-me.txt',
+        stored_filename: 'del.txt',
+        mimetype: 'text/plain',
+        size: 50,
+        uploaded_by: 'uploader-1',
+        has_thumbnail: false,
       });
 
       const result = dbService.deleteFile('f-del');
@@ -528,12 +627,22 @@ describe('DatabaseService', () => {
 
     test('getFileStats should return count and total size', () => {
       dbService.createFile({
-        id: 'f1', filename: 'a.png', stored_filename: 'a.png',
-        mimetype: 'image/png', size: 100, uploaded_by: 'uploader-1', has_thumbnail: false
+        id: 'f1',
+        filename: 'a.png',
+        stored_filename: 'a.png',
+        mimetype: 'image/png',
+        size: 100,
+        uploaded_by: 'uploader-1',
+        has_thumbnail: false,
       });
       dbService.createFile({
-        id: 'f2', filename: 'b.png', stored_filename: 'b.png',
-        mimetype: 'image/png', size: 300, uploaded_by: 'uploader-1', has_thumbnail: false
+        id: 'f2',
+        filename: 'b.png',
+        stored_filename: 'b.png',
+        mimetype: 'image/png',
+        size: 300,
+        uploaded_by: 'uploader-1',
+        has_thumbnail: false,
       });
 
       const stats = dbService.getFileStats();
@@ -553,17 +662,32 @@ describe('DatabaseService', () => {
       dbService.initialize();
       // Create required user, customer, and order
       dbService.createUser({
-        id: 'u-attach', username: 'attacher', email: 'attach@test.com',
-        password_hash: 'h', role: 'user', full_name: 'Attacher', phone: null, is_active: 1
+        id: 'u-attach',
+        username: 'attacher',
+        email: 'attach@test.com',
+        password_hash: 'h',
+        role: 'employee',
+        full_name: 'Attacher',
+        phone: null,
+        is_active: 1,
       });
-      dbService.run("INSERT INTO customers (id, name) VALUES (?, ?)", ['cust-attach', 'Attach Customer']);
-      dbService.run(
-        "INSERT INTO orders (id, order_number, customer_id) VALUES (?, ?, ?)",
-        ['ord-1', 'ORD-001', 'cust-attach']
-      );
+      dbService.run('INSERT INTO customers (id, name) VALUES (?, ?)', [
+        'cust-attach',
+        'Attach Customer',
+      ]);
+      dbService.run('INSERT INTO orders (id, order_number, customer_id) VALUES (?, ?, ?)', [
+        'ord-1',
+        'ORD-001',
+        'cust-attach',
+      ]);
       dbService.createFile({
-        id: 'f-attach', filename: 'attached.pdf', stored_filename: 'att.pdf',
-        mimetype: 'application/pdf', size: 500, uploaded_by: 'u-attach', has_thumbnail: false
+        id: 'f-attach',
+        filename: 'attached.pdf',
+        stored_filename: 'att.pdf',
+        mimetype: 'application/pdf',
+        size: 500,
+        uploaded_by: 'u-attach',
+        has_thumbnail: false,
       });
     });
 
@@ -596,11 +720,12 @@ describe('DatabaseService', () => {
   describe('Invoice CRUD methods', () => {
     beforeEach(() => {
       dbService.initialize();
-      dbService.run("INSERT INTO customers (id, name) VALUES (?, ?)", ['cust-inv', 'Invoice Cust']);
-      dbService.run(
-        "INSERT INTO orders (id, order_number, customer_id) VALUES (?, ?, ?)",
-        ['ord-inv', 'ORD-INV-001', 'cust-inv']
-      );
+      dbService.run('INSERT INTO customers (id, name) VALUES (?, ?)', ['cust-inv', 'Invoice Cust']);
+      dbService.run('INSERT INTO orders (id, order_number, customer_id) VALUES (?, ?, ?)', [
+        'ord-inv',
+        'ORD-INV-001',
+        'cust-inv',
+      ]);
     });
 
     test('createInvoice and getInvoiceById', () => {
@@ -618,7 +743,7 @@ describe('DatabaseService', () => {
         issue_date: '2025-01-01',
         due_date: '2025-01-31',
         notes: 'Test invoice',
-        created_by: null
+        created_by: null,
       };
 
       dbService.createInvoice(invoice);
@@ -632,14 +757,36 @@ describe('DatabaseService', () => {
 
     test('getAllInvoices with filters', () => {
       dbService.createInvoice({
-        id: 'inv-a', invoice_number: 'INV-A', order_id: 'ord-inv', customer_id: 'cust-inv',
-        subtotal: 100, discount: 0, ppn_rate: 0.11, ppn_amount: 11, total_amount: 111,
-        status: 'draft', issue_date: '2025-01-15', due_date: '2025-02-15', notes: null, created_by: null
+        id: 'inv-a',
+        invoice_number: 'INV-A',
+        order_id: 'ord-inv',
+        customer_id: 'cust-inv',
+        subtotal: 100,
+        discount: 0,
+        ppn_rate: 0.11,
+        ppn_amount: 11,
+        total_amount: 111,
+        status: 'draft',
+        issue_date: '2025-01-15',
+        due_date: '2025-02-15',
+        notes: null,
+        created_by: null,
       });
       dbService.createInvoice({
-        id: 'inv-b', invoice_number: 'INV-B', order_id: 'ord-inv', customer_id: 'cust-inv',
-        subtotal: 200, discount: 0, ppn_rate: 0.11, ppn_amount: 22, total_amount: 222,
-        status: 'paid', issue_date: '2025-03-01', due_date: '2025-04-01', notes: null, created_by: null
+        id: 'inv-b',
+        invoice_number: 'INV-B',
+        order_id: 'ord-inv',
+        customer_id: 'cust-inv',
+        subtotal: 200,
+        discount: 0,
+        ppn_rate: 0.11,
+        ppn_amount: 22,
+        total_amount: 222,
+        status: 'paid',
+        issue_date: '2025-03-01',
+        due_date: '2025-04-01',
+        notes: null,
+        created_by: null,
       });
 
       // No filters
@@ -652,7 +799,10 @@ describe('DatabaseService', () => {
       expect(drafts[0].id).toBe('inv-a');
 
       // Filter by date range
-      const janInvoices = dbService.getAllInvoices({ startDate: '2025-01-01', endDate: '2025-01-31' });
+      const janInvoices = dbService.getAllInvoices({
+        startDate: '2025-01-01',
+        endDate: '2025-01-31',
+      });
       expect(janInvoices).toHaveLength(1);
 
       // Filter by customer
@@ -662,9 +812,20 @@ describe('DatabaseService', () => {
 
     test('updateInvoice should update allowed fields', () => {
       dbService.createInvoice({
-        id: 'inv-upd', invoice_number: 'INV-UPD', order_id: 'ord-inv', customer_id: 'cust-inv',
-        subtotal: 100, discount: 0, ppn_rate: 0.11, ppn_amount: 11, total_amount: 111,
-        status: 'draft', issue_date: '2025-01-15', due_date: '2025-02-15', notes: null, created_by: null
+        id: 'inv-upd',
+        invoice_number: 'INV-UPD',
+        order_id: 'ord-inv',
+        customer_id: 'cust-inv',
+        subtotal: 100,
+        discount: 0,
+        ppn_rate: 0.11,
+        ppn_amount: 11,
+        total_amount: 111,
+        status: 'draft',
+        issue_date: '2025-01-15',
+        due_date: '2025-02-15',
+        notes: null,
+        created_by: null,
       });
 
       dbService.updateInvoice('inv-upd', { status: 'paid', notes: 'Paid in full' });
@@ -676,9 +837,20 @@ describe('DatabaseService', () => {
 
     test('deleteInvoice should remove the invoice', () => {
       dbService.createInvoice({
-        id: 'inv-del', invoice_number: 'INV-DEL', order_id: 'ord-inv', customer_id: 'cust-inv',
-        subtotal: 100, discount: 0, ppn_rate: 0.11, ppn_amount: 11, total_amount: 111,
-        status: 'draft', issue_date: '2025-01-15', due_date: '2025-02-15', notes: null, created_by: null
+        id: 'inv-del',
+        invoice_number: 'INV-DEL',
+        order_id: 'ord-inv',
+        customer_id: 'cust-inv',
+        subtotal: 100,
+        discount: 0,
+        ppn_rate: 0.11,
+        ppn_amount: 11,
+        total_amount: 111,
+        status: 'draft',
+        issue_date: '2025-01-15',
+        due_date: '2025-02-15',
+        notes: null,
+        created_by: null,
       });
 
       const result = dbService.deleteInvoice('inv-del');
@@ -704,7 +876,7 @@ describe('DatabaseService', () => {
         start_date: '2025-01-01',
         end_date: '2025-01-31',
         notes: 'January budget',
-        created_by: null
+        created_by: null,
       };
 
       dbService.createBudget(budget);
@@ -717,12 +889,24 @@ describe('DatabaseService', () => {
 
     test('getAllBudgets should return all budgets', () => {
       dbService.createBudget({
-        id: 'b1', category: 'materials', amount: 1000, period: 'monthly',
-        start_date: '2025-01-01', end_date: '2025-01-31', notes: null, created_by: null
+        id: 'b1',
+        category: 'materials',
+        amount: 1000,
+        period: 'monthly',
+        start_date: '2025-01-01',
+        end_date: '2025-01-31',
+        notes: null,
+        created_by: null,
       });
       dbService.createBudget({
-        id: 'b2', category: 'labor', amount: 2000, period: 'monthly',
-        start_date: '2025-01-01', end_date: '2025-01-31', notes: null, created_by: null
+        id: 'b2',
+        category: 'labor',
+        amount: 2000,
+        period: 'monthly',
+        start_date: '2025-01-01',
+        end_date: '2025-01-31',
+        notes: null,
+        created_by: null,
       });
 
       const budgets = dbService.getAllBudgets();
@@ -732,16 +916,16 @@ describe('DatabaseService', () => {
     test('getBudgetActualSpending should sum matching expenses', () => {
       // Insert some financial transactions
       dbService.run(
-        "INSERT INTO financial_transactions (id, type, amount, category, payment_date) VALUES (?, ?, ?, ?, ?)",
+        'INSERT INTO financial_transactions (id, type, amount, category, payment_date) VALUES (?, ?, ?, ?, ?)',
         ['ft-1', 'expense', 500, 'materials', '2025-01-15']
       );
       dbService.run(
-        "INSERT INTO financial_transactions (id, type, amount, category, payment_date) VALUES (?, ?, ?, ?, ?)",
+        'INSERT INTO financial_transactions (id, type, amount, category, payment_date) VALUES (?, ?, ?, ?, ?)',
         ['ft-2', 'expense', 300, 'materials', '2025-01-20']
       );
       dbService.run(
-        "INSERT INTO financial_transactions (id, type, amount, category, payment_date) VALUES (?, ?, ?, ?, ?)",
-        ['ft-3', 'income', 1000, 'materials', '2025-01-15']  // income, should not count
+        'INSERT INTO financial_transactions (id, type, amount, category, payment_date) VALUES (?, ?, ?, ?, ?)',
+        ['ft-3', 'income', 1000, 'materials', '2025-01-15'] // income, should not count
       );
 
       const spending = dbService.getBudgetActualSpending('materials', '2025-01-01', '2025-01-31');
@@ -755,8 +939,14 @@ describe('DatabaseService', () => {
 
     test('updateBudget should update allowed fields', () => {
       dbService.createBudget({
-        id: 'b-upd', category: 'materials', amount: 1000, period: 'monthly',
-        start_date: '2025-01-01', end_date: '2025-01-31', notes: null, created_by: null
+        id: 'b-upd',
+        category: 'materials',
+        amount: 1000,
+        period: 'monthly',
+        start_date: '2025-01-01',
+        end_date: '2025-01-31',
+        notes: null,
+        created_by: null,
       });
 
       dbService.updateBudget('b-upd', { amount: 2000, notes: 'Updated amount' });
@@ -768,8 +958,14 @@ describe('DatabaseService', () => {
 
     test('deleteBudget should remove the budget', () => {
       dbService.createBudget({
-        id: 'b-del', category: 'materials', amount: 1000, period: 'monthly',
-        start_date: '2025-01-01', end_date: '2025-01-31', notes: null, created_by: null
+        id: 'b-del',
+        category: 'materials',
+        amount: 1000,
+        period: 'monthly',
+        start_date: '2025-01-01',
+        end_date: '2025-01-31',
+        notes: null,
+        created_by: null,
       });
 
       const result = dbService.deleteBudget('b-del');
@@ -784,18 +980,30 @@ describe('DatabaseService', () => {
   describe('getTaxReport', () => {
     beforeEach(() => {
       dbService.initialize();
-      dbService.run("INSERT INTO customers (id, name) VALUES (?, ?)", ['cust-tax', 'Tax Cust']);
-      dbService.run(
-        "INSERT INTO orders (id, order_number, customer_id) VALUES (?, ?, ?)",
-        ['ord-tax', 'ORD-TAX-001', 'cust-tax']
-      );
+      dbService.run('INSERT INTO customers (id, name) VALUES (?, ?)', ['cust-tax', 'Tax Cust']);
+      dbService.run('INSERT INTO orders (id, order_number, customer_id) VALUES (?, ?, ?)', [
+        'ord-tax',
+        'ORD-TAX-001',
+        'cust-tax',
+      ]);
     });
 
     test('should return aggregated tax data for a date range', () => {
       dbService.createInvoice({
-        id: 'inv-tax', invoice_number: 'INV-TAX', order_id: 'ord-tax', customer_id: 'cust-tax',
-        subtotal: 100000, discount: 0, ppn_rate: 0.11, ppn_amount: 11000, total_amount: 111000,
-        status: 'paid', issue_date: '2025-06-15', due_date: '2025-07-15', notes: null, created_by: null
+        id: 'inv-tax',
+        invoice_number: 'INV-TAX',
+        order_id: 'ord-tax',
+        customer_id: 'cust-tax',
+        subtotal: 100000,
+        discount: 0,
+        ppn_rate: 0.11,
+        ppn_amount: 11000,
+        total_amount: 111000,
+        status: 'paid',
+        issue_date: '2025-06-15',
+        due_date: '2025-07-15',
+        notes: null,
+        created_by: null,
       });
 
       const report = dbService.getTaxReport('2025-06-01', '2025-06-30');
@@ -823,9 +1031,9 @@ describe('DatabaseService', () => {
     });
 
     test('getOrderById should return the order', () => {
-      dbService.run("INSERT INTO customers (id, name) VALUES (?, ?)", ['c-o', 'Order Cust']);
+      dbService.run('INSERT INTO customers (id, name) VALUES (?, ?)', ['c-o', 'Order Cust']);
       dbService.run(
-        "INSERT INTO orders (id, order_number, customer_id, status) VALUES (?, ?, ?, ?)",
+        'INSERT INTO orders (id, order_number, customer_id, status) VALUES (?, ?, ?, ?)',
         ['o-1', 'ORD-100', 'c-o', 'pending']
       );
 
@@ -841,10 +1049,12 @@ describe('DatabaseService', () => {
     });
 
     test('getCustomerById should return the customer', () => {
-      dbService.run(
-        "INSERT INTO customers (id, name, email, business_type) VALUES (?, ?, ?, ?)",
-        ['c-fetch', 'Fetched Customer', 'fetch@test.com', 'retail']
-      );
+      dbService.run('INSERT INTO customers (id, name, email, business_type) VALUES (?, ?, ?, ?)', [
+        'c-fetch',
+        'Fetched Customer',
+        'fetch@test.com',
+        'retail',
+      ]);
 
       const customer = dbService.getCustomerById('c-fetch');
       expect(customer).toBeDefined();
