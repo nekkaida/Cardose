@@ -151,7 +151,23 @@ async function auditRoutes(fastify, options) {
   });
 
   // Log action (requires authentication)
-  fastify.post('/log', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.post('/log', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['action'],
+        properties: {
+          user_id: { type: 'string' },
+          action: { type: 'string', minLength: 1 },
+          entity_type: { type: 'string' },
+          entity_id: { type: 'string' },
+          details: { type: 'object' },
+          ip_address: { type: 'string' }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { user_id, action, entity_type, entity_id, details, ip_address } = request.body;
 
