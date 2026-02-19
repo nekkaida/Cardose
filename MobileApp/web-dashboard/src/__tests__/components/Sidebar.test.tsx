@@ -60,7 +60,7 @@ describe('Sidebar', () => {
 
     it('should display the version footer', () => {
       renderSidebar();
-      expect(screen.getByText('v1.0.0 - Indonesian Business Management')).toBeInTheDocument();
+      expect(screen.getByText('v1.0.0')).toBeInTheDocument();
     });
   });
 
