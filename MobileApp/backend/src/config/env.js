@@ -63,6 +63,9 @@ const envSchema = z.object({
     .transform((v) => v === 'true')
     .default('true'),
 
+  // Sentry (optional — error tracking disabled when missing)
+  SENTRY_DSN: z.string().optional(),
+
   // File uploads
   MAX_FILE_SIZE: z.coerce.number().default(10485760),
   UPLOAD_DIR: z.string().default('./uploads'),

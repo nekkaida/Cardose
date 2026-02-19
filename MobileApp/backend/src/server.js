@@ -1,4 +1,15 @@
 const env = require('./config/env');
+const Sentry = require('@sentry/node');
+
+if (env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: env.SENTRY_DSN,
+    environment: env.NODE_ENV,
+    enabled: env.NODE_ENV === 'production',
+    tracesSampleRate: 0.1,
+  });
+}
+
 const fastify = require('fastify')({ logger: true });
 const path = require('path');
 
@@ -41,6 +52,20 @@ const db = new Database(fastify.log);
 
 // Make database available in all routes
 fastify.decorate('db', db);
+
+// Sentry error handler
+fastify.setErrorHandler((error, request, reply) => {
+  if (env.SENTRY_DSN) {
+    Sentry.captureException(error, {
+      extra: { url: request.url, method: request.method },
+    });
+  }
+  fastify.log.error(error);
+  reply.status(error.statusCode || 500).send({
+    success: false,
+    error: env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message,
+  });
+});
 
 // Ensure revoked_tokens table exists (migration for existing databases)
 fastify.addHook('onReady', async () => {
