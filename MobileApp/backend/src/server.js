@@ -81,6 +81,32 @@ fastify.addHook('onReady', async () => {
   `);
 });
 
+// Swagger API documentation (development only)
+if (env.NODE_ENV !== 'production') {
+  fastify.register(require('@fastify/swagger'), {
+    openapi: {
+      info: {
+        title: 'Cardose API',
+        description: 'Premium Gift Box Business Management API',
+        version: '1.0.0',
+      },
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+          },
+        },
+      },
+      security: [{ bearerAuth: [] }],
+    },
+  });
+  fastify.register(require('@fastify/swagger-ui'), {
+    routePrefix: '/docs',
+  });
+}
+
 // Register authentication middleware globally
 fastify.register(require('./middleware/auth'));
 
@@ -113,6 +139,13 @@ fastify.register(require('./routes/quality-checks'), { prefix: '/api/quality-che
 fastify.register(require('./routes/purchase-orders'), { prefix: '/api/purchase-orders' });
 fastify.register(require('./routes/audit-logs'), { prefix: '/api/audit-logs' });
 fastify.register(require('./routes/config'), { prefix: '/api/config' });
+
+// Log Swagger docs URL after routes are registered
+if (env.NODE_ENV !== 'production') {
+  fastify.addHook('onReady', async () => {
+    fastify.log.info('API documentation available at http://%s:%s/docs', env.HOST, env.PORT);
+  });
+}
 
 // Backup service setup (logger injected after fastify is ready)
 const BackupService = require('./services/BackupService');

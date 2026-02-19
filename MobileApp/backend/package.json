@@ -40,6 +40,8 @@
     "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/static": "^6.12.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.5",
     "@sentry/node": "^10.39.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^9.2.2",
