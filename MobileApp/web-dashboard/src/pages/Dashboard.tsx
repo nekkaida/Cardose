@@ -421,7 +421,7 @@ const Dashboard: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">
             {getGreeting()}, {user?.username || 'there'}
           </h1>
-          <p className="mt-0.5 text-sm text-gray-500">Here's your business overview</p>
+          <p className="mt-0.5 text-sm text-gray-500">Here&apos;s your business overview</p>
         </div>
 
         <div className="flex items-center gap-3">
