@@ -1,4 +1,4 @@
-require('dotenv').config();
+const env = require('./config/env');
 const fastify = require('fastify')({ logger: true });
 const path = require('path');
 
@@ -6,7 +6,7 @@ const path = require('path');
 fastify.register(require('@fastify/helmet'));
 
 fastify.register(require('@fastify/cors'), {
-  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8081'],
+  origin: env.CORS_ORIGIN ? env.CORS_ORIGIN.split(',') : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8081'],
   credentials: true
 });
 
@@ -27,13 +27,8 @@ fastify.decorate('authRateLimit', {
   }
 });
 
-const jwtSecret = process.env.JWT_SECRET;
-if (!jwtSecret) {
-  console.error('FATAL: JWT_SECRET environment variable is required. Server cannot start without it.');
-  process.exit(1);
-}
 fastify.register(require('@fastify/jwt'), {
-  secret: jwtSecret
+  secret: env.JWT_SECRET
 });
 
 fastify.register(require('@fastify/multipart'));
@@ -111,11 +106,8 @@ const start = async () => {
     // Initialize database
     await db.initialize();
     
-    const port = process.env.PORT || 3000;
-    const host = process.env.HOST || '0.0.0.0';
-    
-    await fastify.listen({ port, host });
-    fastify.log.info('Premium Gift Box Server running on http://%s:%s', host, port);
+    await fastify.listen({ port: env.PORT, host: env.HOST });
+    fastify.log.info('Premium Gift Box Server running on http://%s:%s', env.HOST, env.PORT);
 
     // Warn about missing optional service credentials
     const EmailService = require('./services/EmailService');
@@ -123,18 +115,17 @@ const start = async () => {
     if (emailCheck.configWarning) {
       fastify.log.warn(emailCheck.configWarning);
     }
-    if (!process.env.WHATSAPP_PHONE_NUMBER_ID || !process.env.WHATSAPP_ACCESS_TOKEN) {
+    if (!env.WHATSAPP_PHONE_NUMBER_ID || !env.WHATSAPP_ACCESS_TOKEN) {
       fastify.log.warn('WhatsApp credentials not set (WHATSAPP_PHONE_NUMBER_ID/WHATSAPP_ACCESS_TOKEN) - WhatsApp features disabled');
     }
 
     // Start automatic backup if enabled
-    if (process.env.AUTO_BACKUP === 'true') {
-      const backupFrequency = parseInt(process.env.BACKUP_FREQUENCY || '4');
-      backupService.startAutoBackup(backupFrequency);
+    if (env.AUTO_BACKUP) {
+      backupService.startAutoBackup(env.BACKUP_FREQUENCY);
     }
 
     // Start automated notifications if enabled
-    if (process.env.ENABLE_NOTIFICATIONS !== 'false') {
+    if (env.ENABLE_NOTIFICATIONS) {
       notificationService.startAutomatedChecks();
     }
   } catch (err) {
