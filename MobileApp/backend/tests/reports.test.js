@@ -37,7 +37,8 @@ describe('Reports API', () => {
 
     test('should get sales report with custom date params', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET',
+        app,
+        'GET',
         '/api/reports/sales?startDate=2026-01-01&endDate=2026-12-31',
         authToken
       );
@@ -52,7 +53,8 @@ describe('Reports API', () => {
 
     test('should include summary statistics in sales report', async () => {
       const response = await makeAuthenticatedRequest(
-        app, 'GET',
+        app,
+        'GET',
         '/api/reports/sales?startDate=2026-01-01&endDate=2026-12-31',
         authToken
       );
@@ -68,7 +70,7 @@ describe('Reports API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/reports/sales'
+        url: '/api/reports/sales',
       });
 
       expect(response.statusCode).toBe(401);
@@ -81,7 +83,12 @@ describe('Reports API', () => {
   // ==================== INVENTORY REPORT TESTS ====================
   describe('GET /api/reports/inventory', () => {
     test('should get inventory report', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/inventory', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/inventory',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -94,7 +101,12 @@ describe('Reports API', () => {
     });
 
     test('should include inventory summary statistics', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/inventory', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/inventory',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -105,7 +117,12 @@ describe('Reports API', () => {
     });
 
     test('should return arrays for byCategory and lowStockItems', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/inventory', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/inventory',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -117,7 +134,7 @@ describe('Reports API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/reports/inventory'
+        url: '/api/reports/inventory',
       });
 
       expect(response.statusCode).toBe(401);
@@ -130,7 +147,12 @@ describe('Reports API', () => {
   // ==================== PRODUCTION REPORT TESTS ====================
   describe('GET /api/reports/production', () => {
     test('should get production report with default date range', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/production', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/production',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -145,7 +167,12 @@ describe('Reports API', () => {
     });
 
     test('should include completion rate in production report', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/production', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/production',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -153,7 +180,12 @@ describe('Reports API', () => {
     });
 
     test('should return arrays for ordersByStatus and taskStats', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/production', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/production',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -165,7 +197,7 @@ describe('Reports API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/reports/production'
+        url: '/api/reports/production',
       });
 
       expect(response.statusCode).toBe(401);
@@ -178,7 +210,12 @@ describe('Reports API', () => {
   // ==================== CUSTOMER REPORT TESTS ====================
   describe('GET /api/reports/customers', () => {
     test('should get customer report', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/customers', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/customers',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -191,7 +228,12 @@ describe('Reports API', () => {
     });
 
     test('should include customer summary statistics', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/customers', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/customers',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -203,7 +245,12 @@ describe('Reports API', () => {
     });
 
     test('should return arrays for byBusinessType and topCustomers', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/customers', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/customers',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -215,7 +262,7 @@ describe('Reports API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/reports/customers'
+        url: '/api/reports/customers',
       });
 
       expect(response.statusCode).toBe(401);
@@ -228,7 +275,12 @@ describe('Reports API', () => {
   // ==================== FINANCIAL REPORT TESTS ====================
   describe('GET /api/reports/financial', () => {
     test('should get financial report with default date range', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/financial', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/financial',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -243,7 +295,12 @@ describe('Reports API', () => {
     });
 
     test('should include financial summary statistics', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/financial', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/financial',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -255,7 +312,12 @@ describe('Reports API', () => {
     });
 
     test('should return arrays for byCategory and invoiceStats', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/reports/financial', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/financial',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -266,7 +328,7 @@ describe('Reports API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/reports/financial'
+        url: '/api/reports/financial',
       });
 
       expect(response.statusCode).toBe(401);
