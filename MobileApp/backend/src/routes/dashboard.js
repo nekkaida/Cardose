@@ -103,7 +103,17 @@ async function dashboardRoutes(fastify, options) {
   });
 
   // Get recent orders (requires authentication)
-  fastify.get('/recent-orders', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.get('/recent-orders', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { limit = 10 } = request.query;
 
@@ -220,7 +230,17 @@ async function dashboardRoutes(fastify, options) {
   });
 
   // Get sales trend (requires authentication)
-  fastify.get('/sales-trend', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.get('/sales-trend', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          days: { type: 'integer', minimum: 1, maximum: 365, default: 30 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { days = 30 } = request.query;
 
@@ -285,7 +305,17 @@ async function dashboardRoutes(fastify, options) {
   });
 
   // Get top customers (requires authentication)
-  fastify.get('/top-customers', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.get('/top-customers', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { limit = 10 } = request.query;
 
