@@ -1,5 +1,11 @@
 // Dashboard API Tests
-const { buildApp, createTestUserAndGetToken, makeAuthenticatedRequest, createTestCustomer, createTestOrder } = require('./helpers');
+const {
+  buildApp,
+  createTestUserAndGetToken,
+  makeAuthenticatedRequest,
+  createTestCustomer,
+  createTestOrder,
+} = require('./helpers');
 
 describe('Dashboard API', () => {
   let app;
@@ -29,7 +35,12 @@ describe('Dashboard API', () => {
   // ==================== DASHBOARD STATS TESTS ====================
   describe('GET /api/dashboard/stats', () => {
     test('should get dashboard stats', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/dashboard/stats', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/dashboard/stats',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -45,7 +56,7 @@ describe('Dashboard API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/dashboard/stats'
+        url: '/api/dashboard/stats',
       });
 
       expect(response.statusCode).toBe(401);
@@ -55,7 +66,12 @@ describe('Dashboard API', () => {
   // ==================== RECENT ORDERS TESTS ====================
   describe('GET /api/dashboard/recent-orders', () => {
     test('should get recent orders', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/dashboard/recent-orders', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/dashboard/recent-orders',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -64,7 +80,12 @@ describe('Dashboard API', () => {
     });
 
     test('should limit results', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/dashboard/recent-orders?limit=5', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/dashboard/recent-orders?limit=5',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -75,7 +96,7 @@ describe('Dashboard API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/dashboard/recent-orders'
+        url: '/api/dashboard/recent-orders',
       });
 
       expect(response.statusCode).toBe(401);
@@ -85,7 +106,12 @@ describe('Dashboard API', () => {
   // ==================== DASHBOARD OVERVIEW TESTS ====================
   describe('GET /api/dashboard/overview', () => {
     test('should get dashboard overview', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/dashboard/overview', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/dashboard/overview',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -101,7 +127,7 @@ describe('Dashboard API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/dashboard/overview'
+        url: '/api/dashboard/overview',
       });
 
       expect(response.statusCode).toBe(401);
@@ -111,7 +137,12 @@ describe('Dashboard API', () => {
   // ==================== SALES TREND TESTS ====================
   describe('GET /api/dashboard/sales-trend', () => {
     test('should get sales trend (default 30 days)', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/dashboard/sales-trend', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/dashboard/sales-trend',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -120,7 +151,12 @@ describe('Dashboard API', () => {
     });
 
     test('should get sales trend for 7 days', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/dashboard/sales-trend?days=7', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/dashboard/sales-trend?days=7',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -129,7 +165,12 @@ describe('Dashboard API', () => {
     });
 
     test('should get sales trend for 14 days', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/dashboard/sales-trend?days=14', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/dashboard/sales-trend?days=14',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -140,7 +181,7 @@ describe('Dashboard API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/dashboard/sales-trend'
+        url: '/api/dashboard/sales-trend',
       });
 
       expect(response.statusCode).toBe(401);
@@ -150,7 +191,12 @@ describe('Dashboard API', () => {
   // ==================== PRODUCT MIX TESTS ====================
   describe('GET /api/dashboard/product-mix', () => {
     test('should get product mix', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/dashboard/product-mix', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/dashboard/product-mix',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -161,7 +207,7 @@ describe('Dashboard API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/dashboard/product-mix'
+        url: '/api/dashboard/product-mix',
       });
 
       expect(response.statusCode).toBe(401);
@@ -171,7 +217,12 @@ describe('Dashboard API', () => {
   // ==================== TOP CUSTOMERS TESTS ====================
   describe('GET /api/dashboard/top-customers', () => {
     test('should get top customers', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/dashboard/top-customers', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/dashboard/top-customers',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -180,7 +231,12 @@ describe('Dashboard API', () => {
     });
 
     test('should limit results', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/dashboard/top-customers?limit=5', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/dashboard/top-customers?limit=5',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -191,7 +247,7 @@ describe('Dashboard API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/dashboard/top-customers'
+        url: '/api/dashboard/top-customers',
       });
 
       expect(response.statusCode).toBe(401);
