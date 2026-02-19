@@ -57,10 +57,16 @@ describe('Sync API', () => {
   // ==================== REGISTER DEVICE TESTS ====================
   describe('POST /api/sync/register-device', () => {
     test('should register a device', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/sync/register-device', authToken, {
-        deviceName: 'test-device-' + Date.now(),
-        deviceType: 'web'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/sync/register-device',
+        authToken,
+        {
+          deviceName: 'test-device-' + Date.now(),
+          deviceType: 'web',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -78,8 +84,8 @@ describe('Sync API', () => {
         url: '/api/sync/register-device',
         payload: {
           deviceName: 'test-device-' + Date.now(),
-          deviceType: 'web'
-        }
+          deviceType: 'web',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -93,7 +99,7 @@ describe('Sync API', () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/sync/pull', authToken, {
         deviceId: registeredDeviceId,
         lastSyncTimestamp: '2026-01-01T00:00:00Z',
-        tables: ['customers', 'orders']
+        tables: ['customers', 'orders'],
       });
 
       expect(response.statusCode).toBe(200);
@@ -106,7 +112,7 @@ describe('Sync API', () => {
 
     test('should return 400 when deviceId or lastSyncTimestamp is missing', async () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/sync/pull', authToken, {
-        lastSyncTimestamp: '2026-01-01T00:00:00Z'
+        lastSyncTimestamp: '2026-01-01T00:00:00Z',
       });
 
       expect(response.statusCode).toBe(400);
@@ -120,8 +126,8 @@ describe('Sync API', () => {
         url: '/api/sync/pull',
         payload: {
           deviceId: 'some-device',
-          lastSyncTimestamp: '2026-01-01T00:00:00Z'
-        }
+          lastSyncTimestamp: '2026-01-01T00:00:00Z',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -131,7 +137,12 @@ describe('Sync API', () => {
   // ==================== GET SYNC STATUS TESTS ====================
   describe('GET /api/sync/status/:deviceId', () => {
     test('should get sync status for a registered device', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', `/api/sync/status/${registeredDeviceId}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        `/api/sync/status/${registeredDeviceId}`,
+        authToken
+      );
 
       const data = JSON.parse(response.body);
 
@@ -153,7 +164,7 @@ describe('Sync API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/sync/status/some-device-id'
+        url: '/api/sync/status/some-device-id',
       });
 
       expect(response.statusCode).toBe(401);
