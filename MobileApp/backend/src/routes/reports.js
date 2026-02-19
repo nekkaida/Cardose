@@ -4,7 +4,19 @@ async function reportRoutes(fastify, options) {
   const db = fastify.db;
 
   // Sales report (requires authentication)
-  fastify.get('/sales', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.get('/sales', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          startDate: { type: 'string' },
+          endDate: { type: 'string' },
+          groupBy: { type: 'string', enum: ['day', 'week', 'month'], default: 'day' }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { startDate, endDate, groupBy = 'day' } = request.query;
 
@@ -140,7 +152,18 @@ async function reportRoutes(fastify, options) {
   });
 
   // Production report (requires authentication)
-  fastify.get('/production', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.get('/production', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          startDate: { type: 'string' },
+          endDate: { type: 'string' }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { startDate, endDate } = request.query;
 
@@ -289,7 +312,18 @@ async function reportRoutes(fastify, options) {
   });
 
   // Financial report (requires authentication)
-  fastify.get('/financial', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+  fastify.get('/financial', {
+    preHandler: [fastify.authenticate],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          startDate: { type: 'string' },
+          endDate: { type: 'string' }
+        }
+      }
+    }
+  }, async (request, reply) => {
     try {
       const { startDate, endDate } = request.query;
 
