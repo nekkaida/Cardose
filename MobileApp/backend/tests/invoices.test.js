@@ -1,5 +1,10 @@
 // Invoices API Tests
-const { buildApp, createTestUserAndGetToken, makeAuthenticatedRequest, createTestCustomer } = require('./helpers');
+const {
+  buildApp,
+  createTestUserAndGetToken,
+  makeAuthenticatedRequest,
+  createTestCustomer,
+} = require('./helpers');
 
 describe('Invoices API', () => {
   let app;
@@ -29,10 +34,16 @@ describe('Invoices API', () => {
       const invoiceData = {
         customer_id: testCustomerId,
         subtotal: 100000,
-        due_date: '2026-03-01'
+        due_date: '2026-03-01',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/invoices', authToken, invoiceData);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/invoices',
+        authToken,
+        invoiceData
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -45,7 +56,7 @@ describe('Invoices API', () => {
     test('should reject invoice creation without customer_id', async () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/invoices', authToken, {
         subtotal: 100000,
-        due_date: '2026-03-01'
+        due_date: '2026-03-01',
       });
 
       expect(response.statusCode).toBe(400);
@@ -57,8 +68,8 @@ describe('Invoices API', () => {
         url: '/api/invoices',
         payload: {
           customer_id: testCustomerId,
-          subtotal: 100000
-        }
+          subtotal: 100000,
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -77,7 +88,12 @@ describe('Invoices API', () => {
     });
 
     test('should filter invoices by status', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/invoices?status=draft', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/invoices?status=draft',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -85,7 +101,12 @@ describe('Invoices API', () => {
     });
 
     test('should support pagination', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/invoices?page=1&limit=5', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/invoices?page=1&limit=5',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -95,7 +116,7 @@ describe('Invoices API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/invoices'
+        url: '/api/invoices',
       });
 
       expect(response.statusCode).toBe(401);
@@ -105,7 +126,12 @@ describe('Invoices API', () => {
   // ==================== GET SINGLE INVOICE TESTS ====================
   describe('GET /api/invoices/:id', () => {
     test('should get invoice by valid ID', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', `/api/invoices/${testInvoiceId}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        `/api/invoices/${testInvoiceId}`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -114,7 +140,12 @@ describe('Invoices API', () => {
     });
 
     test('should return 404 for non-existent invoice', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/invoices/non-existent-id-123', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/invoices/non-existent-id-123',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -123,10 +154,16 @@ describe('Invoices API', () => {
   // ==================== UPDATE INVOICE STATUS TESTS ====================
   describe('PATCH /api/invoices/:id/status', () => {
     test('should update invoice status to paid', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PATCH', `/api/invoices/${testInvoiceId}/status`, authToken, {
-        status: 'paid',
-        paid_date: '2026-02-10'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/invoices/${testInvoiceId}/status`,
+        authToken,
+        {
+          status: 'paid',
+          paid_date: '2026-02-10',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -134,17 +171,29 @@ describe('Invoices API', () => {
     });
 
     test('should reject invalid status', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PATCH', `/api/invoices/${testInvoiceId}/status`, authToken, {
-        status: 'invalid_status'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/invoices/${testInvoiceId}/status`,
+        authToken,
+        {
+          status: 'invalid_status',
+        }
+      );
 
       expect(response.statusCode).toBe(400);
     });
 
     test('should return 404 for non-existent invoice', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PATCH', '/api/invoices/non-existent-id-123/status', authToken, {
-        status: 'paid'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        '/api/invoices/non-existent-id-123/status',
+        authToken,
+        {
+          status: 'paid',
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
