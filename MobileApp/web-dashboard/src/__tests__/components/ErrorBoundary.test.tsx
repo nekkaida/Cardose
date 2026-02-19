@@ -7,6 +7,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 
+// Mock @sentry/react
+vi.mock('@sentry/react', () => ({
+  captureException: vi.fn(),
+}));
+
 // A component that throws an error on demand
 const ThrowingComponent: React.FC<{ shouldThrow: boolean }> = ({ shouldThrow }) => {
   if (shouldThrow) {
@@ -91,37 +96,25 @@ describe('ErrorBoundary', () => {
   });
 
   describe('Recovery', () => {
-    it('should recover when Try Again button is clicked', async () => {
-      // We need a component that can toggle between throwing and not
-      let shouldThrow = true;
-      const ToggleComponent: React.FC = () => {
-        if (shouldThrow) {
-          throw new Error('Temporary error');
-        }
-        return <div data-testid="recovered">Recovered content</div>;
-      };
+    it('should call window.location.reload when Try Again button is clicked', async () => {
+      // The ErrorBoundary "Try Again" button calls window.location.reload()
+      const reloadMock = vi.fn();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: { ...window.location, reload: reloadMock },
+      });
 
-      const { rerender } = render(
+      render(
         <ErrorBoundary>
-          <ToggleComponent />
+          <ThrowingComponent shouldThrow={true} />
         </ErrorBoundary>
       );
 
-      // Error state is shown
       expect(screen.getByText('Something went wrong')).toBeInTheDocument();
 
-      // Fix the "error" and click Try Again
-      shouldThrow = false;
       await userEvent.click(screen.getByText('Try Again'));
 
-      // Re-render to pick up the fixed component
-      rerender(
-        <ErrorBoundary>
-          <ToggleComponent />
-        </ErrorBoundary>
-      );
-
-      expect(screen.getByTestId('recovered')).toBeInTheDocument();
+      expect(reloadMock).toHaveBeenCalled();
     });
   });
 });
