@@ -1,12 +1,19 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { apiClient } from './AuthContext';
-import type {
-  SalesReportData,
-  InventoryReportData,
-  ProductionReportData,
-  CustomerReportData,
-  FinancialReportData,
-} from '@shared/types';
+import {
+  validateResponse,
+  reportResponseSchema,
+  dashboardAnalyticsSchema,
+  productionBoardSchema,
+  productionStatsSchema,
+  financialSummarySchema,
+  orderStatsSchema,
+  listResponseSchema,
+} from '../utils/apiValidation';
+
+// NOTE: Shared types exist in @shared/types but most pages haven't been updated
+// to consume them yet. Return types are `any` until pages are individually audited.
+// The validateResponse() calls still provide runtime shape-mismatch warnings.
 
 interface ApiContextType {
   // Orders
@@ -58,18 +65,12 @@ interface ApiContextType {
   deleteProductionTask: (id: string) => Promise<any>;
   updateProductionStage: (id: string, stage: string, notes?: string) => Promise<any>;
 
-  // Reports (typed — these pages have been audited)
-  getSalesReport: (
-    params?: Record<string, any>
-  ) => Promise<{ success: boolean; report: SalesReportData }>;
-  getInventoryReport: () => Promise<{ success: boolean; report: InventoryReportData }>;
-  getProductionReport: (
-    params?: Record<string, any>
-  ) => Promise<{ success: boolean; report: ProductionReportData }>;
-  getCustomerReport: () => Promise<{ success: boolean; report: CustomerReportData }>;
-  getFinancialReport: (
-    params?: Record<string, any>
-  ) => Promise<{ success: boolean; report: FinancialReportData }>;
+  // Reports
+  getSalesReport: (params?: Record<string, any>) => Promise<any>;
+  getInventoryReport: () => Promise<any>;
+  getProductionReport: (params?: Record<string, any>) => Promise<any>;
+  getCustomerReport: () => Promise<any>;
+  getFinancialReport: (params?: Record<string, any>) => Promise<any>;
 
   // Users
   getUsers: (params?: Record<string, any>) => Promise<any>;
@@ -102,11 +103,13 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Orders API
   const getOrders = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/orders`, { params });
+    validateResponse(listResponseSchema, response.data, 'GET /orders');
     return response.data;
   };
 
   const getOrderStats = async () => {
     const response = await apiClient.get(`/orders/stats`);
+    validateResponse(orderStatsSchema, response.data, 'GET /orders/stats');
     return response.data;
   };
 
@@ -133,6 +136,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Customers API
   const getCustomers = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/customers`, { params });
+    validateResponse(listResponseSchema, response.data, 'GET /customers');
     return response.data;
   };
 
@@ -154,6 +158,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Inventory API
   const getInventory = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/inventory`, { params });
+    validateResponse(listResponseSchema, response.data, 'GET /inventory');
     return response.data;
   };
 
@@ -190,6 +195,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Financial API
   const getFinancialSummary = async () => {
     const response = await apiClient.get(`/financial/summary`);
+    validateResponse(financialSummarySchema, response.data, 'GET /financial/summary');
     return response.data;
   };
 
@@ -226,7 +232,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Analytics API
   const getDashboardAnalytics = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/analytics/dashboard`, { params });
-    return response.data;
+    return validateResponse(dashboardAnalyticsSchema, response.data, 'GET /analytics/dashboard');
   };
 
   const getRevenueAnalytics = async () => {
@@ -252,6 +258,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Production API
   const getProductionBoard = async () => {
     const response = await apiClient.get(`/production/board`);
+    validateResponse(productionBoardSchema, response.data, 'GET /production/board');
     return response.data;
   };
 
@@ -262,6 +269,7 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
 
   const getProductionStats = async () => {
     const response = await apiClient.get(`/production/stats`);
+    validateResponse(productionStatsSchema, response.data, 'GET /production/stats');
     return response.data;
   };
 
@@ -293,26 +301,31 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Reports API
   const getSalesReport = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/reports/sales`, { params });
+    validateResponse(reportResponseSchema, response.data, 'GET /reports/sales');
     return response.data;
   };
 
   const getInventoryReport = async () => {
     const response = await apiClient.get(`/reports/inventory`);
+    validateResponse(reportResponseSchema, response.data, 'GET /reports/inventory');
     return response.data;
   };
 
   const getProductionReport = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/reports/production`, { params });
+    validateResponse(reportResponseSchema, response.data, 'GET /reports/production');
     return response.data;
   };
 
   const getCustomerReport = async () => {
     const response = await apiClient.get(`/reports/customers`);
+    validateResponse(reportResponseSchema, response.data, 'GET /reports/customers');
     return response.data;
   };
 
   const getFinancialReport = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/reports/financial`, { params });
+    validateResponse(reportResponseSchema, response.data, 'GET /reports/financial');
     return response.data;
   };
 
