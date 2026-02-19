@@ -28,8 +28,8 @@ async function authRoutes(fastify, options) {
             email: { type: 'string', format: 'email' },
             fullName: { type: 'string', minLength: 1 },
             phone: { type: 'string' },
+            role: { type: 'string' },
           },
-          additionalProperties: false,
         },
       },
     },
@@ -131,7 +131,6 @@ async function authRoutes(fastify, options) {
             username: { type: 'string' },
             password: { type: 'string' },
           },
-          additionalProperties: false,
         },
       },
     },
@@ -255,6 +254,44 @@ async function authRoutes(fastify, options) {
     }
   );
 
+  // Get current user (alias for /profile with success flag)
+  fastify.get(
+    '/me',
+    {
+      preHandler: [fastify.authenticate],
+    },
+    async (request, reply) => {
+      try {
+        const user = db.db
+          .prepare(
+            'SELECT id, username, email, full_name, phone, role, avatar_url, is_active, created_at, updated_at FROM users WHERE id = ?'
+          )
+          .get(request.user.id);
+
+        if (!user) {
+          return reply.status(404).send({ success: false, error: 'User not found' });
+        }
+
+        return {
+          success: true,
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            fullName: user.full_name,
+            phone: user.phone,
+            role: user.role,
+            isActive: user.is_active === 1,
+            createdAt: user.created_at,
+          },
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.status(500).send({ success: false, error: 'Failed to fetch profile' });
+      }
+    }
+  );
+
   // Update user profile
   fastify.put(
     '/profile',
@@ -267,7 +304,6 @@ async function authRoutes(fastify, options) {
             email: { type: 'string', format: 'email' },
             phone: { type: 'string' },
           },
-          additionalProperties: false,
         },
       },
       preHandler: [fastify.authenticate],
@@ -334,7 +370,6 @@ async function authRoutes(fastify, options) {
             currentPassword: { type: 'string' },
             newPassword: { type: 'string', minLength: 8 },
           },
-          additionalProperties: false,
         },
       },
       preHandler: [fastify.authenticate],
@@ -405,7 +440,6 @@ async function authRoutes(fastify, options) {
           properties: {
             email: { type: 'string', format: 'email' },
           },
-          additionalProperties: false,
         },
       },
     },
@@ -488,7 +522,6 @@ async function authRoutes(fastify, options) {
             resetToken: { type: 'string' },
             newPassword: { type: 'string', minLength: 8 },
           },
-          additionalProperties: false,
         },
       },
     },
