@@ -1,5 +1,10 @@
 // Orders API Tests
-const { buildApp, createTestUserAndGetToken, makeAuthenticatedRequest, createTestCustomer } = require('./helpers');
+const {
+  buildApp,
+  createTestUserAndGetToken,
+  makeAuthenticatedRequest,
+  createTestCustomer,
+} = require('./helpers');
 
 describe('Orders API', () => {
   let app;
@@ -33,10 +38,16 @@ describe('Orders API', () => {
         priority: 'normal',
         total_amount: 150000,
         delivery_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        notes: 'Test order'
+        notes: 'Test order',
       };
 
-      const response = await makeAuthenticatedRequest(app, 'POST', '/api/orders', authToken, orderData);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/orders',
+        authToken,
+        orderData
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -50,7 +61,7 @@ describe('Orders API', () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/orders', authToken, {
         order_number: 'ORD-TEST-' + Date.now(),
         status: 'pending',
-        total_amount: 100000
+        total_amount: 100000,
       });
 
       expect(response.statusCode).toBe(400);
@@ -62,8 +73,8 @@ describe('Orders API', () => {
         url: '/api/orders',
         payload: {
           customer_id: testCustomerId,
-          order_number: 'ORD-TEST-' + Date.now()
-        }
+          order_number: 'ORD-TEST-' + Date.now(),
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -73,7 +84,7 @@ describe('Orders API', () => {
       const response = await makeAuthenticatedRequest(app, 'POST', '/api/orders', authToken, {
         customer_id: testCustomerId,
         status: 'pending',
-        total_amount: 100000
+        total_amount: 100000,
       });
 
       expect(response.statusCode).toBe(200);
@@ -94,7 +105,12 @@ describe('Orders API', () => {
     });
 
     test('should filter orders by status', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/orders?status=pending', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/orders?status=pending',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -102,7 +118,12 @@ describe('Orders API', () => {
     });
 
     test('should filter orders by priority', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/orders?priority=normal', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/orders?priority=normal',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -110,7 +131,12 @@ describe('Orders API', () => {
     });
 
     test('should filter orders by customer_id', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', `/api/orders?customer_id=${testCustomerId}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        `/api/orders?customer_id=${testCustomerId}`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -118,7 +144,12 @@ describe('Orders API', () => {
     });
 
     test('should support pagination', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/orders?page=1&limit=10', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/orders?page=1&limit=10',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -128,7 +159,7 @@ describe('Orders API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/orders'
+        url: '/api/orders',
       });
 
       expect(response.statusCode).toBe(401);
@@ -138,7 +169,12 @@ describe('Orders API', () => {
   // ==================== GET SINGLE ORDER TESTS ====================
   describe('GET /api/orders/:id', () => {
     test('should get order by valid ID', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', `/api/orders/${testOrderId}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        `/api/orders/${testOrderId}`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -147,7 +183,12 @@ describe('Orders API', () => {
     });
 
     test('should return 404 for non-existent order', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/orders/non-existent-id-123', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/orders/non-existent-id-123',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -155,7 +196,7 @@ describe('Orders API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: `/api/orders/${testOrderId}`
+        url: `/api/orders/${testOrderId}`,
       });
 
       expect(response.statusCode).toBe(401);
@@ -176,7 +217,12 @@ describe('Orders API', () => {
   // ==================== LATEST ORDER NUMBER TESTS ====================
   describe('GET /api/orders/latest-number', () => {
     test('should get latest order number', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/orders/latest-number', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/orders/latest-number',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -188,10 +234,16 @@ describe('Orders API', () => {
   // ==================== UPDATE ORDER TESTS ====================
   describe('PUT /api/orders/:id', () => {
     test('should update order with valid data', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PUT', `/api/orders/${testOrderId}`, authToken, {
-        notes: 'Updated notes',
-        priority: 'high'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PUT',
+        `/api/orders/${testOrderId}`,
+        authToken,
+        {
+          notes: 'Updated notes',
+          priority: 'high',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -199,9 +251,15 @@ describe('Orders API', () => {
     });
 
     test('should return 404 for non-existent order', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PUT', '/api/orders/non-existent-id-123', authToken, {
-        notes: 'Updated notes'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PUT',
+        '/api/orders/non-existent-id-123',
+        authToken,
+        {
+          notes: 'Updated notes',
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -211,8 +269,8 @@ describe('Orders API', () => {
         method: 'PUT',
         url: `/api/orders/${testOrderId}`,
         payload: {
-          notes: 'Updated notes'
-        }
+          notes: 'Updated notes',
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -222,9 +280,15 @@ describe('Orders API', () => {
   // ==================== UPDATE ORDER STATUS TESTS ====================
   describe('PATCH /api/orders/:id/status', () => {
     test('should update order status', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PATCH', `/api/orders/${testOrderId}/status`, authToken, {
-        status: 'designing'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/orders/${testOrderId}/status`,
+        authToken,
+        {
+          status: 'designing',
+        }
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -232,17 +296,29 @@ describe('Orders API', () => {
     });
 
     test('should reject invalid status', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PATCH', `/api/orders/${testOrderId}/status`, authToken, {
-        status: 'invalid_status'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/orders/${testOrderId}/status`,
+        authToken,
+        {
+          status: 'invalid_status',
+        }
+      );
 
       expect(response.statusCode).toBe(400);
     });
 
     test('should return 404 for non-existent order', async () => {
-      const response = await makeAuthenticatedRequest(app, 'PATCH', '/api/orders/non-existent-id-123/status', authToken, {
-        status: 'completed'
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        '/api/orders/non-existent-id-123/status',
+        authToken,
+        {
+          status: 'completed',
+        }
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -258,14 +334,19 @@ describe('Orders API', () => {
         customer_id: testCustomerId,
         order_number: 'ORD-DELETE-' + Date.now(),
         status: 'pending',
-        total_amount: 50000
+        total_amount: 50000,
       });
       const data = JSON.parse(response.body);
       orderToDelete = data.orderId || data.order?.id;
     });
 
     test('should delete order', async () => {
-      const response = await makeAuthenticatedRequest(app, 'DELETE', `/api/orders/${orderToDelete}`, authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'DELETE',
+        `/api/orders/${orderToDelete}`,
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -273,7 +354,12 @@ describe('Orders API', () => {
     });
 
     test('should return 404 for non-existent order', async () => {
-      const response = await makeAuthenticatedRequest(app, 'DELETE', '/api/orders/non-existent-id-123', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'DELETE',
+        '/api/orders/non-existent-id-123',
+        authToken
+      );
 
       expect(response.statusCode).toBe(404);
     });
@@ -281,7 +367,7 @@ describe('Orders API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'DELETE',
-        url: `/api/orders/${testOrderId}`
+        url: `/api/orders/${testOrderId}`,
       });
 
       expect(response.statusCode).toBe(401);
@@ -291,11 +377,17 @@ describe('Orders API', () => {
   // ==================== ORDER ITEMS TESTS ====================
   describe('POST /api/orders/:id/items', () => {
     test('should add item to order', async () => {
-      const response = await makeAuthenticatedRequest(app, 'POST', `/api/orders/${testOrderId}/items`, authToken, {
-        product_name: 'Premium Gift Box',
-        quantity: 5,
-        unit_price: 50000
-      });
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        `/api/orders/${testOrderId}/items`,
+        authToken,
+        {
+          product_name: 'Premium Gift Box',
+          quantity: 5,
+          unit_price: 50000,
+        }
+      );
 
       // Some implementations might not have this endpoint
       if (response.statusCode === 200) {
