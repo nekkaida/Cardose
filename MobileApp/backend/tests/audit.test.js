@@ -33,7 +33,12 @@ describe('Audit API', () => {
     });
 
     test('should support pagination', async () => {
-      const response = await makeAuthenticatedRequest(app, 'GET', '/api/audit/logs?page=1&limit=5', authToken);
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/audit/logs?page=1&limit=5',
+        authToken
+      );
 
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
@@ -46,7 +51,7 @@ describe('Audit API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/audit/logs'
+        url: '/api/audit/logs',
       });
 
       expect(response.statusCode).toBe(401);
@@ -72,7 +77,7 @@ describe('Audit API', () => {
     test('should reject without authentication', async () => {
       const response = await app.inject({
         method: 'GET',
-        url: '/api/audit/stats'
+        url: '/api/audit/stats',
       });
 
       expect(response.statusCode).toBe(401);
