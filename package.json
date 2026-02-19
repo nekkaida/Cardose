@@ -12,28 +12,23 @@
     "setup": "npm install && npm run setup:web && npm run setup:mobile",
     "setup:web": "cd Web && npm install",
     "setup:mobile": "cd MobileApp/backend && npm install && cd ../mobile && npm install",
-
     "dev:web": "cd Web && npm run dev",
     "dev:backend": "cd MobileApp/backend && npm run dev",
     "dev:mobile": "cd MobileApp/mobile && npm start",
-
     "build:web": "cd Web && npm run build",
     "build:backend": "cd MobileApp/backend && npm run build",
     "build:mobile": "cd MobileApp/mobile && npm run build:android",
-
     "start:backend": "cd MobileApp/backend && npm start",
     "start:all": "npm-run-all --parallel start:backend dev:mobile",
-
     "lint": "npm run lint:web && npm run lint:backend",
     "lint:web": "cd Web && npm run lint",
     "lint:backend": "cd MobileApp/backend && npm run lint",
-
     "clean": "npm run clean:web && npm run clean:mobile",
     "clean:web": "cd Web && npm run clean",
     "clean:mobile": "cd MobileApp/backend && rm -rf node_modules && cd ../mobile && rm -rf node_modules",
-
     "backup:db": "cd MobileApp/backend && npm run backup",
-    "sync:db": "cd MobileApp/backend && npm run sync"
+    "sync:db": "cd MobileApp/backend && npm run sync",
+    "prepare": "husky"
   },
   "keywords": [
     "premium-gift-box",
@@ -53,6 +48,16 @@
     "npm": ">=8.0.0"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "npm-run-all": "^4.1.5"
+  },
+  "lint-staged": {
+    "MobileApp/web-dashboard/src/**/*.{ts,tsx}": [
+      "prettier --write --config MobileApp/web-dashboard/.prettierrc"
+    ],
+    "MobileApp/backend/src/**/*.js": [
+      "prettier --write --config MobileApp/backend/.prettierrc"
+    ]
   }
 }
