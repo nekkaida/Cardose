@@ -227,6 +227,7 @@ const UsersPage: React.FC = () => {
             <input
               type="text"
               placeholder="Search users..."
+              aria-label="Search users"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -235,6 +236,7 @@ const UsersPage: React.FC = () => {
           </div>
           <div>
             <select
+              aria-label="Filter by role"
               value={roleFilter}
               onChange={(e) => {
                 setRoleFilter(e.target.value);
@@ -367,8 +369,14 @@ const UsersPage: React.FC = () => {
             </h2>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Full Name</label>
+                <label
+                  htmlFor="user-full-name"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Full Name
+                </label>
                 <input
+                  id="user-full-name"
                   type="text"
                   required
                   value={newUser.full_name}
@@ -377,8 +385,14 @@ const UsersPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Username</label>
+                <label
+                  htmlFor="user-username"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Username
+                </label>
                 <input
+                  id="user-username"
                   type="text"
                   required
                   value={newUser.username}
@@ -388,8 +402,14 @@ const UsersPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                <label
+                  htmlFor="user-email"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Email
+                </label>
                 <input
+                  id="user-email"
                   type="email"
                   required
                   value={newUser.email}
@@ -398,10 +418,14 @@ const UsersPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="user-password"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
                   Password{editingUser ? ' (leave blank to keep current)' : ''}
                 </label>
                 <input
+                  id="user-password"
                   type="password"
                   required={!editingUser}
                   value={newUser.password}
@@ -410,8 +434,14 @@ const UsersPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Phone</label>
+                <label
+                  htmlFor="user-phone"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Phone
+                </label>
                 <input
+                  id="user-phone"
                   type="text"
                   value={newUser.phone}
                   onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
@@ -419,8 +449,11 @@ const UsersPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Role</label>
+                <label htmlFor="user-role" className="mb-1 block text-sm font-medium text-gray-700">
+                  Role
+                </label>
                 <select
+                  id="user-role"
                   value={newUser.role}
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
