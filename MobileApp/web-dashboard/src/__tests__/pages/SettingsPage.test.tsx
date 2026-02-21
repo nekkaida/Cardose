@@ -70,6 +70,31 @@ vi.mock('../../contexts/LanguageContext', () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
         'settings.title': 'Settings',
+        'settings.subtitle': 'Manage application settings',
+        'settings.addSetting': 'Add Setting',
+        'settings.addNewSetting': 'Add New Setting',
+        'settings.language': 'Language',
+        'settings.languageHint': 'Choose your preferred language',
+        'settings.langEnglish': 'English',
+        'settings.langIndonesian': 'Bahasa Indonesia',
+        'settings.systemSettings': 'System Settings',
+        'settings.settingsCount': 'settings configured',
+        'settings.noSettings': 'No settings configured yet.',
+        'settings.key': 'Key',
+        'settings.value': 'Value',
+        'settings.description': 'Description',
+        'settings.keyPlaceholder': 'e.g. company_name',
+        'settings.descriptionPlaceholder': 'Optional description',
+        'settings.save': 'Save',
+        'settings.cancel': 'Cancel',
+        'settings.edit': 'Edit',
+        'settings.delete': 'Delete',
+        'settings.saving': 'Saving...',
+        'settings.loadError': 'Failed to load settings. Please try again.',
+        'settings.saveError': 'Failed to save setting.',
+        'settings.deleteError': 'Failed to delete setting.',
+        'settings.deleteConfirm': 'Are you sure you want to delete setting',
+        'settings.tryAgain': 'Try Again',
         'common.loading': 'Loading...',
         'common.error': 'Error',
       };
@@ -107,19 +132,20 @@ describe('SettingsPage', () => {
   });
 
   describe('Error state', () => {
-    it('should show error message when API call fails', async () => {
-      mockGetSettings.mockRejectedValueOnce(new Error('Network error'));
+    it('should show inline error message when API call fails', async () => {
+      mockGetSettings.mockRejectedValue(new Error('Network error'));
 
       render(<SettingsPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Error')).toBeInTheDocument();
         expect(screen.getByText('Failed to load settings. Please try again.')).toBeInTheDocument();
       });
+      // Title should still be visible (inline error, not page-replacing)
+      expect(screen.getByText('Settings')).toBeInTheDocument();
     });
 
     it('should show Try Again button on error', async () => {
-      mockGetSettings.mockRejectedValueOnce(new Error('Network error'));
+      mockGetSettings.mockRejectedValue(new Error('Network error'));
 
       render(<SettingsPage />);
 
@@ -129,7 +155,7 @@ describe('SettingsPage', () => {
     });
 
     it('should retry loading when Try Again is clicked', async () => {
-      mockGetSettings.mockRejectedValueOnce(new Error('Network error'));
+      mockGetSettings.mockRejectedValue(new Error('Network error'));
 
       render(<SettingsPage />);
 
@@ -137,15 +163,14 @@ describe('SettingsPage', () => {
         expect(screen.getByText('Try Again')).toBeInTheDocument();
       });
 
-      mockGetSettings.mockResolvedValueOnce(mockSettingsData);
+      mockGetSettings.mockReset();
+      mockGetSettings.mockResolvedValue(mockSettingsData);
 
       await userEvent.click(screen.getByText('Try Again'));
 
       await waitFor(() => {
-        expect(screen.getByText('Settings')).toBeInTheDocument();
+        expect(screen.getByText('Premium Gift Box')).toBeInTheDocument();
       });
-
-      expect(mockGetSettings).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -271,6 +296,21 @@ describe('SettingsPage', () => {
       await waitFor(() => {
         expect(screen.getByText('Save')).toBeInTheDocument();
         expect(screen.getByText('Cancel')).toBeInTheDocument();
+      });
+    });
+
+    it('should show delete confirmation dialog when Delete is clicked', async () => {
+      render(<SettingsPage />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Delete').length).toBe(2);
+      });
+
+      const deleteButtons = screen.getAllByText('Delete');
+      await userEvent.click(deleteButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Are you sure you want to delete setting/)).toBeInTheDocument();
       });
     });
   });
