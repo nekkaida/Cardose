@@ -337,6 +337,25 @@ describe('Inventory API', () => {
       expect(response.statusCode).toBe(400);
     });
 
+    test('should reject movement that would cause negative stock', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'POST',
+        '/api/inventory/movements',
+        authToken,
+        {
+          type: 'usage',
+          item_id: testItemId,
+          quantity: 999999,
+        }
+      );
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(false);
+      expect(data.error).toMatch(/Insufficient stock/);
+    });
+
     test('should reject movement for non-existent item', async () => {
       const response = await makeAuthenticatedRequest(
         app,
