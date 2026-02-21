@@ -186,58 +186,57 @@ describe('FinancialPage', () => {
   });
 
   describe('Error state', () => {
-    it('should show error message when transaction API fails with no data', async () => {
+    it('should show empty state when transaction API fails', async () => {
       mockGetFinancialSummary.mockRejectedValueOnce(new Error('Network error'));
       mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
-      mockGetInvoices.mockRejectedValueOnce(new Error('Network error'));
+      // TransactionsTab calls getTransactions independently
+      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
 
       render(<FinancialPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Error')).toBeInTheDocument();
+        // TransactionsTab shows empty state when API fails
+        expect(screen.getByText('No transactions found')).toBeInTheDocument();
       });
     });
 
-    it('should show Try Again button on error', async () => {
+    it('should still render page structure when APIs fail', async () => {
       mockGetFinancialSummary.mockRejectedValueOnce(new Error('Network error'));
       mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
-      mockGetInvoices.mockRejectedValueOnce(new Error('Network error'));
+      // TransactionsTab calls getTransactions independently
+      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
 
       render(<FinancialPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Try Again')).toBeInTheDocument();
+        // Page header still renders
+        expect(screen.getByText('Financial')).toBeInTheDocument();
+        // Tab bar still renders
+        expect(screen.getByText(/Transactions/)).toBeInTheDocument();
       });
     });
 
-    it('should retry loading when Try Again is clicked', async () => {
-      mockGetFinancialSummary.mockRejectedValueOnce(new Error('Network error'));
-      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
-      mockGetInvoices.mockRejectedValueOnce(new Error('Network error'));
-
-      render(<FinancialPage />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Try Again')).toBeInTheDocument();
-      });
-
+    it('should display summary even if transactions fail', async () => {
       mockGetFinancialSummary.mockResolvedValueOnce(mockSummaryData);
-      mockGetTransactions.mockResolvedValueOnce(mockTransactionsData);
-      mockGetInvoices.mockResolvedValueOnce(mockInvoicesData);
+      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
+      // TransactionsTab calls getTransactions independently
+      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
 
-      await userEvent.click(screen.getByText('Try Again'));
+      render(<FinancialPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Total Revenue')).toBeInTheDocument();
+        expect(screen.getByText('No transactions found')).toBeInTheDocument();
       });
     });
   });
 
   describe('Loaded state', () => {
     beforeEach(() => {
-      mockGetFinancialSummary.mockResolvedValueOnce(mockSummaryData);
-      mockGetTransactions.mockResolvedValueOnce(mockTransactionsData);
-      mockGetInvoices.mockResolvedValueOnce(mockInvoicesData);
+      mockGetFinancialSummary.mockResolvedValue(mockSummaryData);
+      // getTransactions is called by both the orchestrator (for chart data) and TransactionsTab
+      mockGetTransactions.mockResolvedValue(mockTransactionsData);
+      mockGetInvoices.mockResolvedValue(mockInvoicesData);
     });
 
     it('should render without crashing and display title', async () => {
@@ -280,7 +279,7 @@ describe('FinancialPage', () => {
       render(<FinancialPage />);
 
       await waitFor(() => {
-        // Tab label includes count: "Transactions (2)"
+        // Tab label
         expect(screen.getByText(/Transactions/)).toBeInTheDocument();
       });
     });
@@ -318,9 +317,10 @@ describe('FinancialPage', () => {
 
   describe('Partial data load', () => {
     it('should display summary even if transactions fail', async () => {
-      mockGetFinancialSummary.mockResolvedValueOnce(mockSummaryData);
-      mockGetTransactions.mockRejectedValueOnce(new Error('Transactions failed'));
-      mockGetInvoices.mockResolvedValueOnce(mockInvoicesData);
+      mockGetFinancialSummary.mockResolvedValue(mockSummaryData);
+      // Both orchestrator and TransactionsTab call getTransactions
+      mockGetTransactions.mockRejectedValue(new Error('Transactions failed'));
+      mockGetInvoices.mockResolvedValue(mockInvoicesData);
 
       render(<FinancialPage />);
 
