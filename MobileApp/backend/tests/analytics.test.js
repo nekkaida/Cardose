@@ -77,7 +77,7 @@ describe('Analytics API', () => {
       expect(data.period).toBe('year');
     });
 
-    test('should handle invalid period gracefully', async () => {
+    test('should reject invalid period with 400', async () => {
       const response = await makeAuthenticatedRequest(
         app,
         'GET',
@@ -85,8 +85,7 @@ describe('Analytics API', () => {
         authToken
       );
 
-      expect(response.statusCode).toBe(200);
-      // Should default to month for invalid period
+      expect(response.statusCode).toBe(400);
     });
 
     test('should include revenue statistics', async () => {
