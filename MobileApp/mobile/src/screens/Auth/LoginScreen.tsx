@@ -1,12 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   Alert,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,6 +13,9 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { login, register, selectAuthLoading, clearError } from '../../store/slices/authSlice';
 import { ApiService } from '../../services/ApiService';
 import { API_CONFIG } from '../../config';
+import { BrandHeader, LoginForm, ServerConfig } from './components';
+import type { AuthMode, ServerStatus } from './components';
+import { validateLoginFields, validateRegisterFields } from './helpers/validation';
 
 export const LoginScreen: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -24,7 +24,7 @@ export const LoginScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<AuthMode>('login');
 
   // Registration fields
   const [email, setEmail] = useState('');
@@ -34,17 +34,13 @@ export const LoginScreen: React.FC = () => {
   // Server settings
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrl] = useState(ApiService.getBaseUrl());
-  const [serverStatus, setServerStatus] = useState<'unknown' | 'checking' | 'online' | 'offline'>('unknown');
-
-  // Input refs for keyboard flow
-  const passwordRef = useRef<TextInput>(null);
-  const emailRef = useRef<TextInput>(null);
-  const fullNameRef = useRef<TextInput>(null);
-  const phoneRef = useRef<TextInput>(null);
+  const [serverStatus, setServerStatus] = useState<ServerStatus>('unknown');
 
   useEffect(() => {
     setServerUrl(ApiService.getBaseUrl());
   }, []);
+
+  // ── Server handlers ──────────────────────────────────────────────────
 
   const handleTestConnection = async () => {
     if (!serverUrl.trim()) {
@@ -71,12 +67,13 @@ export const LoginScreen: React.FC = () => {
     setServerStatus('unknown');
   };
 
+  // ── Auth handlers ────────────────────────────────────────────────────
+
   const handleLogin = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    if (!username || !password) {
-      Alert.alert('Error', 'Please enter username and password');
+    if (!validateLoginFields({ username, password })) {
       setIsSubmitting(false);
       return;
     }
@@ -94,26 +91,7 @@ export const LoginScreen: React.FC = () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    if (!username || !password || !email || !fullName) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      setIsSubmitting(false);
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long');
-      setIsSubmitting(false);
-      return;
-    }
-    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-      Alert.alert('Error', 'Password must contain uppercase, lowercase, and a number');
+    if (!validateRegisterFields({ username, password, email, fullName, phone })) {
       setIsSubmitting(false);
       return;
     }
@@ -140,6 +118,8 @@ export const LoginScreen: React.FC = () => {
     dispatch(clearError());
   };
 
+  // ── Render ───────────────────────────────────────────────────────────
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -147,186 +127,35 @@ export const LoginScreen: React.FC = () => {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.title}>🎁 Cardose</Text>
-            <Text style={styles.subtitle}>Premium Gift Box Management</Text>
-          </View>
+          <BrandHeader />
 
-          <View style={styles.form}>
-            <Text style={styles.formTitle}>
-              {mode === 'login' ? 'Login to Your Account' : 'Create New Account'}
-            </Text>
+          <LoginForm
+            mode={mode}
+            username={username}
+            password={password}
+            email={email}
+            fullName={fullName}
+            phone={phone}
+            isLoading={isLoading}
+            isSubmitting={isSubmitting}
+            onChangeUsername={setUsername}
+            onChangePassword={setPassword}
+            onChangeEmail={setEmail}
+            onChangeFullName={setFullName}
+            onChangePhone={setPhone}
+            onSubmit={mode === 'login' ? handleLogin : handleRegister}
+            onToggleMode={toggleMode}
+          />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Username</Text>
-              <TextInput
-                style={styles.input}
-                value={username}
-                onChangeText={setUsername}
-                placeholder="Enter username"
-                autoCapitalize="none"
-                autoCorrect={false}
-                maxLength={50}
-                returnKeyType="next"
-                onSubmitEditing={() => {
-                  if (mode === 'register') {
-                    fullNameRef.current?.focus();
-                  } else {
-                    passwordRef.current?.focus();
-                  }
-                }}
-              />
-            </View>
-
-            {mode === 'register' && (
-              <>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Full Name *</Text>
-                  <TextInput
-                    ref={fullNameRef}
-                    style={styles.input}
-                    value={fullName}
-                    onChangeText={setFullName}
-                    placeholder="Enter full name"
-                    autoCapitalize="words"
-                    maxLength={100}
-                    returnKeyType="next"
-                    onSubmitEditing={() => emailRef.current?.focus()}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Email *</Text>
-                  <TextInput
-                    ref={emailRef}
-                    style={styles.input}
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="Enter email"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    maxLength={254}
-                    returnKeyType="next"
-                    onSubmitEditing={() => phoneRef.current?.focus()}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Phone Number</Text>
-                  <TextInput
-                    ref={phoneRef}
-                    style={styles.input}
-                    value={phone}
-                    onChangeText={setPhone}
-                    placeholder="Enter phone number"
-                    keyboardType="phone-pad"
-                    maxLength={20}
-                    returnKeyType="next"
-                    onSubmitEditing={() => passwordRef.current?.focus()}
-                  />
-                </View>
-              </>
-            )}
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
-              <TextInput
-                ref={passwordRef}
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter password"
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                maxLength={128}
-                returnKeyType="done"
-                onSubmitEditing={mode === 'login' ? handleLogin : handleRegister}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.button, (isSubmitting || isLoading) && styles.buttonDisabled]}
-              onPress={mode === 'login' ? handleLogin : handleRegister}
-              disabled={isSubmitting || isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={theme.colors.surface} />
-              ) : (
-                <Text style={styles.buttonText}>
-                  {mode === 'login' ? 'Login' : 'Register'}
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.switchModeButton}
-              onPress={toggleMode}
-              disabled={isLoading}
-            >
-              <Text style={styles.switchModeText}>
-                {mode === 'login'
-                  ? "Don't have an account? Register"
-                  : 'Already have an account? Login'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Server Configuration */}
-          <TouchableOpacity
-            style={styles.serverToggle}
-            onPress={() => setShowServerConfig(!showServerConfig)}
-          >
-            <Text style={styles.serverToggleText}>
-              {showServerConfig ? 'Hide Server Settings' : 'Server Settings'}
-            </Text>
-            <View style={[
-              styles.serverDot,
-              { backgroundColor: serverStatus === 'online' ? theme.colors.success : serverStatus === 'offline' ? theme.colors.error : theme.colors.disabled }
-            ]} />
-          </TouchableOpacity>
-
-          {showServerConfig && (
-            <View style={styles.serverConfig}>
-              <Text style={styles.serverLabel}>Server URL</Text>
-              <TextInput
-                style={styles.input}
-                value={serverUrl}
-                onChangeText={setServerUrl}
-                placeholder="http://192.168.1.100:3001"
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-                maxLength={200}
-              />
-              <View style={styles.serverActions}>
-                <TouchableOpacity
-                  style={[styles.serverButton, styles.serverTestButton]}
-                  onPress={handleTestConnection}
-                  disabled={serverStatus === 'checking'}
-                >
-                  {serverStatus === 'checking' ? (
-                    <ActivityIndicator size="small" color={theme.colors.surface} />
-                  ) : (
-                    <Text style={styles.serverButtonText}>Test Connection</Text>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.serverButton, styles.serverResetButton]}
-                  onPress={handleResetServer}
-                >
-                  <Text style={[styles.serverButtonText, { color: theme.colors.textSecondary }]}>Reset</Text>
-                </TouchableOpacity>
-              </View>
-              {serverStatus === 'online' && (
-                <Text style={styles.serverOnline}>Connected to server</Text>
-              )}
-              {serverStatus === 'offline' && (
-                <Text style={styles.serverOffline}>Server unreachable</Text>
-              )}
-            </View>
-          )}
+          <ServerConfig
+            isVisible={showServerConfig}
+            serverUrl={serverUrl}
+            serverStatus={serverStatus}
+            onToggleVisible={() => setShowServerConfig(!showServerConfig)}
+            onChangeUrl={setServerUrl}
+            onTestConnection={handleTestConnection}
+            onReset={handleResetServer}
+          />
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Self-hosted • Secure • Private</Text>
@@ -349,142 +178,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     justifyContent: 'center',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 48,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-  },
-  form: {
-    backgroundColor: theme.colors.surface,
-    padding: 24,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  formTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.colors.borderDark,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: theme.colors.surface,
-  },
-  button: {
-    backgroundColor: theme.colors.primary,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: theme.colors.surface,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  switchModeButton: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  switchModeText: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  serverToggle: {
-    marginTop: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  serverToggleText: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-  },
-  serverDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  serverConfig: {
-    marginTop: 12,
-    backgroundColor: theme.colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.divider,
-  },
-  serverLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: theme.colors.textSecondary,
-    marginBottom: 8,
-  },
-  serverActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  serverButton: {
-    flex: 1,
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  serverTestButton: {
-    backgroundColor: theme.colors.primary,
-  },
-  serverResetButton: {
-    backgroundColor: theme.colors.backgroundVariant,
-  },
-  serverButtonText: {
-    color: theme.colors.surface,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  serverOnline: {
-    marginTop: 8,
-    fontSize: 12,
-    color: theme.colors.success,
-    textAlign: 'center',
-  },
-  serverOffline: {
-    marginTop: 8,
-    fontSize: 12,
-    color: theme.colors.error,
-    textAlign: 'center',
   },
   footer: {
     marginTop: 32,
