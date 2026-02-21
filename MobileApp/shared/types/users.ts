@@ -1,10 +1,13 @@
+export type UserRole = 'owner' | 'manager' | 'employee';
+
 export interface UserData {
   id: string;
   username: string;
   email: string;
   full_name: string;
   phone: string;
-  role: 'owner' | 'manager' | 'employee';
+  role: UserRole;
+  /** SQLite stores booleans as 0/1 integers */
   is_active: number;
   created_at: string;
   updated_at?: string;
@@ -14,11 +17,7 @@ export interface UserStats {
   total: number;
   active: number;
   inactive: number;
-  byRole: {
-    owner: number;
-    manager: number;
-    employee: number;
-  };
+  byRole: Record<UserRole, number>;
 }
 
 export interface UsersListResponse {
@@ -37,13 +36,13 @@ export interface CreateUserPayload {
   password: string;
   full_name: string;
   phone?: string;
-  role?: 'owner' | 'manager' | 'employee';
+  role?: UserRole;
 }
 
 export interface UpdateUserPayload {
   email?: string;
   full_name?: string;
   phone?: string;
-  role?: 'owner' | 'manager' | 'employee';
+  role?: UserRole;
   password?: string;
 }
