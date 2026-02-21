@@ -4,6 +4,32 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const EmailService = require('../services/EmailService');
 
+function validatePassword(password) {
+  if (!password || password.length < 8) {
+    return 'Password must be at least 8 characters long';
+  }
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    return 'Password must contain uppercase, lowercase, and a number';
+  }
+  return null; // valid
+}
+
+function formatUserResponse(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    fullName: user.full_name,
+    phone: user.phone,
+    role: user.role,
+    isActive: user.is_active === 1,
+    createdAt: user.created_at,
+  };
+}
+
+const USER_PROFILE_COLUMNS =
+  'id, username, email, full_name, phone, role, avatar_url, is_active, created_at, updated_at';
+
 async function authRoutes(fastify, options) {
   const db = fastify.db;
   const emailService = new EmailService();
@@ -44,15 +70,9 @@ async function authRoutes(fastify, options) {
           });
         }
 
-        if (password.length < 8) {
-          return reply.status(400).send({
-            error: 'Password must be at least 8 characters long',
-          });
-        }
-        if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-          return reply.status(400).send({
-            error: 'Password must contain uppercase, lowercase, and a number',
-          });
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+          return reply.status(400).send({ error: passwordError });
         }
 
         // Check if user already exists
@@ -226,27 +246,14 @@ async function authRoutes(fastify, options) {
     async (request, reply) => {
       try {
         const user = db.db
-          .prepare(
-            'SELECT id, username, email, full_name, phone, role, avatar_url, is_active, created_at, updated_at FROM users WHERE id = ?'
-          )
+          .prepare(`SELECT ${USER_PROFILE_COLUMNS} FROM users WHERE id = ?`)
           .get(request.user.id);
 
         if (!user) {
           return reply.status(404).send({ error: 'User not found' });
         }
 
-        return {
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            fullName: user.full_name,
-            phone: user.phone,
-            role: user.role,
-            isActive: user.is_active === 1,
-            createdAt: user.created_at,
-          },
-        };
+        return { user: formatUserResponse(user) };
       } catch (error) {
         fastify.log.error(error);
         reply.status(500).send({ error: 'Failed to fetch profile' });
@@ -263,28 +270,14 @@ async function authRoutes(fastify, options) {
     async (request, reply) => {
       try {
         const user = db.db
-          .prepare(
-            'SELECT id, username, email, full_name, phone, role, avatar_url, is_active, created_at, updated_at FROM users WHERE id = ?'
-          )
+          .prepare(`SELECT ${USER_PROFILE_COLUMNS} FROM users WHERE id = ?`)
           .get(request.user.id);
 
         if (!user) {
           return reply.status(404).send({ success: false, error: 'User not found' });
         }
 
-        return {
-          success: true,
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            fullName: user.full_name,
-            phone: user.phone,
-            role: user.role,
-            isActive: user.is_active === 1,
-            createdAt: user.created_at,
-          },
-        };
+        return { success: true, user: formatUserResponse(user) };
       } catch (error) {
         fastify.log.error(error);
         reply.status(500).send({ success: false, error: 'Failed to fetch profile' });
@@ -384,19 +377,9 @@ async function authRoutes(fastify, options) {
           });
         }
 
-        if (newPassword.length < 8) {
-          return reply.status(400).send({
-            error: 'Password must be at least 8 characters long',
-          });
-        }
-        if (
-          !/[A-Z]/.test(newPassword) ||
-          !/[a-z]/.test(newPassword) ||
-          !/[0-9]/.test(newPassword)
-        ) {
-          return reply.status(400).send({
-            error: 'Password must contain uppercase, lowercase, and a number',
-          });
+        const passwordError = validatePassword(newPassword);
+        if (passwordError) {
+          return reply.status(400).send({ error: passwordError });
         }
 
         const user = db.db.prepare('SELECT * FROM users WHERE id = ?').get(request.user.id);
@@ -535,19 +518,9 @@ async function authRoutes(fastify, options) {
           });
         }
 
-        if (newPassword.length < 8) {
-          return reply.status(400).send({
-            error: 'Password must be at least 8 characters long',
-          });
-        }
-        if (
-          !/[A-Z]/.test(newPassword) ||
-          !/[a-z]/.test(newPassword) ||
-          !/[0-9]/.test(newPassword)
-        ) {
-          return reply.status(400).send({
-            error: 'Password must contain uppercase, lowercase, and a number',
-          });
+        const passwordError = validatePassword(newPassword);
+        if (passwordError) {
+          return reply.status(400).send({ error: passwordError });
         }
 
         // Verify reset token
