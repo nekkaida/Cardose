@@ -7,3 +7,5 @@ export * from './financial';
 export * from './reports';
 export * from './analytics';
 export * from './production';
+export * from './users';
+export * from './settings';
