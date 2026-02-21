@@ -448,29 +448,7 @@ async function inventoryRoutes(fastify, options) {
           return { success: false, error: 'Inventory item not found' };
         }
 
-        const id = uuidv4();
-        const totalCost = unit_cost ? unit_cost * quantity : (item.unit_cost || 0) * quantity;
-
-        db.db
-          .prepare(
-            `
-        INSERT INTO inventory_movements (id, type, item_id, item_type, quantity, unit_cost, total_cost, reason, order_id, notes)
-        VALUES (?, ?, ?, 'material', ?, ?, ?, ?, ?, ?)
-      `
-          )
-          .run(
-            id,
-            type,
-            item_id,
-            quantity,
-            unit_cost || item.unit_cost,
-            totalCost,
-            reason,
-            order_id,
-            notes
-          );
-
-        // Update stock level
+        // Calculate new stock level
         let newStock = item.current_stock;
         if (type === 'purchase') {
           newStock += quantity;
@@ -480,11 +458,48 @@ async function inventoryRoutes(fastify, options) {
           newStock = quantity;
         }
 
-        db.db
-          .prepare(
-            'UPDATE inventory_materials SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-          )
-          .run(newStock, item_id);
+        // Prevent negative stock
+        if (newStock < 0) {
+          reply.code(400);
+          return {
+            success: false,
+            error: `Insufficient stock. Available: ${item.current_stock} ${item.unit || 'units'}`,
+          };
+        }
+
+        const id = uuidv4();
+        const totalCost = unit_cost ? unit_cost * quantity : (item.unit_cost || 0) * quantity;
+
+        // Wrap insert + update in a transaction for atomicity
+        const recordMovement = db.db.transaction(() => {
+          db.db
+            .prepare(
+              `
+          INSERT INTO inventory_movements (id, type, item_id, item_type, quantity, unit_cost, total_cost, reason, order_id, notes, created_by)
+          VALUES (?, ?, ?, 'material', ?, ?, ?, ?, ?, ?, ?)
+        `
+            )
+            .run(
+              id,
+              type,
+              item_id,
+              quantity,
+              unit_cost || item.unit_cost,
+              totalCost,
+              reason,
+              order_id,
+              notes,
+              request.user.id
+            );
+
+          db.db
+            .prepare(
+              'UPDATE inventory_materials SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+            )
+            .run(newStock, item_id);
+        });
+
+        recordMovement();
 
         return {
           success: true,
