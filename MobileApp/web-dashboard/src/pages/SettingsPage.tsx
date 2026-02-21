@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApi } from '../contexts/ApiContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog';
 import type { SettingData, SettingsMap } from '@shared/types/settings';
 
 // ── Component ─────────────────────────────────────────────────────
@@ -18,6 +19,8 @@ const SettingsPage: React.FC = () => {
   const [newDescription, setNewDescription] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { getSettings, updateSetting, deleteSetting } = useApi();
   const { t, language, setLanguage } = useLanguage();
@@ -64,8 +67,10 @@ const SettingsPage: React.FC = () => {
         });
         setEditingKey(null);
         loadSettings();
-      } catch (err: any) {
-        const msg = err?.response?.data?.error || t('settings.saveError');
+      } catch (err: unknown) {
+        const msg =
+          (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+          t('settings.saveError');
         setError(msg);
       } finally {
         setSaving(false);
@@ -77,16 +82,24 @@ const SettingsPage: React.FC = () => {
   const handleDeleteConfirmed = useCallback(async () => {
     if (!deleteConfirm) return;
     try {
-      setError(null);
+      setDeleting(true);
+      setDeleteError(null);
       await deleteSetting(deleteConfirm);
       setDeleteConfirm(null);
+      setDeleteError(null);
       loadSettings();
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || t('settings.deleteError');
-      setError(msg);
-      setDeleteConfirm(null);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setDeleteError(axiosErr?.response?.data?.error || t('settings.deleteError'));
+    } finally {
+      setDeleting(false);
     }
   }, [deleteConfirm, deleteSetting, loadSettings, t]);
+
+  const cancelDelete = useCallback(() => {
+    setDeleteConfirm(null);
+    setDeleteError(null);
+  }, []);
 
   const closeAddForm = useCallback(() => {
     setShowAddForm(false);
@@ -105,8 +118,10 @@ const SettingsPage: React.FC = () => {
         await updateSetting(newKey, { value: newValue, description: newDescription });
         closeAddForm();
         loadSettings();
-      } catch (err: any) {
-        const msg = err?.response?.data?.error || t('settings.saveError');
+      } catch (err: unknown) {
+        const msg =
+          (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+          t('settings.saveError');
         setFormError(msg);
       } finally {
         setSaving(false);
@@ -120,16 +135,15 @@ const SettingsPage: React.FC = () => {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!showAddForm && !deleteConfirm) return;
+    if (!showAddForm) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (deleteConfirm) setDeleteConfirm(null);
-        else closeAddForm();
+        closeAddForm();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showAddForm, deleteConfirm, closeAddForm]);
+  }, [showAddForm, closeAddForm]);
 
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
@@ -280,7 +294,10 @@ const SettingsPage: React.FC = () => {
           role="dialog"
           aria-modal="true"
         >
-          <div ref={modalRef} className="w-full max-w-md rounded-xl bg-white p-6">
+          <div
+            ref={modalRef}
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6"
+          >
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
               {t('settings.addNewSetting')}
             </h2>
@@ -362,32 +379,14 @@ const SettingsPage: React.FC = () => {
 
       {/* Delete confirmation dialog */}
       {deleteConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-          role="alertdialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-sm rounded-xl bg-white p-6">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">{t('settings.delete')}</h3>
-            <p className="mb-4 text-sm text-gray-600">
-              {t('settings.deleteConfirm')} &quot;{deleteConfirm}&quot;?
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
-              >
-                {t('settings.cancel')}
-              </button>
-              <button
-                onClick={handleDeleteConfirmed}
-                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-              >
-                {t('settings.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDeleteDialog
+          itemLabel={deleteConfirm}
+          titleKey="settings.delete"
+          deleting={deleting}
+          onConfirm={handleDeleteConfirmed}
+          onCancel={cancelDelete}
+          error={deleteError}
+        />
       )}
     </div>
   );
