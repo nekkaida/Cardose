@@ -4,37 +4,22 @@ import { useApi } from '../contexts/ApiContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import type { DashboardData } from '@shared/types/analytics';
+
 import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+  KpiCards,
+  KpiSkeleton,
+  RevenueChart,
+  OrderStatusChart,
+  ProductionPipeline,
+  RecentActivity,
+  InventoryOverview,
+  RevenueSummary,
+  SectionError,
+} from '../components/dashboard';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-const ORDER_STATUS_COLORS: Record<string, string> = {
-  Active: '#4e3a21',
-  Completed: '#2C5530',
-  Cancelled: '#DC2626',
-};
-
-const PRODUCTION_STAGE_COLORS: Record<string, string> = {
-  Designing: '#4e3a21',
-  Approved: '#C4A962',
-  Production: '#2C5530',
-  QC: '#FFA500',
-};
 
 const MONTH_KEYS = [
   'dashboard.monthJan',
@@ -55,26 +40,6 @@ const MONTH_KEYS = [
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(amount || 0);
-}
-
-function formatShortCurrency(amount: number): string {
-  const v = amount || 0;
-  if (v >= 1_000_000_000) return `Rp ${(v / 1_000_000_000).toFixed(1)}B`;
-  if (v >= 1_000_000) return `Rp ${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `Rp ${(v / 1_000).toFixed(0)}K`;
-  return `Rp ${v}`;
-}
-
-function formatNumber(num: number): string {
-  return new Intl.NumberFormat('id-ID').format(num || 0);
-}
-
 function parseMonthLabel(raw: string, t: (key: string) => string): string {
   const parts = raw.split('-');
   if (parts.length === 2) {
@@ -86,226 +51,6 @@ function parseMonthLabel(raw: string, t: (key: string) => string): string {
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-}
-
-function timeAgo(dateStr: string, t: (key: string) => string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return t('dashboard.timeJustNow');
-  if (mins < 60) return t('dashboard.timeMinutesAgo').replace('{n}', String(mins));
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return t('dashboard.timeHoursAgo').replace('{n}', String(hours));
-  const days = Math.floor(hours / 24);
-  return t('dashboard.timeDaysAgo').replace('{n}', String(days));
-}
-
-function getStatusBadgeClass(status: string): string {
-  switch (status) {
-    case 'pending':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'designing':
-      return 'bg-blue-100 text-blue-800';
-    case 'approved':
-      return 'bg-accent-100 text-accent-800';
-    case 'production':
-      return 'bg-indigo-100 text-indigo-800';
-    case 'quality_control':
-      return 'bg-orange-100 text-orange-800';
-    case 'completed':
-      return 'bg-green-100 text-green-800';
-    case 'cancelled':
-      return 'bg-red-100 text-red-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Skeleton loaders
-// ---------------------------------------------------------------------------
-
-function KpiSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="animate-pulse space-y-3">
-            <div className="h-3 w-20 rounded bg-gray-200" />
-            <div className="h-7 w-28 rounded bg-gray-200" />
-            <div className="h-3 w-16 rounded bg-gray-200" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ChartSkeleton({ height = 260 }: { height?: number }) {
-  return (
-    <div className="flex animate-pulse flex-col items-center justify-center" style={{ height }}>
-      <div className="h-full w-full rounded-lg bg-gray-200" />
-    </div>
-  );
-}
-
-function ListSkeleton({ rows = 5 }: { rows?: number }) {
-  return (
-    <div className="animate-pulse space-y-3">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between">
-          <div className="space-y-1.5">
-            <div className="h-3 w-32 rounded bg-gray-200" />
-            <div className="h-2.5 w-20 rounded bg-gray-200" />
-          </div>
-          <div className="h-5 w-16 rounded-full bg-gray-200" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function InventorySkeleton() {
-  return (
-    <div className="animate-pulse space-y-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between">
-          <div className="h-3.5 w-24 rounded bg-gray-200" />
-          <div className="h-5 w-16 rounded bg-gray-200" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RevenueSummarySkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="animate-pulse space-y-2 rounded-lg bg-gray-50 p-4">
-          <div className="h-3 w-16 rounded bg-gray-200" />
-          <div className="h-5 w-24 rounded bg-gray-200" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Inline error component with retry
-// ---------------------------------------------------------------------------
-
-function SectionError({
-  message,
-  onRetry,
-  retryLabel,
-}: {
-  message: string;
-  onRetry: () => void;
-  retryLabel: string;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center py-8 text-center">
-      <svg
-        className="mb-2 h-8 w-8 text-red-400"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-        />
-      </svg>
-      <p className="mb-2 text-sm text-gray-500">{message}</p>
-      <button
-        onClick={onRetry}
-        className="text-sm font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700"
-      >
-        {retryLabel}
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Custom Recharts Tooltip for Rupiah
-// ---------------------------------------------------------------------------
-
-interface TooltipProps {
-  active?: boolean;
-  payload?: Array<{ value: number }>;
-  label?: string;
-}
-
-function RupiahTooltip({ active, payload, label }: TooltipProps) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-lg">
-      <p className="mb-1 text-xs text-gray-500">{label}</p>
-      {payload.map((entry, i) => (
-        <p key={i} className="font-semibold text-gray-900">
-          {formatCurrency(entry.value)}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-// Custom PieChart label renderer that avoids overlap
-interface PieLabelProps {
-  name?: string;
-  percent?: number;
-  cx?: number;
-  cy?: number;
-  midAngle?: number;
-  outerRadius?: number;
-}
-
-function renderPieLabel({
-  name = '',
-  percent = 0,
-  cx = 0,
-  cy = 0,
-  midAngle = 0,
-  outerRadius = 0,
-}: PieLabelProps) {
-  const RADIAN = Math.PI / 180;
-  const radius = outerRadius + 22;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-  return (
-    <text
-      x={x}
-      y={y}
-      fill="#374151"
-      textAnchor={x > cx ? 'start' : 'end'}
-      dominantBaseline="central"
-      fontSize={11}
-    >
-      {`${name} ${Math.round((percent || 0) * 100)}%`}
-    </text>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Production BarChart with individual bar colors
-// ---------------------------------------------------------------------------
-
-interface BarShapeProps {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  payload?: { key?: string };
-}
-
-function ProductionBarShape({ x = 0, y = 0, width = 0, height = 0, payload }: BarShapeProps) {
-  const fill = PRODUCTION_STAGE_COLORS[payload?.key || ''] || '#4e3a21';
-  return <rect x={x} y={y} width={width} height={height} rx={4} ry={4} fill={fill} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -510,6 +255,11 @@ const Dashboard: React.FC = () => {
 
   const retryLabel = t('dashboard.retry');
 
+  // Retry callbacks for sub-components
+  const retryAnalytics = useCallback(() => fetchAnalytics(period), [fetchAnalytics, period]);
+  const navigateOrders = useCallback(() => navigate('/orders'), [navigate]);
+  const navigateInventory = useCallback(() => navigate('/inventory'), [navigate]);
+
   // -----------------------------------------------------------------------
   // Render
   // -----------------------------------------------------------------------
@@ -595,7 +345,7 @@ const Dashboard: React.FC = () => {
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
               {hasOutOfStock && (
                 <button
-                  onClick={() => navigate('/inventory')}
+                  onClick={navigateInventory}
                   className="font-medium text-red-700 underline underline-offset-2 hover:text-red-900"
                 >
                   {inventory!.out_of_stock}{' '}
@@ -605,7 +355,7 @@ const Dashboard: React.FC = () => {
               )}
               {hasUrgentOrders && (
                 <button
-                  onClick={() => navigate('/orders')}
+                  onClick={navigateOrders}
                   className="font-medium text-red-700 underline underline-offset-2 hover:text-red-900"
                 >
                   {production!.urgent_orders} {t('dashboard.urgent')}{' '}
@@ -617,7 +367,7 @@ const Dashboard: React.FC = () => {
               )}
               {hasLowStock && !hasOutOfStock && (
                 <button
-                  onClick={() => navigate('/inventory')}
+                  onClick={navigateInventory}
                   className="font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900"
                 >
                   {inventory!.low_stock}{' '}
@@ -637,496 +387,74 @@ const Dashboard: React.FC = () => {
         <KpiSkeleton />
       ) : errorAnalytics ? (
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <SectionError
-            message={errorAnalytics}
-            onRetry={() => fetchAnalytics(period)}
-            retryLabel={retryLabel}
-          />
+          <SectionError message={errorAnalytics} onRetry={retryAnalytics} retryLabel={retryLabel} />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {/* Revenue */}
-          <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {t('dashboard.revenue')}
-                </p>
-                <p className="mt-1 truncate text-2xl font-bold text-gray-900">
-                  {formatShortCurrency(revenue?.total_revenue || 0)}
-                </p>
-                <p className="mt-1 flex items-center gap-1 text-xs text-accent-600">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M5 10l7-7m0 0l7 7m-7-7v18"
-                    />
-                  </svg>
-                  {formatShortCurrency(revenue?.paid_revenue || 0)} {t('dashboard.paid')}
-                </p>
-              </div>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-100">
-                <svg
-                  className="h-5 w-5 text-accent-700"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Orders */}
-          <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {t('dashboard.orders')}
-                </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">
-                  {formatNumber(orders?.total_orders || 0)}
-                </p>
-                <p className="mt-1 flex items-center gap-1 text-xs text-primary-500">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M5 10l7-7m0 0l7 7m-7-7v18"
-                    />
-                  </svg>
-                  {formatNumber(orders?.active_orders || 0)} {t('dashboard.active')}
-                </p>
-              </div>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100">
-                <svg
-                  className="h-5 w-5 text-primary-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Customers */}
-          <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {t('dashboard.customers')}
-                </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">
-                  {formatNumber(customers?.total_customers || 0)}
-                </p>
-                <p className="mt-1 flex items-center gap-1 text-xs text-accent-600">
-                  <svg className="h-3 w-3 text-accent-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.37 2.448a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.37-2.448a1 1 0 00-1.176 0l-3.37 2.448c-.784.57-1.838-.197-1.539-1.118l1.287-3.957a1 1 0 00-.364-1.118L2.063 9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z" />
-                  </svg>
-                  {formatNumber(customers?.vip_customers || 0)} {t('dashboard.vip')}
-                </p>
-              </div>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-100">
-                <svg
-                  className="h-5 w-5 text-accent-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Completion Rate */}
-          <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {t('dashboard.completion')}
-                </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{completionRate}%</p>
-                <p className="mt-1 flex items-center gap-1 text-xs text-green-600">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  {formatNumber(orders?.completed_orders || 0)} {t('dashboard.done')}
-                </p>
-              </div>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100">
-                <svg
-                  className="h-5 w-5 text-primary-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
+        <KpiCards
+          revenue={revenue}
+          orders={orders}
+          customers={customers}
+          completionRate={completionRate}
+        />
       )}
 
       {/* ================================================================= */}
       {/* CHARTS ROW (2/3 + 1/3)                                            */}
       {/* ================================================================= */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Revenue Trend - 2/3 */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2">
-          <h3 className="mb-4 text-base font-semibold text-gray-900">
-            {t('dashboard.revenueTrend')}
-          </h3>
-          {loadingRevenue ? (
-            <ChartSkeleton />
-          ) : errorRevenue ? (
-            <SectionError message={errorRevenue} onRetry={fetchRevenue} retryLabel={retryLabel} />
-          ) : revenueTrend.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
-              <AreaChart data={revenueTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} />
-                <YAxis
-                  tickFormatter={formatShortCurrency}
-                  tick={{ fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip content={<RupiahTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#4e3a21"
-                  fill="#4e3a21"
-                  fillOpacity={0.2}
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <svg
-                className="mb-3 h-10 w-10 text-gray-300"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
-                />
-              </svg>
-              <p className="text-sm text-gray-400">{t('dashboard.noRevenueData')}</p>
-            </div>
-          )}
-        </div>
+        <RevenueChart
+          loading={loadingRevenue}
+          error={errorRevenue}
+          revenueTrend={revenueTrend}
+          onRetry={fetchRevenue}
+        />
 
-        {/* Order Status Pie - 1/3 */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-base font-semibold text-gray-900">
-            {t('dashboard.orderStatus')}
-          </h3>
-          {loadingAnalytics ? (
-            <ChartSkeleton />
-          ) : errorAnalytics ? (
-            <SectionError
-              message={t('dashboard.loadErrorOrderStatus')}
-              onRetry={() => fetchAnalytics(period)}
-              retryLabel={retryLabel}
-            />
-          ) : orderStatusData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie
-                  data={orderStatusData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={78}
-                  paddingAngle={3}
-                  dataKey="value"
-                  label={renderPieLabel}
-                >
-                  {orderStatusData.map((entry) => (
-                    <Cell key={entry.key} fill={ORDER_STATUS_COLORS[entry.key] || '#9CA3AF'} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: number, name: string) => [formatNumber(value), name]} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <svg
-                className="mb-3 h-10 w-10 text-gray-300"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z"
-                />
-              </svg>
-              <p className="text-sm text-gray-400">{t('dashboard.noOrdersData')}</p>
-            </div>
-          )}
-        </div>
+        <OrderStatusChart
+          loading={loadingAnalytics}
+          error={errorAnalytics}
+          orderStatusData={orderStatusData}
+          onRetry={retryAnalytics}
+        />
       </div>
 
       {/* ================================================================= */}
       {/* BOTTOM ROW (3 equal columns)                                      */}
       {/* ================================================================= */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Production Pipeline */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-semibold text-gray-900">
-              {t('dashboard.productionPipeline')}
-            </h3>
-            {(production?.urgent_orders || 0) > 0 && (
-              <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                {production!.urgent_orders} {t('dashboard.urgent')}
-              </span>
-            )}
-          </div>
-          {loadingAnalytics ? (
-            <ChartSkeleton height={200} />
-          ) : errorAnalytics ? (
-            <SectionError
-              message={t('dashboard.loadErrorProduction')}
-              onRetry={() => fetchAnalytics(period)}
-              retryLabel={retryLabel}
-            />
-          ) : (
-            <>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={productionData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="stage" tick={{ fontSize: 12 }} tickLine={false} />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fontSize: 11 }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip formatter={(value: number) => [value, t('dashboard.ordersTooltip')]} />
-                  <Bar dataKey="count" shape={<ProductionBarShape />} />
-                </BarChart>
-              </ResponsiveContainer>
-              {/* Legend */}
-              <div className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1">
-                {productionData.map((item) => (
-                  <div key={item.key} className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                      style={{ backgroundColor: PRODUCTION_STAGE_COLORS[item.key] }}
-                    />
-                    {item.stage}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        <ProductionPipeline
+          loading={loadingAnalytics}
+          error={errorAnalytics}
+          productionData={productionData}
+          urgentOrders={production?.urgent_orders || 0}
+          onRetry={retryAnalytics}
+        />
 
-        {/* Recent Activity */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-semibold text-gray-900">
-              {t('dashboard.recentActivity')}
-            </h3>
-            <button
-              onClick={() => navigate('/orders')}
-              className="text-xs font-medium text-primary-600 hover:text-primary-700"
-            >
-              {t('dashboard.viewAll')}
-            </button>
-          </div>
-          {loadingRecentOrders ? (
-            <ListSkeleton />
-          ) : errorRecentOrders ? (
-            <SectionError
-              message={errorRecentOrders}
-              onRetry={fetchRecentOrdersData}
-              retryLabel={retryLabel}
-            />
-          ) : recentOrders.length > 0 ? (
-            <div className="space-y-3">
-              {recentOrders.map((order) => (
-                <button
-                  key={order.id}
-                  onClick={() => navigate('/orders')}
-                  className="-mx-2 flex w-full items-center justify-between rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-50"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-900">
-                      {order.customer_name || t('dashboard.unknownCustomer')}
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-400">
-                      {order.order_number || order.id?.slice(0, 8)} ·{' '}
-                      {order.created_at ? timeAgo(order.created_at, t) : ''}
-                    </p>
-                  </div>
-                  <span
-                    className={`ml-2 inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadgeClass(order.status)}`}
-                  >
-                    {(order.status || '').replace(/_/g, ' ')}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <svg
-                className="mb-2 h-8 w-8 text-gray-300"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <p className="text-sm text-gray-400">{t('dashboard.noRecentActivity')}</p>
-            </div>
-          )}
-        </div>
+        <RecentActivity
+          loading={loadingRecentOrders}
+          error={errorRecentOrders}
+          recentOrders={recentOrders}
+          onRetry={fetchRecentOrdersData}
+          onViewAll={navigateOrders}
+          onOrderClick={navigateOrders}
+        />
 
-        {/* Inventory Summary */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-base font-semibold text-gray-900">{t('dashboard.inventory')}</h3>
-          {loadingAnalytics ? (
-            <InventorySkeleton />
-          ) : errorAnalytics ? (
-            <SectionError
-              message={t('dashboard.loadErrorInventory')}
-              onRetry={() => fetchAnalytics(period)}
-              retryLabel={retryLabel}
-            />
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{t('dashboard.totalMaterials')}</span>
-                <span className="text-lg font-bold text-gray-900">
-                  {formatNumber(inventory?.total_materials || 0)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{t('dashboard.lowStock')}</span>
-                <span
-                  className={`text-lg font-bold ${(inventory?.low_stock || 0) > 0 ? 'text-amber-600' : 'text-green-600'}`}
-                >
-                  {formatNumber(inventory?.low_stock || 0)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{t('dashboard.outOfStock')}</span>
-                <span
-                  className={`text-lg font-bold ${(inventory?.out_of_stock || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}
-                >
-                  {formatNumber(inventory?.out_of_stock || 0)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{t('dashboard.totalValue')}</span>
-                <span className="text-lg font-bold text-gray-900">
-                  {formatCurrency(inventory?.total_value || 0)}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
+        <InventoryOverview
+          loading={loadingAnalytics}
+          error={errorAnalytics}
+          inventory={inventory}
+          onRetry={retryAnalytics}
+        />
       </div>
 
       {/* ================================================================= */}
       {/* REVENUE SUMMARY ROW                                               */}
       {/* ================================================================= */}
-      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-base font-semibold text-gray-900">
-          {t('dashboard.revenueSummary')}
-        </h3>
-        {loadingAnalytics ? (
-          <RevenueSummarySkeleton />
-        ) : errorAnalytics ? (
-          <SectionError
-            message={t('dashboard.loadErrorRevenueSummary')}
-            onRetry={() => fetchAnalytics(period)}
-            retryLabel={retryLabel}
-          />
-        ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div className="rounded-lg bg-green-50 p-4">
-              <p className="text-xs font-medium text-gray-500">{t('dashboard.paidRevenue')}</p>
-              <p className="mt-1 text-lg font-bold text-green-700">
-                {formatCurrency(revenue?.paid_revenue || 0)}
-              </p>
-            </div>
-            <div className="rounded-lg bg-amber-50 p-4">
-              <p className="text-xs font-medium text-gray-500">{t('dashboard.pendingRevenue')}</p>
-              <p className="mt-1 text-lg font-bold text-amber-700">
-                {formatCurrency(revenue?.pending_revenue || 0)}
-              </p>
-            </div>
-            <div className="rounded-lg bg-gray-50 p-4">
-              <p className="text-xs font-medium text-gray-500">{t('dashboard.avgOrderValue')}</p>
-              <p className="mt-1 text-lg font-bold text-gray-900">
-                {formatCurrency(revenue?.average_order_value || 0)}
-              </p>
-            </div>
-            <div className="rounded-lg bg-gray-50 p-4">
-              <p className="text-xs font-medium text-gray-500">{t('dashboard.invoiceCount')}</p>
-              <p className="mt-1 text-lg font-bold text-gray-900">
-                {formatNumber(revenue?.invoice_count || 0)}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+      <RevenueSummary
+        loading={loadingAnalytics}
+        error={errorAnalytics}
+        revenue={revenue}
+        onRetry={retryAnalytics}
+      />
     </div>
   );
 };
