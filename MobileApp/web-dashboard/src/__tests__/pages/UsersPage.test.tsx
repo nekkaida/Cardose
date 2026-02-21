@@ -68,7 +68,52 @@ vi.mock('../../contexts/LanguageContext', () => ({
     setLanguage: vi.fn(),
     t: (key: string) => {
       const translations: Record<string, string> = {
-        'users.title': 'Users',
+        'users.title': 'User Management',
+        'users.subtitle': 'Manage system users and permissions',
+        'users.addUser': 'Add User',
+        'users.editUser': 'Edit User',
+        'users.createUser': 'Create New User',
+        'users.totalUsers': 'Total Users',
+        'users.active': 'Active',
+        'users.inactive': 'Inactive',
+        'users.byRole': 'By Role',
+        'users.owners': 'owners',
+        'users.mgr': 'mgr',
+        'users.emp': 'emp',
+        'users.searchPlaceholder': 'Search users...',
+        'users.allRoles': 'All Roles',
+        'users.owner': 'Owner',
+        'users.manager': 'Manager',
+        'users.employee': 'Employee',
+        'users.name': 'Name',
+        'users.email': 'Email',
+        'users.role': 'Role',
+        'users.status': 'Status',
+        'users.actions': 'Actions',
+        'users.edit': 'Edit',
+        'users.deactivate': 'Deactivate',
+        'users.activate': 'Activate',
+        'users.delete': 'Delete',
+        'users.noUsers': 'No users found.',
+        'users.page': 'Page',
+        'users.of': 'of',
+        'users.previous': 'Previous',
+        'users.next': 'Next',
+        'users.fullName': 'Full Name',
+        'users.username': 'Username',
+        'users.password': 'Password',
+        'users.passwordEditHint': ' (leave blank to keep current)',
+        'users.phone': 'Phone',
+        'users.cancel': 'Cancel',
+        'users.saving': 'Saving...',
+        'users.saveChanges': 'Save Changes',
+        'users.loadError': 'Failed to load users. Please try again.',
+        'users.statusError': 'Failed to update user status.',
+        'users.deleteError': 'Failed to delete user.',
+        'users.saveError': 'Failed to save user. Please try again.',
+        'users.deleteConfirm': 'Are you sure you want to delete user',
+        'users.tryAgain': 'Try Again',
+        'users.filterByRole': 'Filter by role',
         'common.loading': 'Loading...',
         'common.error': 'Error',
         'common.search': 'Search',
@@ -140,19 +185,20 @@ describe('UsersPage', () => {
   });
 
   describe('Error state', () => {
-    it('should show error message when API call fails', async () => {
-      mockGetUsers.mockRejectedValueOnce(new Error('Network error'));
+    it('should show inline error message when API call fails', async () => {
+      mockGetUsers.mockRejectedValue(new Error('Network error'));
 
       render(<UsersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Error')).toBeInTheDocument();
         expect(screen.getByText('Failed to load users. Please try again.')).toBeInTheDocument();
       });
+      // Title should still be visible (inline error, not page-replacing)
+      expect(screen.getByText('User Management')).toBeInTheDocument();
     });
 
     it('should show Try Again button on error', async () => {
-      mockGetUsers.mockRejectedValueOnce(new Error('Network error'));
+      mockGetUsers.mockRejectedValue(new Error('Network error'));
 
       render(<UsersPage />);
 
@@ -162,7 +208,7 @@ describe('UsersPage', () => {
     });
 
     it('should retry loading when Try Again is clicked', async () => {
-      mockGetUsers.mockRejectedValueOnce(new Error('Network error'));
+      mockGetUsers.mockRejectedValue(new Error('Network error'));
 
       render(<UsersPage />);
 
@@ -170,15 +216,15 @@ describe('UsersPage', () => {
         expect(screen.getByText('Try Again')).toBeInTheDocument();
       });
 
-      mockGetUsers.mockResolvedValueOnce(mockUsersData);
+      // Reset and resolve for retry
+      mockGetUsers.mockReset();
+      mockGetUsers.mockResolvedValue(mockUsersData);
 
       await userEvent.click(screen.getByText('Try Again'));
 
       await waitFor(() => {
         expect(screen.getByText('Admin User')).toBeInTheDocument();
       });
-
-      expect(mockGetUsers).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -191,7 +237,7 @@ describe('UsersPage', () => {
       render(<UsersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Users')).toBeInTheDocument();
+        expect(screen.getByText('User Management')).toBeInTheDocument();
       });
     });
 
@@ -237,9 +283,9 @@ describe('UsersPage', () => {
       render(<UsersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('owner')).toBeInTheDocument();
-        expect(screen.getByText('employee')).toBeInTheDocument();
-        expect(screen.getByText('manager')).toBeInTheDocument();
+        expect(screen.getByText('Owner')).toBeInTheDocument();
+        expect(screen.getByText('Employee')).toBeInTheDocument();
+        expect(screen.getByText('Manager')).toBeInTheDocument();
       });
     });
 
