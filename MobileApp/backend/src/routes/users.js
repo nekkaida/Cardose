@@ -1,95 +1,104 @@
-// User management routes - Using DatabaseService
+// User management routes
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
-const DatabaseService = require('../services/DatabaseService');
 
 async function usersRoutes(fastify, options) {
-  const db = new DatabaseService();
-  db.initialize();
+  const db = fastify.db;
 
-  // Get all users (requires authentication)
-  fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
-    try {
-      const { role, is_active, search, limit = 100, page = 1 } = request.query;
-
-      let query = `
-        SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at
-        FROM users WHERE 1=1
-      `;
-      const params = [];
-
-      if (role) {
-        query += ' AND role = ?';
-        params.push(role);
-      }
-      if (is_active !== undefined) {
-        query += ' AND is_active = ?';
-        params.push(is_active === 'true' ? 1 : 0);
-      }
-      if (search) {
-        query += ' AND (username LIKE ? OR email LIKE ? OR full_name LIKE ?)';
-        const searchTerm = `%${search}%`;
-        params.push(searchTerm, searchTerm, searchTerm);
-      }
-
-      query += ' ORDER BY created_at DESC';
-
-      // Get total count
-      const countQuery = query.replace(
-        /SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at/,
-        'SELECT COUNT(*) as total'
-      );
-      const countResult = db.db.prepare(countQuery).get(...params);
-      const total = countResult ? countResult.total : 0;
-
-      // Add pagination
-      const offset = (page - 1) * limit;
-      query += ' LIMIT ? OFFSET ?';
-      params.push(parseInt(limit), offset);
-
-      const users = db.db.prepare(query).all(...params);
-
-      // Get role counts using SQL aggregates
-      const statsRow = db.db
-        .prepare(
-          `
-        SELECT
-          COUNT(*) as total,
-          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active,
-          SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive,
-          SUM(CASE WHEN role = 'owner' THEN 1 ELSE 0 END) as owners,
-          SUM(CASE WHEN role = 'manager' THEN 1 ELSE 0 END) as managers,
-          SUM(CASE WHEN role = 'employee' THEN 1 ELSE 0 END) as employees
-        FROM users
-      `
-        )
-        .get();
-      const stats = {
-        total: statsRow.total,
-        active: statsRow.active,
-        inactive: statsRow.inactive,
-        byRole: {
-          owner: statsRow.owners,
-          manager: statsRow.managers,
-          employee: statsRow.employees,
+  // Get all users (requires authentication, owner/manager only)
+  fastify.get(
+    '/',
+    {
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            role: { type: 'string', enum: ['owner', 'manager', 'employee'] },
+            is_active: { type: 'string', enum: ['true', 'false'] },
+            search: { type: 'string' },
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 25 },
+            page: { type: 'integer', minimum: 1, default: 1 },
+          },
         },
-      };
+      },
+    },
+    async (request, reply) => {
+      try {
+        const { role, is_active, search, limit, page } = request.query;
 
-      return {
-        success: true,
-        users,
-        total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(total / limit),
-        stats,
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        let whereClause = ' WHERE 1=1';
+        const params = [];
+
+        if (role) {
+          whereClause += ' AND role = ?';
+          params.push(role);
+        }
+        if (is_active !== undefined) {
+          whereClause += ' AND is_active = ?';
+          params.push(is_active === 'true' ? 1 : 0);
+        }
+        if (search) {
+          whereClause += ' AND (username LIKE ? OR email LIKE ? OR full_name LIKE ?)';
+          const searchTerm = `%${search}%`;
+          params.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        // Get total count
+        const countResult = db.db
+          .prepare(`SELECT COUNT(*) as total FROM users${whereClause}`)
+          .get(...params);
+        const total = countResult ? countResult.total : 0;
+
+        // Get paginated users
+        const offset = (page - 1) * limit;
+        const users = db.db
+          .prepare(
+            `SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at
+           FROM users${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+          )
+          .all(...params, limit, offset);
+
+        // Get role counts using SQL aggregates
+        const statsRow = db.db
+          .prepare(
+            `SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active,
+            SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive,
+            SUM(CASE WHEN role = 'owner' THEN 1 ELSE 0 END) as owners,
+            SUM(CASE WHEN role = 'manager' THEN 1 ELSE 0 END) as managers,
+            SUM(CASE WHEN role = 'employee' THEN 1 ELSE 0 END) as employees
+          FROM users`
+          )
+          .get();
+        const stats = {
+          total: statsRow.total,
+          active: statsRow.active,
+          inactive: statsRow.inactive,
+          byRole: {
+            owner: statsRow.owners,
+            manager: statsRow.managers,
+            employee: statsRow.employees,
+          },
+        };
+
+        return {
+          success: true,
+          users,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          stats,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 
   // Get user by ID (requires authentication)
   fastify.get('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
@@ -98,10 +107,8 @@ async function usersRoutes(fastify, options) {
 
       const user = db.db
         .prepare(
-          `
-        SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at
-        FROM users WHERE id = ?
-      `
+          `SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at
+         FROM users WHERE id = ?`
         )
         .get(id);
 
@@ -118,11 +125,11 @@ async function usersRoutes(fastify, options) {
     }
   });
 
-  // Create user (requires authentication)
+  // Create user (owner/manager only)
   fastify.post(
     '/',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
       schema: {
         body: {
           type: 'object',
@@ -142,9 +149,10 @@ async function usersRoutes(fastify, options) {
       try {
         const { username, email, password, full_name, phone, role = 'employee' } = request.body;
 
-        if (!username || !email || !password || !full_name) {
-          reply.code(400);
-          return { success: false, error: 'Username, email, password, and full_name are required' };
+        // Managers cannot create owner accounts
+        if (role === 'owner' && request.user.role !== 'owner') {
+          reply.code(403);
+          return { success: false, error: 'Only owners can create owner accounts' };
         }
 
         // Check if user exists
@@ -161,19 +169,15 @@ async function usersRoutes(fastify, options) {
 
         db.db
           .prepare(
-            `
-        INSERT INTO users (id, username, email, password_hash, full_name, phone, role, is_active, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
-      `
+            `INSERT INTO users (id, username, email, password_hash, full_name, phone, role, is_active, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`
           )
           .run(id, username, email, passwordHash, full_name, phone, role);
 
         const user = db.db
           .prepare(
-            `
-        SELECT id, username, email, full_name, phone, role, is_active, created_at
-        FROM users WHERE id = ?
-      `
+            `SELECT id, username, email, full_name, phone, role, is_active, created_at
+           FROM users WHERE id = ?`
           )
           .get(id);
 
@@ -191,16 +195,15 @@ async function usersRoutes(fastify, options) {
     }
   );
 
-  // Update user (requires authentication)
+  // Update user (owner/manager only)
   fastify.put(
     '/:id',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
       schema: {
         body: {
           type: 'object',
           properties: {
-            username: { type: 'string' },
             email: { type: 'string' },
             full_name: { type: 'string' },
             phone: { type: 'string' },
@@ -216,19 +219,38 @@ async function usersRoutes(fastify, options) {
         const { id } = request.params;
         const updates = request.body;
 
-        const existing = db.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        const existing = db.db.prepare('SELECT id, role FROM users WHERE id = ?').get(id);
         if (!existing) {
           reply.code(404);
           return { success: false, error: 'User not found' };
         }
 
+        // Managers cannot promote to owner or edit owner accounts
+        if (request.user.role !== 'owner') {
+          if (existing.role === 'owner') {
+            reply.code(403);
+            return { success: false, error: 'Only owners can edit owner accounts' };
+          }
+          if (updates.role === 'owner') {
+            reply.code(403);
+            return { success: false, error: 'Only owners can assign the owner role' };
+          }
+        }
+
+        // Check email uniqueness if being updated
+        if (updates.email !== undefined) {
+          const emailTaken = db.db
+            .prepare('SELECT id FROM users WHERE email = ? AND id != ?')
+            .get(updates.email, id);
+          if (emailTaken) {
+            reply.code(409);
+            return { success: false, error: 'Email already in use' };
+          }
+        }
+
         const fields = [];
         const values = [];
 
-        if (updates.username !== undefined) {
-          fields.push('username = ?');
-          values.push(updates.username);
-        }
         if (updates.email !== undefined) {
           fields.push('email = ?');
           values.push(updates.email);
@@ -266,10 +288,8 @@ async function usersRoutes(fastify, options) {
 
         const user = db.db
           .prepare(
-            `
-        SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at
-        FROM users WHERE id = ?
-      `
+            `SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at
+           FROM users WHERE id = ?`
           )
           .get(id);
 
@@ -282,11 +302,11 @@ async function usersRoutes(fastify, options) {
     }
   );
 
-  // Activate/Deactivate user (requires authentication)
+  // Activate/Deactivate user (owner/manager only)
   fastify.patch(
     '/:id/status',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
       schema: {
         body: {
           type: 'object',
@@ -302,10 +322,33 @@ async function usersRoutes(fastify, options) {
         const { id } = request.params;
         const { is_active } = request.body;
 
-        const existing = db.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        // Prevent self-deactivation
+        if (id === request.user.id && !is_active) {
+          reply.code(400);
+          return { success: false, error: 'You cannot deactivate your own account' };
+        }
+
+        const existing = db.db.prepare('SELECT id, role FROM users WHERE id = ?').get(id);
         if (!existing) {
           reply.code(404);
           return { success: false, error: 'User not found' };
+        }
+
+        // Managers cannot toggle owner status
+        if (existing.role === 'owner' && request.user.role !== 'owner') {
+          reply.code(403);
+          return { success: false, error: 'Only owners can change owner account status' };
+        }
+
+        // Prevent deactivating the last active owner
+        if (!is_active && existing.role === 'owner') {
+          const activeOwners = db.db
+            .prepare("SELECT COUNT(*) as count FROM users WHERE role = 'owner' AND is_active = 1")
+            .get();
+          if (activeOwners.count <= 1) {
+            reply.code(400);
+            return { success: false, error: 'Cannot deactivate the last active owner' };
+          }
         }
 
         db.db
@@ -332,10 +375,27 @@ async function usersRoutes(fastify, options) {
       try {
         const { id } = request.params;
 
-        const existing = db.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+        // Prevent self-deletion
+        if (id === request.user.id) {
+          reply.code(400);
+          return { success: false, error: 'You cannot delete your own account' };
+        }
+
+        const existing = db.db.prepare('SELECT id, role FROM users WHERE id = ?').get(id);
         if (!existing) {
           reply.code(404);
           return { success: false, error: 'User not found' };
+        }
+
+        // Prevent deleting the last active owner
+        if (existing.role === 'owner') {
+          const activeOwners = db.db
+            .prepare("SELECT COUNT(*) as count FROM users WHERE role = 'owner' AND is_active = 1")
+            .get();
+          if (activeOwners.count <= 1) {
+            reply.code(400);
+            return { success: false, error: 'Cannot delete the last active owner' };
+          }
         }
 
         db.db.prepare('DELETE FROM users WHERE id = ?').run(id);
