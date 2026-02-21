@@ -232,8 +232,7 @@ describe('Settings API', () => {
       expect(data.success).toBe(true);
     });
 
-    test('should successfully delete non-existent key (no error)', async () => {
-      // SQLite DELETE doesn't error on non-existent rows
+    test('should return 404 for non-existent key', async () => {
       const response = await makeAuthenticatedRequest(
         app,
         'DELETE',
@@ -241,9 +240,10 @@ describe('Settings API', () => {
         authToken
       );
 
-      expect(response.statusCode).toBe(200);
+      expect(response.statusCode).toBe(404);
       const data = JSON.parse(response.body);
-      expect(data.success).toBe(true);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Setting not found');
     });
 
     test('should reject without authentication', async () => {
