@@ -2,12 +2,33 @@ import { z } from 'zod';
 
 /**
  * Safely validate an API response against a Zod schema.
- * On failure: logs a warning and returns the raw data (graceful degradation).
+ * On failure: reports to Sentry (production) or logs a warning (dev),
+ * then returns the raw data (graceful degradation so UI doesn't crash).
  */
 export function validateResponse<T>(schema: z.ZodType<T>, data: unknown, endpoint: string): T {
   const result = schema.safeParse(data);
   if (!result.success) {
-    console.warn(`[API Validation] ${endpoint}: response shape mismatch`, result.error.issues);
+    const message = `[API Validation] ${endpoint}: response shape mismatch`;
+    const issuesSummary = result.error.issues
+      .map((i) => `${i.path.join('.')}: ${i.message}`)
+      .join('; ');
+
+    if (import.meta.env.DEV) {
+      console.warn(message, result.error.issues);
+    }
+
+    // Report to Sentry in production so validation mismatches are tracked
+    try {
+      if (typeof window !== 'undefined' && (window as any).Sentry?.captureMessage) {
+        (window as any).Sentry.captureMessage(`${message}: ${issuesSummary}`, {
+          level: 'warning',
+          extra: { endpoint, issues: result.error.issues },
+        });
+      }
+    } catch {
+      // Sentry not available
+    }
+
     return data as T;
   }
   return result.data;
@@ -34,6 +55,45 @@ export const listResponseSchema = z.object({
   page: z.number(),
   limit: z.number(),
   totalPages: z.number(),
+});
+
+// ── Customers list response schema ───────────────────────────────
+
+const customerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  business_type: z.string(),
+  loyalty_status: z.string(),
+  total_orders: z.number(),
+  total_spent: z.number(),
+  notes: z.string().optional().nullable(),
+  created_at: z.string(),
+  updated_at: z.string().optional().nullable(),
+});
+
+const customerStatsSchema = z.object({
+  corporate: z.number(),
+  wedding: z.number(),
+  trading: z.number(),
+  individual: z.number(),
+  event: z.number(),
+  totalValue: z.number(),
+  loyalty_new: z.number(),
+  loyalty_regular: z.number(),
+  loyalty_vip: z.number(),
+});
+
+export const customersListSchema = z.object({
+  success: z.boolean(),
+  customers: z.array(customerSchema),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+  stats: customerStatsSchema.optional(),
 });
 
 // ── Report response schemas ───────────────────────────────────────
@@ -168,6 +228,15 @@ export const financialReportResponseSchema = z.object({
   }),
 });
 
+// ── Inventory movement response schema ───────────────────────────
+
+export const inventoryMovementResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  movementId: z.string(),
+  newStock: z.number(),
+});
+
 // ── Users response schemas ───────────────────────────────────────
 
 const userSchema = z.object({
@@ -295,18 +364,105 @@ export const financialSummarySchema = z.object({
     totalExpenses: z.number(),
     totalTax: z.number(),
     netProfit: z.number(),
-    profitMargin: z.number(),
+    profitMargin: z.string(),
     pendingInvoices: z.number(),
     paidInvoices: z.number(),
+    pendingOrders: z.number(),
+    completedOrders: z.number(),
+    totalOrders: z.number(),
+    averageOrderValue: z.number(),
+    ppnRate: z.number(),
+    monthlyGrowth: z.number(),
   }),
+});
+
+// ── Transaction create payload schema ────────────────────────────
+
+export const createTransactionPayloadSchema = z.object({
+  type: z.enum(['income', 'expense']),
+  category: z.enum(['sales', 'materials', 'labor', 'overhead', 'other']),
+  amount: z.number().int().positive().max(99_999_999_999),
+  description: z.string().max(500).optional(),
+  payment_method: z.enum(['cash', 'bank_transfer', 'credit_card', 'mobile_payment']).optional(),
+});
+
+// ── Transactions list response schema ────────────────────────────
+
+export const transactionsListSchema = z.object({
+  success: z.boolean().optional(),
+  transactions: z.array(
+    z.object({
+      id: z.string(),
+      type: z.enum(['income', 'expense']),
+      category: z.string(),
+      amount: z.number(),
+      description: z.string().optional().nullable(),
+      payment_method: z.string().optional().nullable(),
+      payment_date: z.string().optional().nullable(),
+      created_at: z.string(),
+    })
+  ),
+  total: z.number(),
+  totalPages: z.number(),
+  page: z.number().optional(),
+  limit: z.number().optional(),
+  categoryBreakdown: z
+    .array(
+      z.object({
+        category: z.string(),
+        type: z.string(),
+        total: z.number().optional(),
+        amount: z.number().optional(),
+      })
+    )
+    .optional(),
 });
 
 // ── Order stats schema ────────────────────────────────────────────
 
 export const orderStatsSchema = z.object({
+  total: z.number(),
+  pending: z.number(),
+  designing: z.number(),
+  approved: z.number(),
+  production: z.number(),
+  quality_control: z.number(),
+  completed: z.number(),
+  cancelled: z.number(),
+  totalValue: z.number(),
+  overdue: z.number(),
+});
+
+export const orderStatsResponseSchema = z.object({
   success: z.boolean(),
-  stats: z.object({
-    total: z.number(),
-    pending: z.number(),
+  stats: orderStatsSchema.extend({
+    byStatus: z.record(z.string(), z.number()),
+    byPriority: z.record(z.string(), z.number()),
   }),
+});
+
+export const ordersListSchema = z.object({
+  success: z.boolean(),
+  orders: z.array(
+    z.object({
+      id: z.string(),
+      order_number: z.string(),
+      customer_id: z.string(),
+      customer_name: z.string().optional().nullable(),
+      status: z.string(),
+      priority: z.string(),
+      box_type: z.string().optional().nullable(),
+      total_amount: z.number(),
+      notes: z.string().optional().nullable(),
+      due_date: z.string().optional().nullable(),
+      special_requests: z.string().optional().nullable(),
+      created_at: z.string(),
+      updated_at: z.string().optional().nullable(),
+    })
+  ),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+  stats: orderStatsSchema,
 });
