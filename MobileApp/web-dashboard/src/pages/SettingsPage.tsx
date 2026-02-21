@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApi } from '../contexts/ApiContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import type { SettingData, SettingsMap } from '@shared/types/settings';
 
-interface Setting {
-  value: string;
-  description: string;
-}
+// ── Component ─────────────────────────────────────────────────────
 
 const SettingsPage: React.FC = () => {
-  const [settings, setSettings] = useState<Record<string, Setting>>({});
+  const [settings, setSettings] = useState<SettingsMap>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -18,139 +16,198 @@ const SettingsPage: React.FC = () => {
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const { getSettings, updateSetting, deleteSetting } = useApi();
   const { t, language, setLanguage } = useLanguage();
 
-  useEffect(() => {
-    loadSettings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ── Data loading ──────────────────────────────────────────────
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await getSettings();
       setSettings(data.settings || {});
-    } catch (err) {
-      console.error('Error loading settings:', err);
-      setError('Failed to load settings. Please try again.');
+    } catch {
+      setError(t('settings.loadError'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [getSettings, t]);
 
-  const handleEdit = (key: string) => {
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  // ── Actions ───────────────────────────────────────────────────
+
+  const handleEdit = useCallback((key: string, setting: SettingData) => {
     setEditingKey(key);
-    setEditValue(settings[key]?.value || '');
-  };
+    setEditValue(setting.value || '');
+  }, []);
 
-  const handleSave = async (key: string) => {
+  const handleCancelEdit = useCallback(() => {
+    setEditingKey(null);
+    setEditValue('');
+  }, []);
+
+  const handleSave = useCallback(
+    async (key: string) => {
+      try {
+        setSaving(true);
+        setError(null);
+        await updateSetting(key, {
+          value: editValue,
+          description: settings[key]?.description || undefined,
+        });
+        setEditingKey(null);
+        loadSettings();
+      } catch (err: any) {
+        const msg = err?.response?.data?.error || t('settings.saveError');
+        setError(msg);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [editValue, settings, updateSetting, loadSettings, t]
+  );
+
+  const handleDeleteConfirmed = useCallback(async () => {
+    if (!deleteConfirm) return;
     try {
-      setSaving(true);
-      await updateSetting(key, { value: editValue, description: settings[key]?.description });
-      setEditingKey(null);
+      setError(null);
+      await deleteSetting(deleteConfirm);
+      setDeleteConfirm(null);
       loadSettings();
-    } catch (err) {
-      console.error('Error saving setting:', err);
-    } finally {
-      setSaving(false);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || t('settings.deleteError');
+      setError(msg);
+      setDeleteConfirm(null);
     }
-  };
+  }, [deleteConfirm, deleteSetting, loadSettings, t]);
 
-  const handleDelete = async (key: string) => {
-    if (!window.confirm(`Are you sure you want to delete setting "${key}"?`)) return;
-    try {
-      await deleteSetting(key);
-      loadSettings();
-    } catch (err) {
-      console.error('Error deleting setting:', err);
-    }
-  };
+  const closeAddForm = useCallback(() => {
+    setShowAddForm(false);
+    setNewKey('');
+    setNewValue('');
+    setNewDescription('');
+    setFormError(null);
+  }, []);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setSaving(true);
-      await updateSetting(newKey, { value: newValue, description: newDescription });
-      setShowAddForm(false);
-      setNewKey('');
-      setNewValue('');
-      setNewDescription('');
-      loadSettings();
-    } catch (err) {
-      console.error('Error adding setting:', err);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const handleAdd = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      try {
+        setSaving(true);
+        setFormError(null);
+        await updateSetting(newKey, { value: newValue, description: newDescription });
+        closeAddForm();
+        loadSettings();
+      } catch (err: any) {
+        const msg = err?.response?.data?.error || t('settings.saveError');
+        setFormError(msg);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [newKey, newValue, newDescription, updateSetting, closeAddForm, loadSettings, t]
+  );
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
+  // ── Modal keyboard / outside-click ────────────────────────────
 
-  if (error) {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-4 text-red-700">
-        <p className="font-medium">Error</p>
-        <p className="text-sm">{error}</p>
-        <button
-          onClick={() => {
-            setError(null);
-            loadSettings();
-          }}
-          className="mt-2 text-sm text-red-600 underline"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showAddForm && !deleteConfirm) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (deleteConfirm) setDeleteConfirm(null);
+        else closeAddForm();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showAddForm, deleteConfirm, closeAddForm]);
+
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        closeAddForm();
+      }
+    },
+    [closeAddForm]
+  );
+
+  // ── Render ────────────────────────────────────────────────────
 
   const settingEntries = Object.entries(settings);
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t('settings.title')}</h1>
-          <p className="text-gray-600">Manage application settings</p>
+          <p className="text-gray-600">{t('settings.subtitle')}</p>
         </div>
         <button
           onClick={() => setShowAddForm(true)}
           className="rounded-lg bg-primary-600 px-4 py-2 text-white transition-colors hover:bg-primary-700"
         >
-          Add Setting
+          {t('settings.addSetting')}
         </button>
       </div>
 
+      {/* Inline error banner */}
+      {error && (
+        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+          <span className="text-sm">{error}</span>
+          <button
+            onClick={() => {
+              setError(null);
+              loadSettings();
+            }}
+            className="text-sm font-medium text-red-600 underline"
+          >
+            {t('settings.tryAgain')}
+          </button>
+        </div>
+      )}
+
+      {/* Language selector */}
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Language</h2>
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">{t('settings.language')}</h2>
         <div className="flex items-center gap-4">
           <select
+            aria-label={t('settings.language')}
             value={language}
             onChange={(e) => setLanguage(e.target.value as 'en' | 'id')}
             className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
           >
-            <option value="en">English</option>
-            <option value="id">Bahasa Indonesia</option>
+            <option value="en">{t('settings.langEnglish')}</option>
+            <option value="id">{t('settings.langIndonesian')}</option>
           </select>
-          <span className="text-sm text-gray-500">Choose your preferred language</span>
+          <span className="text-sm text-gray-500">{t('settings.languageHint')}</span>
         </div>
       </div>
 
+      {/* System Settings */}
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         <div className="border-b border-gray-100 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">System Settings</h2>
-          <p className="text-sm text-gray-500">{settingEntries.length} settings configured</p>
+          <h2 className="text-lg font-semibold text-gray-900">{t('settings.systemSettings')}</h2>
+          <p className="text-sm text-gray-500">
+            {settingEntries.length} {t('settings.settingsCount')}
+          </p>
         </div>
-        {settingEntries.length === 0 ? (
-          <div className="px-6 py-8 text-center text-gray-500">No settings configured yet.</div>
+
+        {loading ? (
+          <div className="flex h-48 items-center justify-center">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-primary-600"></div>
+          </div>
+        ) : settingEntries.length === 0 ? (
+          <div className="px-6 py-8 text-center text-gray-500">{t('settings.noSettings')}</div>
         ) : (
           <div className="divide-y divide-gray-100">
             {settingEntries.map(([key, setting]) => (
@@ -171,8 +228,8 @@ const SettingsPage: React.FC = () => {
                         type="text"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
+                        aria-label={t('settings.value')}
                         className="rounded-lg border border-gray-300 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
-                        /* eslint-disable-next-line jsx-a11y/no-autofocus */
                         autoFocus
                       />
                       <button
@@ -180,13 +237,13 @@ const SettingsPage: React.FC = () => {
                         disabled={saving}
                         className="rounded bg-green-100 px-2 py-1 text-xs text-green-800 hover:bg-green-200 disabled:opacity-50"
                       >
-                        Save
+                        {t('settings.save')}
                       </button>
                       <button
-                        onClick={() => setEditingKey(null)}
+                        onClick={handleCancelEdit}
                         className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-800 hover:bg-gray-200"
                       >
-                        Cancel
+                        {t('settings.cancel')}
                       </button>
                     </>
                   ) : (
@@ -195,16 +252,16 @@ const SettingsPage: React.FC = () => {
                         {setting.value}
                       </span>
                       <button
-                        onClick={() => handleEdit(key)}
+                        onClick={() => handleEdit(key, setting)}
                         className="rounded bg-blue-100 px-2 py-1 text-xs text-blue-800 hover:bg-blue-200"
                       >
-                        Edit
+                        {t('settings.edit')}
                       </button>
                       <button
-                        onClick={() => handleDelete(key)}
+                        onClick={() => setDeleteConfirm(key)}
                         className="rounded bg-red-100 px-2 py-1 text-xs text-red-800 hover:bg-red-200"
                       >
-                        Delete
+                        {t('settings.delete')}
                       </button>
                     </>
                   )}
@@ -215,17 +272,30 @@ const SettingsPage: React.FC = () => {
         )}
       </div>
 
+      {/* Add Setting modal */}
       {showAddForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="w-full max-w-md rounded-xl bg-white p-6">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Add New Setting</h2>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          onClick={handleBackdropClick}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div ref={modalRef} className="w-full max-w-md rounded-xl bg-white p-6">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">
+              {t('settings.addNewSetting')}
+            </h2>
+            {formError && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {formError}
+              </div>
+            )}
             <form onSubmit={handleAdd} className="space-y-4">
               <div>
                 <label
                   htmlFor="setting-key"
                   className="mb-1 block text-sm font-medium text-gray-700"
                 >
-                  Key
+                  {t('settings.key')}
                 </label>
                 <input
                   id="setting-key"
@@ -233,7 +303,7 @@ const SettingsPage: React.FC = () => {
                   required
                   value={newKey}
                   onChange={(e) => setNewKey(e.target.value)}
-                  placeholder="e.g. company_name"
+                  placeholder={t('settings.keyPlaceholder')}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
                 />
               </div>
@@ -242,7 +312,7 @@ const SettingsPage: React.FC = () => {
                   htmlFor="setting-value"
                   className="mb-1 block text-sm font-medium text-gray-700"
                 >
-                  Value
+                  {t('settings.value')}
                 </label>
                 <input
                   id="setting-value"
@@ -258,34 +328,64 @@ const SettingsPage: React.FC = () => {
                   htmlFor="setting-description"
                   className="mb-1 block text-sm font-medium text-gray-700"
                 >
-                  Description
+                  {t('settings.description')}
                 </label>
                 <input
                   id="setting-description"
                   type="text"
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Optional description"
+                  placeholder={t('settings.descriptionPlaceholder')}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddForm(false)}
+                  onClick={closeAddForm}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('settings.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="rounded-lg bg-primary-600 px-4 py-2 text-white hover:bg-primary-700 disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : 'Add Setting'}
+                  {saving ? t('settings.saving') : t('settings.addSetting')}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {deleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          role="alertdialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-sm rounded-xl bg-white p-6">
+            <h3 className="mb-2 text-lg font-semibold text-gray-900">{t('settings.delete')}</h3>
+            <p className="mb-4 text-sm text-gray-600">
+              {t('settings.deleteConfirm')} &quot;{deleteConfirm}&quot;?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
+              >
+                {t('settings.cancel')}
+              </button>
+              <button
+                onClick={handleDeleteConfirmed}
+                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+              >
+                {t('settings.delete')}
+              </button>
+            </div>
           </div>
         </div>
       )}
