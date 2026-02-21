@@ -62,7 +62,7 @@ const TestComponent: React.FC = () => {
 
   const handleCreateOrder = async () => {
     try {
-      const data = await createOrder({ customer: 'test' });
+      const data = await createOrder({ customer_id: 'test' });
       setResult(JSON.stringify(data));
     } catch {
       setResult('error');
@@ -161,7 +161,7 @@ describe('ApiContext', () => {
         expect(screen.getByTestId('result').textContent).toBe(JSON.stringify(mockData));
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/orders', { customer: 'test' });
+      expect(mockPost).toHaveBeenCalledWith('/orders', { customer_id: 'test' });
     });
 
     it('should call updateOrder with id and updates', async () => {
