@@ -1,104 +1,29 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useApi } from '../contexts/ApiContext';
 import { useLanguage } from '../contexts/LanguageContext';
-
-// ── Types ─────────────────────────────────────────────────────────
-
-interface SalesReportData {
-  period: { start: string; end: string };
-  sales: Array<{ date: string; invoice_count: number; revenue: number; tax_collected: number }>;
-  summary: {
-    totalInvoices: number;
-    totalRevenue: number;
-    totalTax: number;
-    averageInvoice: number;
-  };
-  topCustomers: Array<{ name: string; revenue: number; invoice_count: number }>;
-}
-
-interface InventoryReportData {
-  summary: { totalItems: number; outOfStock: number; lowStock: number; totalValue: number };
-  byCategory: Array<{
-    category: string;
-    item_count: number;
-    total_stock: number;
-    total_value: number;
-  }>;
-  lowStockItems: Array<{
-    name: string;
-    sku: string;
-    category: string;
-    current_stock: number;
-    reorder_level: number;
-    unit: string;
-  }>;
-  recentMovements: Array<{ item_name: string; type: string; quantity: number; created_at: string }>;
-}
-
-interface ProductionReportData {
-  period: { start: string; end: string };
-  ordersByStatus: Array<{ status: string; count: number; value: number }>;
-  completionRate: number | string;
-  taskStats: Array<{ status: string; count: number }>;
-  qualityStats: Array<{ overall_status: string; count: number }>;
-}
-
-interface CustomerReportData {
-  summary: {
-    totalCustomers: number;
-    vipCustomers: number;
-    totalRevenue: number;
-    averageSpent: number;
-    newThisMonth: number;
-  };
-  byBusinessType: Array<{
-    business_type: string;
-    count: number;
-    total_spent: number;
-    avg_orders: number;
-  }>;
-  byLoyaltyStatus: Array<{ loyalty_status: string; count: number; total_spent: number }>;
-  topCustomers: Array<{
-    name: string;
-    business_type: string;
-    loyalty_status: string;
-    total_orders: number;
-    total_spent: number;
-  }>;
-}
-
-interface FinancialReportData {
-  period: { start: string; end: string };
-  summary: {
-    totalIncome: number;
-    totalExpense: number;
-    netIncome: number;
-    incomeCount: number;
-    expenseCount: number;
-  };
-  byCategory: Array<{ category: string; type: string; total: number; count: number }>;
-  invoiceStats: Array<{ status: string; count: number; value: number }>;
-}
-
-type ReportType = 'sales' | 'inventory' | 'production' | 'customers' | 'financial';
-type ReportData =
-  | SalesReportData
-  | InventoryReportData
-  | ProductionReportData
-  | CustomerReportData
-  | FinancialReportData
-  | null;
+import type {
+  SalesReportData,
+  InventoryReportData,
+  ProductionReportData,
+  CustomerReportData,
+  FinancialReportData,
+  ReportType,
+  ReportData,
+} from '@shared/types/reports';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('id-ID', {
+const LOCALE_MAP: Record<string, string> = { en: 'en-US', id: 'id-ID' };
+
+const makeFormatCurrency = (locale: string) => (amount: number) =>
+  new Intl.NumberFormat(LOCALE_MAP[locale] || 'id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
   }).format(amount || 0);
 
-const formatNumber = (n: number) => new Intl.NumberFormat('id-ID').format(n || 0);
+const makeFormatNumber = (locale: string) => (n: number) =>
+  new Intl.NumberFormat(LOCALE_MAP[locale] || 'id-ID').format(n || 0);
 
 const formatLabel = (key: string): string =>
   key
@@ -204,7 +129,7 @@ const ReportSkeleton = () => (
 
 const ReportsPage: React.FC = () => {
   const [reportType, setReportType] = useState<ReportType>('sales');
-  const [reportData, setReportData] = useState<ReportData>(null);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [startDate, setStartDate] = useState('');
@@ -220,16 +145,20 @@ const ReportsPage: React.FC = () => {
   } = useApi();
   const { t, language } = useLanguage();
 
+  const formatCurrency = React.useMemo(() => makeFormatCurrency(language), [language]);
+  const formatNumber = React.useMemo(() => makeFormatNumber(language), [language]);
+
   const tr = useCallback(
     (key: string, fallback: string) => {
       const val = t(key);
       return val === key ? fallback : val;
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- language ensures tr updates on locale switch
     },
-    [t, language]
+    [t]
   );
   const trRef = useRef(tr);
-  trRef.current = tr;
+  useEffect(() => {
+    trRef.current = tr;
+  }, [tr]);
 
   const fetchReport = useCallback(
     async (type: ReportType, start: string, end: string) => {
@@ -259,14 +188,21 @@ const ReportsPage: React.FC = () => {
             break;
         }
         setReportData(response?.report ?? null);
-        setGeneratedAt(new Date().toLocaleString('id-ID'));
+        setGeneratedAt(new Date().toLocaleString(LOCALE_MAP[language] || 'id-ID'));
       } catch {
         setError(trRef.current('reports.loadError', 'Failed to load report. Please try again.'));
       } finally {
         setLoading(false);
       }
     },
-    [getSalesReport, getInventoryReport, getProductionReport, getCustomerReport, getFinancialReport]
+    [
+      getSalesReport,
+      getInventoryReport,
+      getProductionReport,
+      getCustomerReport,
+      getFinancialReport,
+      language,
+    ]
   );
 
   // Auto-fetch when report type changes
@@ -279,7 +215,7 @@ const ReportsPage: React.FC = () => {
 
   // ── CSV Export ────────────────────────────────────────────────
 
-  const exportToCSV = (data: ReportData, filename: string) => {
+  const exportToCSV = (data: ReportData | null, filename: string) => {
     if (!data) return;
     const rows: Record<string, unknown>[] = [];
 
@@ -306,7 +242,8 @@ const ReportsPage: React.FC = () => {
       headers.join(','),
       ...rows.map((row) => headers.map((h) => `"${sanitizeCsvValue(row[h])}"`).join(',')),
     ];
-    const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -548,7 +485,8 @@ const ReportsPage: React.FC = () => {
             {
               key: 'created_at',
               label: tr('reports.movementDate', 'Date'),
-              format: (v: string) => (v ? new Date(v).toLocaleDateString('id-ID') : '-'),
+              format: (v: string) =>
+                v ? new Date(v).toLocaleDateString(LOCALE_MAP[language] || 'id-ID') : '-',
             },
           ]}
           rows={data.recentMovements}
@@ -558,12 +496,10 @@ const ReportsPage: React.FC = () => {
   );
 
   const renderProductionReport = (data: ProductionReportData) => {
-    const totalOrders = data.ordersByStatus.reduce((sum, s) => sum + s.count, 0);
-    const completedCount = data.ordersByStatus.find((s) => s.status === 'completed')?.count ?? 0;
-    const rate =
-      typeof data.completionRate === 'string'
-        ? parseFloat(data.completionRate)
-        : data.completionRate || 0;
+    const statuses = data.ordersByStatus ?? [];
+    const totalOrders = statuses.reduce((sum, s) => sum + s.count, 0);
+    const completedCount = statuses.find((s) => s.status === 'completed')?.count ?? 0;
+    const rate = Number(data.completionRate) || 0;
 
     return (
       <>
@@ -613,7 +549,7 @@ const ReportsPage: React.FC = () => {
                 format: (v: number) => formatCurrency(v),
               },
             ]}
-            rows={data.ordersByStatus}
+            rows={statuses}
           />
         </div>
 
@@ -925,7 +861,12 @@ const ReportsPage: React.FC = () => {
         {REPORT_TABS.map((rt) => (
           <button
             key={rt.key}
-            onClick={() => setReportType(rt.key)}
+            onClick={() => {
+              if (rt.key !== reportType) {
+                setReportData(null);
+                setReportType(rt.key);
+              }
+            }}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               reportType === rt.key
                 ? 'bg-primary-600 text-white shadow-sm'
