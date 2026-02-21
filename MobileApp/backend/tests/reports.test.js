@@ -78,6 +78,61 @@ describe('Reports API', () => {
       expect(data.success).toBe(false);
       expect(data.error).toBe('Unauthorized');
     });
+
+    test('should return 400 for invalid startDate', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/sales?startDate=not-a-date',
+        authToken
+      );
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(false);
+      expect(data.error).toContain('startDate');
+    });
+
+    test('should return 400 for invalid endDate', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/sales?endDate=2026-02-30',
+        authToken
+      );
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(false);
+      expect(data.error).toContain('endDate');
+    });
+
+    test('should return 400 when startDate is after endDate', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/sales?startDate=2026-12-31&endDate=2026-01-01',
+        authToken
+      );
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(false);
+      expect(data.error).toContain('startDate');
+    });
+
+    test('should return 200 when only one date param is provided', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/sales?startDate=2026-01-01',
+        authToken
+      );
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(true);
+    });
   });
 
   // ==================== INVENTORY REPORT TESTS ====================
@@ -204,6 +259,19 @@ describe('Reports API', () => {
       const data = JSON.parse(response.body);
       expect(data.success).toBe(false);
       expect(data.error).toBe('Unauthorized');
+    });
+
+    test('should return 400 for invalid date params', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/production?startDate=bad',
+        authToken
+      );
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(false);
     });
   });
 
@@ -335,6 +403,32 @@ describe('Reports API', () => {
       const data = JSON.parse(response.body);
       expect(data.success).toBe(false);
       expect(data.error).toBe('Unauthorized');
+    });
+
+    test('should return 400 for invalid date params', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/financial?endDate=invalid',
+        authToken
+      );
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(false);
+    });
+
+    test('should return 400 when startDate is after endDate', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/reports/financial?startDate=2026-12-31&endDate=2026-01-01',
+        authToken
+      );
+
+      expect(response.statusCode).toBe(400);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(false);
     });
   });
 });
