@@ -2,12 +2,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useApi } from '../contexts/ApiContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import type { OrderStatus } from '@shared/types/orders';
+import Toast from '../components/Toast';
+import KanbanCard from '../components/production/KanbanCard';
+import { SkeletonStatCard, SkeletonColumn } from '../components/production/ProductionSkeletons';
+import SectionError from '../components/dashboard/SectionError';
 
 // ---------------------------------------------------------------------------
 // TypeScript interfaces matching backend response shapes
 // ---------------------------------------------------------------------------
 
-interface ProductionOrder {
+export interface ProductionOrder {
   id: string;
   order_number: string;
   customer_name: string;
@@ -86,134 +91,6 @@ const STAGES: StageConfig[] = [
   },
 ];
 
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: 'bg-red-100 text-red-800',
-  high: 'bg-orange-100 text-orange-800',
-  normal: 'bg-blue-100 text-blue-800',
-  low: 'bg-gray-100 text-gray-800',
-};
-
-const PRIORITY_KEYS: Record<string, string> = {
-  urgent: 'production.urgent',
-  high: 'production.high',
-  normal: 'production.normal',
-  low: 'production.low',
-};
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(amount || 0);
-};
-
-const isOverdue = (dueDateStr: string): boolean => {
-  if (!dueDateStr) return false;
-  const due = new Date(dueDateStr);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return due < today;
-};
-
-// ---------------------------------------------------------------------------
-// Toast component (matches other pages)
-// ---------------------------------------------------------------------------
-
-const Toast: React.FC<{
-  message: string;
-  type: 'success' | 'error' | 'warning';
-  onClose: () => void;
-}> = ({ message, type, onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 4000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  const colors = {
-    success: 'bg-green-600 text-white',
-    error: 'bg-red-600 text-white',
-    warning: 'bg-yellow-500 text-white',
-  };
-
-  const icons = {
-    success: 'M5 13l4 4L19 7',
-    error: 'M6 18L18 6M6 6l12 12',
-    warning:
-      'M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z',
-  };
-
-  return (
-    <div
-      className={`animate-slide-in fixed right-4 top-4 z-[60] flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium shadow-lg ${colors[type]}`}
-    >
-      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icons[type]} />
-      </svg>
-      {message}
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Skeleton components
-// ---------------------------------------------------------------------------
-
-const SkeletonStatCard: React.FC = () => (
-  <div className="animate-pulse rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-    <div className="mb-3 h-3 w-20 rounded bg-gray-200" />
-    <div className="mb-2 h-7 w-16 rounded bg-gray-200" />
-  </div>
-);
-
-const SkeletonColumn: React.FC = () => (
-  <div className="animate-pulse rounded-xl border border-gray-100 bg-white shadow-sm">
-    <div className="border-b border-gray-100 p-4">
-      <div className="mb-2 h-4 w-24 rounded bg-gray-200" />
-      <div className="h-3 w-16 rounded bg-gray-200" />
-    </div>
-    <div className="space-y-3 p-4">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-          <div className="mb-2 flex justify-between">
-            <div className="h-3 w-20 rounded bg-gray-200" />
-            <div className="h-4 w-14 rounded-full bg-gray-200" />
-          </div>
-          <div className="mb-2 h-3 w-28 rounded bg-gray-200" />
-          <div className="flex justify-between">
-            <div className="h-3 w-16 rounded bg-gray-200" />
-            <div className="h-3 w-20 rounded bg-gray-200" />
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-// ---------------------------------------------------------------------------
-// Section error
-// ---------------------------------------------------------------------------
-
-const SectionError: React.FC<{ message: string; retryLabel: string; onRetry: () => void }> = ({
-  message,
-  retryLabel,
-  onRetry,
-}) => (
-  <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-4 text-red-700">
-    <p className="font-medium">{message}</p>
-    <button
-      onClick={onRetry}
-      className="mt-2 text-sm text-primary-600 underline underline-offset-2 hover:text-primary-700"
-    >
-      {retryLabel}
-    </button>
-  </div>
-);
-
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -274,14 +151,14 @@ const ProductionPage: React.FC = () => {
       const val = boardResult.value;
       const boardObj = val?.board || {};
       // Flatten the stage-keyed object into a single array
-      const allOrders: ProductionOrder[] = Object.values(boardObj).flat() as ProductionOrder[];
+      const allOrders = Object.values(boardObj).flat() as unknown as ProductionOrder[];
       setBoard(allOrders);
     }
 
     // Parse stats: backend returns { stats: { stage_distribution: { ... }, ... } }
     if (statsResult.status === 'fulfilled') {
       const raw = statsResult.value;
-      setStats(raw?.stats || raw || null);
+      setStats((raw?.stats || raw || null) as unknown as ProductionStats | null);
     }
 
     if (boardResult.status === 'rejected' && statsResult.status === 'rejected') {
@@ -361,7 +238,7 @@ const ProductionPage: React.FC = () => {
     setSelectedOrder(null);
 
     try {
-      await updateProductionStage(orderId, targetStageKey);
+      await updateProductionStage(orderId, targetStageKey as OrderStatus);
       setToast({
         message: tr('production.moveSuccess', 'Order moved successfully'),
         type: 'success',
@@ -592,89 +469,19 @@ const ProductionPage: React.FC = () => {
                       : tr('production.noOrders', 'No orders in this stage')}
                   </p>
                 ) : (
-                  stageOrders.map((order) => {
-                    const overdue = isOverdue(order.due_date);
-                    const isSelected = selectedOrder?.id === order.id;
-                    const priorityLabel = tr(
-                      PRIORITY_KEYS[order.priority] || 'production.normal',
-                      order.priority
-                    );
-
-                    return (
-                      <div
-                        key={order.id}
-                        role="button"
-                        tabIndex={0}
-                        draggable={canMoveOrders}
-                        onDragStart={(e) => handleDragStart(e, order)}
-                        onDragEnd={handleDragEnd}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCardTap(order);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleCardTap(order);
-                          }
-                        }}
-                        className={`rounded-lg border bg-gray-50 p-3 transition-all duration-150 ${
-                          canMoveOrders ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
-                        } ${
-                          draggedOrder?.id === order.id
-                            ? 'border-gray-200 opacity-40'
-                            : 'opacity-100'
-                        } ${
-                          isSelected
-                            ? 'border-primary-400 bg-primary-50 ring-2 ring-primary-200'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-1">
-                          <span className="truncate text-sm font-medium text-gray-900">
-                            {order.order_number}
-                          </span>
-                          <span
-                            className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_COLORS[order.priority] || PRIORITY_COLORS.low}`}
-                          >
-                            {priorityLabel}
-                          </span>
-                        </div>
-                        <p className="mt-1 truncate text-xs text-gray-600">{order.customer_name}</p>
-                        <div className="mt-2 flex items-center justify-between">
-                          <span
-                            className={`text-[10px] font-medium ${overdue ? 'text-red-600' : 'text-gray-500'}`}
-                          >
-                            {overdue && (
-                              <svg
-                                className="-mt-0.5 mr-0.5 inline h-3 w-3"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-                                />
-                              </svg>
-                            )}
-                            {order.due_date
-                              ? new Date(order.due_date).toLocaleDateString('id-ID', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                })
-                              : '-'}
-                          </span>
-                          <span className="text-[10px] font-medium text-gray-700">
-                            {formatCurrency(order.total_amount)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
+                  stageOrders.map((order) => (
+                    <KanbanCard
+                      key={order.id}
+                      order={order}
+                      isSelected={selectedOrder?.id === order.id}
+                      isDragged={draggedOrder?.id === order.id}
+                      canMove={canMoveOrders}
+                      tr={tr}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      onTap={handleCardTap}
+                    />
+                  ))
                 )}
               </div>
             </div>
