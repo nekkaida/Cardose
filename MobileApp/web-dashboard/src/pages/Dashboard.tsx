@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApi } from '../contexts/ApiContext';
 import { useAuth } from '../contexts/AuthContext';
-import { apiClient } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import type { DashboardData } from '@shared/types/analytics';
 import {
   BarChart,
   Bar,
@@ -22,13 +23,6 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const PERIOD_OPTIONS = [
-  { label: 'This Week', value: 'week' },
-  { label: 'This Month', value: 'month' },
-  { label: 'This Quarter', value: 'quarter' },
-  { label: 'This Year', value: 'year' },
-] as const;
-
 const ORDER_STATUS_COLORS: Record<string, string> = {
   Active: '#4e3a21',
   Completed: '#2C5530',
@@ -42,31 +36,24 @@ const PRODUCTION_STAGE_COLORS: Record<string, string> = {
   QC: '#FFA500',
 };
 
-const MONTH_LABELS: Record<string, string> = {
-  '01': 'Jan',
-  '02': 'Feb',
-  '03': 'Mar',
-  '04': 'Apr',
-  '05': 'May',
-  '06': 'Jun',
-  '07': 'Jul',
-  '08': 'Aug',
-  '09': 'Sep',
-  '10': 'Oct',
-  '11': 'Nov',
-  '12': 'Dec',
-};
+const MONTH_KEYS = [
+  'dashboard.monthJan',
+  'dashboard.monthFeb',
+  'dashboard.monthMar',
+  'dashboard.monthApr',
+  'dashboard.monthMay',
+  'dashboard.monthJun',
+  'dashboard.monthJul',
+  'dashboard.monthAug',
+  'dashboard.monthSep',
+  'dashboard.monthOct',
+  'dashboard.monthNov',
+  'dashboard.monthDec',
+];
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
-}
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('id-ID', {
@@ -88,10 +75,12 @@ function formatNumber(num: number): string {
   return new Intl.NumberFormat('id-ID').format(num || 0);
 }
 
-function parseMonthLabel(raw: string): string {
-  // "2025-01" -> "Jan"
+function parseMonthLabel(raw: string, t: (key: string) => string): string {
   const parts = raw.split('-');
-  if (parts.length === 2) return MONTH_LABELS[parts[1]] || raw;
+  if (parts.length === 2) {
+    const idx = parseInt(parts[1], 10) - 1;
+    return idx >= 0 && idx < 12 ? t(MONTH_KEYS[idx]) : raw;
+  }
   return raw;
 }
 
@@ -99,17 +88,17 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, t: (key: string) => string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diffMs = now - then;
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t('dashboard.timeJustNow');
+  if (mins < 60) return t('dashboard.timeMinutesAgo').replace('{n}', String(mins));
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t('dashboard.timeHoursAgo').replace('{n}', String(hours));
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return t('dashboard.timeDaysAgo').replace('{n}', String(days));
 }
 
 function getStatusBadgeClass(status: string): string {
@@ -207,7 +196,15 @@ function RevenueSummarySkeleton() {
 // Inline error component with retry
 // ---------------------------------------------------------------------------
 
-function SectionError({ message, onRetry }: { message: string; onRetry: () => void }) {
+function SectionError({
+  message,
+  onRetry,
+  retryLabel,
+}: {
+  message: string;
+  onRetry: () => void;
+  retryLabel: string;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-8 text-center">
       <svg
@@ -228,7 +225,7 @@ function SectionError({ message, onRetry }: { message: string; onRetry: () => vo
         onClick={onRetry}
         className="text-sm font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700"
       >
-        Retry
+        {retryLabel}
       </button>
     </div>
   );
@@ -238,12 +235,18 @@ function SectionError({ message, onRetry }: { message: string; onRetry: () => vo
 // Custom Recharts Tooltip for Rupiah
 // ---------------------------------------------------------------------------
 
-function RupiahTooltip({ active, payload, label }: any) {
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}
+
+function RupiahTooltip({ active, payload, label }: TooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-lg">
       <p className="mb-1 text-xs text-gray-500">{label}</p>
-      {payload.map((entry: any, i: number) => (
+      {payload.map((entry, i) => (
         <p key={i} className="font-semibold text-gray-900">
           {formatCurrency(entry.value)}
         </p>
@@ -253,7 +256,23 @@ function RupiahTooltip({ active, payload, label }: any) {
 }
 
 // Custom PieChart label renderer that avoids overlap
-function renderPieLabel({ name, percent, cx, cy, midAngle, outerRadius }: any) {
+interface PieLabelProps {
+  name?: string;
+  percent?: number;
+  cx?: number;
+  cy?: number;
+  midAngle?: number;
+  outerRadius?: number;
+}
+
+function renderPieLabel({
+  name = '',
+  percent = 0,
+  cx = 0,
+  cy = 0,
+  midAngle = 0,
+  outerRadius = 0,
+}: PieLabelProps) {
   const RADIAN = Math.PI / 180;
   const radius = outerRadius + 22;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -276,10 +295,29 @@ function renderPieLabel({ name, percent, cx, cy, midAngle, outerRadius }: any) {
 // Production BarChart with individual bar colors
 // ---------------------------------------------------------------------------
 
-function ProductionBarShape(props: any) {
-  const { x, y, width, height, payload } = props;
-  const fill = PRODUCTION_STAGE_COLORS[payload?.stage] || '#4e3a21';
+interface BarShapeProps {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  payload?: { key?: string };
+}
+
+function ProductionBarShape({ x = 0, y = 0, width = 0, height = 0, payload }: BarShapeProps) {
+  const fill = PRODUCTION_STAGE_COLORS[payload?.key || ''] || '#4e3a21';
   return <rect x={x} y={y} width={width} height={height} rx={4} ry={4} fill={fill} />;
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface RecentOrder {
+  id: string;
+  order_number?: string;
+  customer_name?: string;
+  status: string;
+  created_at: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -288,13 +326,16 @@ function ProductionBarShape(props: any) {
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const { getRevenueAnalytics } = useApi();
+  const { getDashboardAnalytics, getRevenueAnalytics, getRecentOrders } = useApi();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   // State: data
-  const [data, setData] = useState<any>(null);
-  const [revenueData, setRevenueData] = useState<any>(null);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [revenueData, setRevenueData] = useState<{
+    trend: Array<{ month: string; revenue: number }>;
+  } | null>(null);
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
 
   // State: loading per section
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
@@ -309,24 +350,31 @@ const Dashboard: React.FC = () => {
   // State: controls
   const [period, setPeriod] = useState<string>('month');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Ref to avoid refreshAll depending on period
+  const periodRef = useRef(period);
+  periodRef.current = period;
 
   // -----------------------------------------------------------------------
   // Data fetchers
   // -----------------------------------------------------------------------
 
-  const fetchAnalytics = useCallback(async (p: string) => {
-    setLoadingAnalytics(true);
-    setErrorAnalytics('');
-    try {
-      // Call directly with period param since getDashboardAnalytics() doesn't forward it
-      const response = await apiClient.get('/analytics/dashboard', { params: { period: p } });
-      setData(response.data);
-    } catch {
-      setErrorAnalytics('Failed to load dashboard analytics');
-    } finally {
-      setLoadingAnalytics(false);
-    }
-  }, []);
+  const fetchAnalytics = useCallback(
+    async (p: string) => {
+      setLoadingAnalytics(true);
+      setErrorAnalytics('');
+      try {
+        const result = await getDashboardAnalytics({ period: p });
+        setData(result as DashboardData);
+      } catch {
+        setErrorAnalytics(t('dashboard.loadErrorAnalytics'));
+      } finally {
+        setLoadingAnalytics(false);
+      }
+    },
+    [getDashboardAnalytics, t]
+  );
 
   const fetchRevenue = useCallback(async () => {
     setLoadingRevenue(true);
@@ -335,77 +383,132 @@ const Dashboard: React.FC = () => {
       const result = await getRevenueAnalytics();
       setRevenueData(result);
     } catch {
-      setErrorRevenue('Failed to load revenue trend');
+      setErrorRevenue(t('dashboard.loadErrorRevenue'));
     } finally {
       setLoadingRevenue(false);
     }
-  }, [getRevenueAnalytics]);
+  }, [getRevenueAnalytics, t]);
 
-  const fetchRecentOrders = useCallback(async () => {
+  const fetchRecentOrdersData = useCallback(async () => {
     setLoadingRecentOrders(true);
     setErrorRecentOrders('');
     try {
-      const response = await apiClient.get('/dashboard/recent-orders', { params: { limit: 5 } });
-      const payload = response.data;
-      setRecentOrders(payload.orders || []);
+      const result = await getRecentOrders(5);
+      setRecentOrders(result.orders || []);
     } catch {
-      setErrorRecentOrders('Failed to load recent orders');
+      setErrorRecentOrders(t('dashboard.loadErrorOrders'));
     } finally {
       setLoadingRecentOrders(false);
     }
-  }, []);
+  }, [getRecentOrders, t]);
 
   const refreshAll = useCallback(async () => {
-    await Promise.allSettled([fetchAnalytics(period), fetchRevenue(), fetchRecentOrders()]);
+    setRefreshing(true);
+    await Promise.allSettled([
+      fetchAnalytics(periodRef.current),
+      fetchRevenue(),
+      fetchRecentOrdersData(),
+    ]);
     setLastUpdated(new Date());
-  }, [fetchAnalytics, fetchRevenue, fetchRecentOrders, period]);
+    setRefreshing(false);
+  }, [fetchAnalytics, fetchRevenue, fetchRecentOrdersData]);
 
   // Initial load
   useEffect(() => {
     refreshAll();
   }, [refreshAll]);
 
-  // Refetch analytics when period changes (but not other sections)
-  const handlePeriodChange = (newPeriod: string) => {
-    setPeriod(newPeriod);
-    fetchAnalytics(newPeriod).then(() => setLastUpdated(new Date()));
-  };
+  // Period change only refreshes analytics
+  const handlePeriodChange = useCallback(
+    (newPeriod: string) => {
+      setPeriod(newPeriod);
+      periodRef.current = newPeriod;
+      fetchAnalytics(newPeriod).then(() => setLastUpdated(new Date()));
+    },
+    [fetchAnalytics]
+  );
 
   // -----------------------------------------------------------------------
-  // Derived data
+  // Derived data (memoized)
   // -----------------------------------------------------------------------
 
-  const revenue = data?.revenue || {};
-  const orders = data?.orders || {};
-  const customers = data?.customers || {};
-  const inventory = data?.inventory || {};
-  const production = data?.production || {};
+  const revenue = data?.revenue;
+  const orders = data?.orders;
+  const customers = data?.customers;
+  const inventory = data?.inventory;
+  const production = data?.production;
 
-  const completionRate = Math.round(parseFloat(orders.completion_rate) || 0);
+  const completionRate = useMemo(
+    () => Math.round(orders?.completion_rate || 0),
+    [orders?.completion_rate]
+  );
 
-  const orderStatusData = [
-    { name: 'Active', value: orders.active_orders || 0 },
-    { name: 'Completed', value: orders.completed_orders || 0 },
-    { name: 'Cancelled', value: orders.cancelled_orders || 0 },
-  ].filter((d) => d.value > 0);
+  const orderStatusData = useMemo(
+    () =>
+      [
+        { key: 'Active', name: t('dashboard.statusActive'), value: orders?.active_orders || 0 },
+        {
+          key: 'Completed',
+          name: t('dashboard.statusCompleted'),
+          value: orders?.completed_orders || 0,
+        },
+        {
+          key: 'Cancelled',
+          name: t('dashboard.statusCancelled'),
+          value: orders?.cancelled_orders || 0,
+        },
+      ].filter((d) => d.value > 0),
+    [orders, t]
+  );
 
-  const revenueTrend = (revenueData?.trend || []).map((m: any) => ({
-    month: parseMonthLabel(m.month || ''),
-    revenue: m.revenue || 0,
-  }));
+  const revenueTrend = useMemo(
+    () =>
+      (revenueData?.trend || []).map((m) => ({
+        month: parseMonthLabel(m.month || '', t),
+        revenue: m.revenue || 0,
+      })),
+    [revenueData, t]
+  );
 
-  const productionData = [
-    { stage: 'Designing', count: production.designing || 0 },
-    { stage: 'Approved', count: 0 }, // backend doesn't track approved separately yet
-    { stage: 'Production', count: production.in_production || 0 },
-    { stage: 'QC', count: production.quality_control || 0 },
-  ];
+  const productionData = useMemo(
+    () => [
+      { key: 'Designing', stage: t('dashboard.stageDesigning'), count: production?.designing || 0 },
+      { key: 'Approved', stage: t('dashboard.stageApproved'), count: 0 },
+      {
+        key: 'Production',
+        stage: t('dashboard.stageProduction'),
+        count: production?.in_production || 0,
+      },
+      { key: 'QC', stage: t('dashboard.stageQC'), count: production?.quality_control || 0 },
+    ],
+    [production, t]
+  );
+
+  const periodOptions = useMemo(
+    () => [
+      { label: t('dashboard.thisWeek'), value: 'week' },
+      { label: t('dashboard.thisMonth'), value: 'month' },
+      { label: t('dashboard.thisQuarter'), value: 'quarter' },
+      { label: t('dashboard.thisYear'), value: 'year' },
+    ],
+    [t]
+  );
 
   // Alerts
-  const hasOutOfStock = (inventory.out_of_stock || 0) > 0;
-  const hasUrgentOrders = (production.urgent_orders || 0) > 0;
-  const hasLowStock = (inventory.low_stock || 0) > 0;
+  const hasOutOfStock = (inventory?.out_of_stock || 0) > 0;
+  const hasUrgentOrders = (production?.urgent_orders || 0) > 0;
+  const hasLowStock = (inventory?.low_stock || 0) > 0;
   const hasAlerts = hasOutOfStock || hasUrgentOrders;
+
+  // Greeting
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return t('dashboard.greeting.morning');
+    if (hour < 18) return t('dashboard.greeting.afternoon');
+    return t('dashboard.greeting.evening');
+  }, [t]);
+
+  const retryLabel = t('dashboard.retry');
 
   // -----------------------------------------------------------------------
   // Render
@@ -419,9 +522,9 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {getGreeting()}, {user?.username || 'there'}
+            {greeting}, {user?.username || t('dashboard.defaultUser')}
           </h1>
-          <p className="mt-0.5 text-sm text-gray-500">Here&apos;s your business overview</p>
+          <p className="mt-0.5 text-sm text-gray-500">{t('dashboard.subtitle')}</p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -429,9 +532,10 @@ const Dashboard: React.FC = () => {
           <select
             value={period}
             onChange={(e) => handlePeriodChange(e.target.value)}
+            aria-label={t('dashboard.selectPeriod')}
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
-            {PERIOD_OPTIONS.map((opt) => (
+            {periodOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -441,11 +545,12 @@ const Dashboard: React.FC = () => {
           {/* Refresh button */}
           <button
             onClick={refreshAll}
-            title="Refresh data"
+            title={t('dashboard.refreshData')}
+            aria-label={t('dashboard.refreshData')}
             className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-primary-600"
           >
             <svg
-              className="w-4.5 h-4.5"
+              className={`h-4.5 w-4.5 ${refreshing ? 'animate-spin' : ''}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -462,7 +567,7 @@ const Dashboard: React.FC = () => {
           {/* Last updated */}
           {lastUpdated && (
             <span className="hidden text-xs text-gray-400 sm:inline">
-              Updated {formatTime(lastUpdated)}
+              {t('dashboard.updated')} {formatTime(lastUpdated)}
             </span>
           )}
         </div>
@@ -493,8 +598,9 @@ const Dashboard: React.FC = () => {
                   onClick={() => navigate('/inventory')}
                   className="font-medium text-red-700 underline underline-offset-2 hover:text-red-900"
                 >
-                  {inventory.out_of_stock} material{inventory.out_of_stock > 1 ? 's' : ''} out of
-                  stock
+                  {inventory!.out_of_stock}{' '}
+                  {inventory!.out_of_stock > 1 ? t('dashboard.materials') : t('dashboard.material')}{' '}
+                  {t('dashboard.alertOutOfStock')}
                 </button>
               )}
               {hasUrgentOrders && (
@@ -502,8 +608,11 @@ const Dashboard: React.FC = () => {
                   onClick={() => navigate('/orders')}
                   className="font-medium text-red-700 underline underline-offset-2 hover:text-red-900"
                 >
-                  {production.urgent_orders} urgent order{production.urgent_orders > 1 ? 's' : ''}{' '}
-                  need attention
+                  {production!.urgent_orders} {t('dashboard.urgent')}{' '}
+                  {production!.urgent_orders > 1
+                    ? t('dashboard.orders').toLowerCase()
+                    : t('dashboard.order')}{' '}
+                  {t('dashboard.alertNeedAttention')}
                 </button>
               )}
               {hasLowStock && !hasOutOfStock && (
@@ -511,7 +620,9 @@ const Dashboard: React.FC = () => {
                   onClick={() => navigate('/inventory')}
                   className="font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900"
                 >
-                  {inventory.low_stock} material{inventory.low_stock > 1 ? 's' : ''} running low
+                  {inventory!.low_stock}{' '}
+                  {inventory!.low_stock > 1 ? t('dashboard.materials') : t('dashboard.material')}{' '}
+                  {t('dashboard.alertRunningLow')}
                 </button>
               )}
             </div>
@@ -526,7 +637,11 @@ const Dashboard: React.FC = () => {
         <KpiSkeleton />
       ) : errorAnalytics ? (
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <SectionError message={errorAnalytics} onRetry={() => fetchAnalytics(period)} />
+          <SectionError
+            message={errorAnalytics}
+            onRetry={() => fetchAnalytics(period)}
+            retryLabel={retryLabel}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -534,9 +649,11 @@ const Dashboard: React.FC = () => {
           <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Revenue</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  {t('dashboard.revenue')}
+                </p>
                 <p className="mt-1 truncate text-2xl font-bold text-gray-900">
-                  {formatShortCurrency(revenue.total_revenue)}
+                  {formatShortCurrency(revenue?.total_revenue || 0)}
                 </p>
                 <p className="mt-1 flex items-center gap-1 text-xs text-accent-600">
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -547,7 +664,7 @@ const Dashboard: React.FC = () => {
                       d="M5 10l7-7m0 0l7 7m-7-7v18"
                     />
                   </svg>
-                  {formatShortCurrency(revenue.paid_revenue)} paid
+                  {formatShortCurrency(revenue?.paid_revenue || 0)} {t('dashboard.paid')}
                 </p>
               </div>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-100">
@@ -572,9 +689,11 @@ const Dashboard: React.FC = () => {
           <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Orders</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  {t('dashboard.orders')}
+                </p>
                 <p className="mt-1 text-2xl font-bold text-gray-900">
-                  {formatNumber(orders.total_orders)}
+                  {formatNumber(orders?.total_orders || 0)}
                 </p>
                 <p className="mt-1 flex items-center gap-1 text-xs text-primary-500">
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -585,7 +704,7 @@ const Dashboard: React.FC = () => {
                       d="M5 10l7-7m0 0l7 7m-7-7v18"
                     />
                   </svg>
-                  {formatNumber(orders.active_orders)} active
+                  {formatNumber(orders?.active_orders || 0)} {t('dashboard.active')}
                 </p>
               </div>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100">
@@ -611,16 +730,16 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Customers
+                  {t('dashboard.customers')}
                 </p>
                 <p className="mt-1 text-2xl font-bold text-gray-900">
-                  {formatNumber(customers.total_customers)}
+                  {formatNumber(customers?.total_customers || 0)}
                 </p>
                 <p className="mt-1 flex items-center gap-1 text-xs text-accent-600">
                   <svg className="h-3 w-3 text-accent-500" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.37 2.448a1 1 0 00-.364 1.118l1.287 3.957c.3.921-.755 1.688-1.54 1.118l-3.37-2.448a1 1 0 00-1.176 0l-3.37 2.448c-.784.57-1.838-.197-1.539-1.118l1.287-3.957a1 1 0 00-.364-1.118L2.063 9.384c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.957z" />
                   </svg>
-                  {formatNumber(customers.vip_customers)} VIP
+                  {formatNumber(customers?.vip_customers || 0)} {t('dashboard.vip')}
                 </p>
               </div>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-100">
@@ -646,7 +765,7 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Completion
+                  {t('dashboard.completion')}
                 </p>
                 <p className="mt-1 text-2xl font-bold text-gray-900">{completionRate}%</p>
                 <p className="mt-1 flex items-center gap-1 text-xs text-green-600">
@@ -658,7 +777,7 @@ const Dashboard: React.FC = () => {
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  {formatNumber(orders.completed_orders)} done
+                  {formatNumber(orders?.completed_orders || 0)} {t('dashboard.done')}
                 </p>
               </div>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-100">
@@ -687,11 +806,13 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Revenue Trend - 2/3 */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2">
-          <h3 className="mb-4 text-base font-semibold text-gray-900">Revenue Trend</h3>
+          <h3 className="mb-4 text-base font-semibold text-gray-900">
+            {t('dashboard.revenueTrend')}
+          </h3>
           {loadingRevenue ? (
             <ChartSkeleton />
           ) : errorRevenue ? (
-            <SectionError message={errorRevenue} onRetry={fetchRevenue} />
+            <SectionError message={errorRevenue} onRetry={fetchRevenue} retryLabel={retryLabel} />
           ) : revenueTrend.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
               <AreaChart data={revenueTrend}>
@@ -729,22 +850,23 @@ const Dashboard: React.FC = () => {
                   d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
                 />
               </svg>
-              <p className="text-sm text-gray-400">
-                No revenue data yet. Create invoices to track revenue.
-              </p>
+              <p className="text-sm text-gray-400">{t('dashboard.noRevenueData')}</p>
             </div>
           )}
         </div>
 
         {/* Order Status Pie - 1/3 */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-base font-semibold text-gray-900">Order Status</h3>
+          <h3 className="mb-4 text-base font-semibold text-gray-900">
+            {t('dashboard.orderStatus')}
+          </h3>
           {loadingAnalytics ? (
             <ChartSkeleton />
           ) : errorAnalytics ? (
             <SectionError
-              message="Failed to load order status"
+              message={t('dashboard.loadErrorOrderStatus')}
               onRetry={() => fetchAnalytics(period)}
+              retryLabel={retryLabel}
             />
           ) : orderStatusData.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
@@ -760,7 +882,7 @@ const Dashboard: React.FC = () => {
                   label={renderPieLabel}
                 >
                   {orderStatusData.map((entry) => (
-                    <Cell key={entry.name} fill={ORDER_STATUS_COLORS[entry.name] || '#9CA3AF'} />
+                    <Cell key={entry.key} fill={ORDER_STATUS_COLORS[entry.key] || '#9CA3AF'} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value: number, name: string) => [formatNumber(value), name]} />
@@ -787,9 +909,7 @@ const Dashboard: React.FC = () => {
                   d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z"
                 />
               </svg>
-              <p className="text-sm text-gray-400">
-                No orders yet. Start by creating your first order.
-              </p>
+              <p className="text-sm text-gray-400">{t('dashboard.noOrdersData')}</p>
             </div>
           )}
         </div>
@@ -802,10 +922,12 @@ const Dashboard: React.FC = () => {
         {/* Production Pipeline */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-semibold text-gray-900">Production Pipeline</h3>
-            {(production.urgent_orders || 0) > 0 && (
+            <h3 className="text-base font-semibold text-gray-900">
+              {t('dashboard.productionPipeline')}
+            </h3>
+            {(production?.urgent_orders || 0) > 0 && (
               <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                {production.urgent_orders} urgent
+                {production!.urgent_orders} {t('dashboard.urgent')}
               </span>
             )}
           </div>
@@ -813,8 +935,9 @@ const Dashboard: React.FC = () => {
             <ChartSkeleton height={200} />
           ) : errorAnalytics ? (
             <SectionError
-              message="Failed to load production data"
+              message={t('dashboard.loadErrorProduction')}
               onRetry={() => fetchAnalytics(period)}
+              retryLabel={retryLabel}
             />
           ) : (
             <>
@@ -828,17 +951,17 @@ const Dashboard: React.FC = () => {
                     tickLine={false}
                     axisLine={false}
                   />
-                  <Tooltip formatter={(value: number) => [value, 'Orders']} />
+                  <Tooltip formatter={(value: number) => [value, t('dashboard.ordersTooltip')]} />
                   <Bar dataKey="count" shape={<ProductionBarShape />} />
                 </BarChart>
               </ResponsiveContainer>
               {/* Legend */}
               <div className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1">
                 {productionData.map((item) => (
-                  <div key={item.stage} className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <div key={item.key} className="flex items-center gap-1.5 text-xs text-gray-500">
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                      style={{ backgroundColor: PRODUCTION_STAGE_COLORS[item.stage] }}
+                      style={{ backgroundColor: PRODUCTION_STAGE_COLORS[item.key] }}
                     />
                     {item.stage}
                   </div>
@@ -851,21 +974,27 @@ const Dashboard: React.FC = () => {
         {/* Recent Activity */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-semibold text-gray-900">Recent Activity</h3>
+            <h3 className="text-base font-semibold text-gray-900">
+              {t('dashboard.recentActivity')}
+            </h3>
             <button
               onClick={() => navigate('/orders')}
               className="text-xs font-medium text-primary-600 hover:text-primary-700"
             >
-              View all
+              {t('dashboard.viewAll')}
             </button>
           </div>
           {loadingRecentOrders ? (
             <ListSkeleton />
           ) : errorRecentOrders ? (
-            <SectionError message={errorRecentOrders} onRetry={fetchRecentOrders} />
+            <SectionError
+              message={errorRecentOrders}
+              onRetry={fetchRecentOrdersData}
+              retryLabel={retryLabel}
+            />
           ) : recentOrders.length > 0 ? (
             <div className="space-y-3">
-              {recentOrders.map((order: any) => (
+              {recentOrders.map((order) => (
                 <button
                   key={order.id}
                   onClick={() => navigate('/orders')}
@@ -873,11 +1002,11 @@ const Dashboard: React.FC = () => {
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-gray-900">
-                      {order.customer_name || 'Unknown Customer'}
+                      {order.customer_name || t('dashboard.unknownCustomer')}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-400">
                       {order.order_number || order.id?.slice(0, 8)} ·{' '}
-                      {order.created_at ? timeAgo(order.created_at) : ''}
+                      {order.created_at ? timeAgo(order.created_at, t) : ''}
                     </p>
                   </div>
                   <span
@@ -903,49 +1032,50 @@ const Dashboard: React.FC = () => {
                   d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <p className="text-sm text-gray-400">No recent activity yet.</p>
+              <p className="text-sm text-gray-400">{t('dashboard.noRecentActivity')}</p>
             </div>
           )}
         </div>
 
         {/* Inventory Summary */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h3 className="mb-4 text-base font-semibold text-gray-900">Inventory</h3>
+          <h3 className="mb-4 text-base font-semibold text-gray-900">{t('dashboard.inventory')}</h3>
           {loadingAnalytics ? (
             <InventorySkeleton />
           ) : errorAnalytics ? (
             <SectionError
-              message="Failed to load inventory data"
+              message={t('dashboard.loadErrorInventory')}
               onRetry={() => fetchAnalytics(period)}
+              retryLabel={retryLabel}
             />
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Total Materials</span>
+                <span className="text-sm text-gray-600">{t('dashboard.totalMaterials')}</span>
                 <span className="text-lg font-bold text-gray-900">
-                  {formatNumber(inventory.total_materials)}
+                  {formatNumber(inventory?.total_materials || 0)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Low Stock</span>
+                <span className="text-sm text-gray-600">{t('dashboard.lowStock')}</span>
                 <span
-                  className={`text-lg font-bold ${(inventory.low_stock || 0) > 0 ? 'text-amber-600' : 'text-green-600'}`}
+                  className={`text-lg font-bold ${(inventory?.low_stock || 0) > 0 ? 'text-amber-600' : 'text-green-600'}`}
                 >
-                  {formatNumber(inventory.low_stock)}
+                  {formatNumber(inventory?.low_stock || 0)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Out of Stock</span>
+                <span className="text-sm text-gray-600">{t('dashboard.outOfStock')}</span>
                 <span
-                  className={`text-lg font-bold ${(inventory.out_of_stock || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}
+                  className={`text-lg font-bold ${(inventory?.out_of_stock || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}
                 >
-                  {formatNumber(inventory.out_of_stock)}
+                  {formatNumber(inventory?.out_of_stock || 0)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Total Value</span>
+                <span className="text-sm text-gray-600">{t('dashboard.totalValue')}</span>
                 <span className="text-lg font-bold text-gray-900">
-                  {formatCurrency(inventory.total_value || 0)}
+                  {formatCurrency(inventory?.total_value || 0)}
                 </span>
               </div>
             </div>
@@ -957,38 +1087,41 @@ const Dashboard: React.FC = () => {
       {/* REVENUE SUMMARY ROW                                               */}
       {/* ================================================================= */}
       <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-base font-semibold text-gray-900">Revenue Summary</h3>
+        <h3 className="mb-4 text-base font-semibold text-gray-900">
+          {t('dashboard.revenueSummary')}
+        </h3>
         {loadingAnalytics ? (
           <RevenueSummarySkeleton />
         ) : errorAnalytics ? (
           <SectionError
-            message="Failed to load revenue summary"
+            message={t('dashboard.loadErrorRevenueSummary')}
             onRetry={() => fetchAnalytics(period)}
+            retryLabel={retryLabel}
           />
         ) : (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div className="rounded-lg bg-green-50 p-4">
-              <p className="text-xs font-medium text-gray-500">Paid Revenue</p>
+              <p className="text-xs font-medium text-gray-500">{t('dashboard.paidRevenue')}</p>
               <p className="mt-1 text-lg font-bold text-green-700">
-                {formatCurrency(revenue.paid_revenue || 0)}
+                {formatCurrency(revenue?.paid_revenue || 0)}
               </p>
             </div>
             <div className="rounded-lg bg-amber-50 p-4">
-              <p className="text-xs font-medium text-gray-500">Pending Revenue</p>
+              <p className="text-xs font-medium text-gray-500">{t('dashboard.pendingRevenue')}</p>
               <p className="mt-1 text-lg font-bold text-amber-700">
-                {formatCurrency(revenue.pending_revenue || 0)}
+                {formatCurrency(revenue?.pending_revenue || 0)}
               </p>
             </div>
             <div className="rounded-lg bg-gray-50 p-4">
-              <p className="text-xs font-medium text-gray-500">Avg Order Value</p>
+              <p className="text-xs font-medium text-gray-500">{t('dashboard.avgOrderValue')}</p>
               <p className="mt-1 text-lg font-bold text-gray-900">
-                {formatCurrency(revenue.average_order_value || 0)}
+                {formatCurrency(revenue?.average_order_value || 0)}
               </p>
             </div>
             <div className="rounded-lg bg-gray-50 p-4">
-              <p className="text-xs font-medium text-gray-500">Invoice Count</p>
+              <p className="text-xs font-medium text-gray-500">{t('dashboard.invoiceCount')}</p>
               <p className="mt-1 text-lg font-bold text-gray-900">
-                {formatNumber(revenue.invoice_count)}
+                {formatNumber(revenue?.invoice_count || 0)}
               </p>
             </div>
           </div>
