@@ -2,19 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useApi } from '../contexts/ApiContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-
-interface InventoryItem {
-  id: string;
-  name: string;
-  category: string;
-  current_stock: number;
-  reorder_level: number;
-  unit_cost: number;
-  unit: string;
-  supplier: string;
-  notes: string;
-  created_at: string;
-}
+import { formatCurrency } from '../utils/formatters';
+import type { InventoryItem } from '@shared/types/inventory';
+import Toast from '../components/Toast';
+import InventoryFormModal from '../components/inventory/InventoryFormModal';
+import StockMovementModal from '../components/inventory/StockMovementModal';
 
 interface InventoryStats {
   total: number;
@@ -31,59 +23,13 @@ interface InventoryStats {
 
 const CATEGORIES = ['cardboard', 'fabric', 'ribbon', 'accessories', 'packaging', 'tools'] as const;
 
-const CATEGORY_LABELS: Record<string, string> = {
-  cardboard: 'Cardboard',
-  fabric: 'Fabric',
-  ribbon: 'Ribbon',
-  accessories: 'Accessories',
-  packaging: 'Packaging',
-  tools: 'Tools',
-};
-
-const MOVEMENT_TYPES = ['purchase', 'usage', 'sale', 'adjustment', 'waste'] as const;
-
-const MOVEMENT_LABELS: Record<string, string> = {
-  purchase: 'Purchase (add stock)',
-  usage: 'Usage (reduce stock)',
-  sale: 'Sale (reduce stock)',
-  adjustment: 'Adjustment (set stock)',
-  waste: 'Waste (reduce stock)',
-};
-
-// Toast notification component
-const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () => void }> = ({
-  message,
-  type,
-  onClose,
-}) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 4000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  return (
-    <div
-      className={`animate-slide-in fixed right-4 top-4 z-[60] flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium shadow-lg ${
-        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-      }`}
-    >
-      {type === 'success' ? (
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-      ) : (
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      )}
-      {message}
-    </div>
-  );
+const CATEGORY_I18N: Record<string, string> = {
+  cardboard: 'inventory.catCardboard',
+  fabric: 'inventory.catFabric',
+  ribbon: 'inventory.catRibbon',
+  accessories: 'inventory.catAccessories',
+  packaging: 'inventory.catPackaging',
+  tools: 'inventory.catTools',
 };
 
 const InventoryPage: React.FC = () => {
@@ -116,22 +62,9 @@ const InventoryPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    category: 'cardboard',
-    unit: 'pcs',
-    unit_cost: '',
-    reorder_level: '',
-    current_stock: '',
-    supplier: '',
-    notes: '',
-  });
 
   // Stock movement modal
   const [movementItem, setMovementItem] = useState<InventoryItem | null>(null);
-  const [movementData, setMovementData] = useState({ type: 'purchase', quantity: '', notes: '' });
-  const [movementError, setMovementError] = useState<string | null>(null);
   const [movementSaving, setMovementSaving] = useState(false);
 
   // Delete
@@ -166,9 +99,9 @@ const InventoryPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const params: Record<string, any> = {
-        page,
-        limit: pageSize,
+      const params: Record<string, string> = {
+        page: String(page),
+        limit: String(pageSize),
         sort_by: sortBy,
         sort_order: sortOrder,
       };
@@ -187,6 +120,7 @@ const InventoryPage: React.FC = () => {
         supplier: item.supplier || '',
         notes: item.notes || '',
         created_at: item.created_at || '',
+        updated_at: item.updated_at || '',
       }));
       setInventory(items);
       setTotalPages(data.totalPages || 1);
@@ -209,7 +143,7 @@ const InventoryPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Error loading inventory:', err);
-      setError('Failed to load inventory. Please try again.');
+      setError(t('inventory.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -232,92 +166,37 @@ const InventoryPage: React.FC = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showModal, movementItem, deleteId]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount || 0);
-  };
-
   const isLowStock = (item: InventoryItem) =>
     item.current_stock > 0 && item.current_stock <= item.reorder_level;
   const isOutOfStock = (item: InventoryItem) => item.current_stock <= 0;
 
   const openCreate = () => {
     setEditingItem(null);
-    setFormData({
-      name: '',
-      category: 'cardboard',
-      unit: 'pcs',
-      unit_cost: '',
-      reorder_level: '',
-      current_stock: '',
-      supplier: '',
-      notes: '',
-    });
-    setFormError(null);
     setShowModal(true);
   };
 
   const openEdit = (item: InventoryItem) => {
     setEditingItem(item);
-    setFormData({
-      name: item.name,
-      category: item.category || 'cardboard',
-      unit: item.unit || 'pcs',
-      unit_cost: String(item.unit_cost || ''),
-      reorder_level: String(item.reorder_level || ''),
-      current_stock: String(item.current_stock || ''),
-      supplier: item.supplier || '',
-      notes: item.notes || '',
-    });
-    setFormError(null);
     setShowModal(true);
   };
 
-  const validateForm = (): string | null => {
-    if (!formData.name.trim()) return 'Material name is required.';
-    if (!formData.category) return 'Category is required.';
-    if (formData.unit_cost && isNaN(Number(formData.unit_cost)))
-      return 'Unit cost must be a valid number.';
-    if (formData.reorder_level && isNaN(Number(formData.reorder_level)))
-      return 'Reorder level must be a valid number.';
-    if (formData.current_stock && isNaN(Number(formData.current_stock)))
-      return 'Current stock must be a valid number.';
-    return null;
-  };
-
-  const handleSave = async () => {
-    const validationError = validateForm();
-    if (validationError) {
-      setFormError(validationError);
-      return;
-    }
+  const handleSave = async (payload: Record<string, unknown>) => {
     try {
       setSaving(true);
-      setFormError(null);
-      const payload = {
-        name: formData.name.trim(),
-        category: formData.category,
-        unit: formData.unit.trim() || 'pcs',
-        unit_cost: Number(formData.unit_cost) || 0,
-        reorder_level: Number(formData.reorder_level) || 0,
-        current_stock: Number(formData.current_stock) || 0,
-        supplier: formData.supplier.trim() || undefined,
-        notes: formData.notes.trim() || undefined,
-      };
       if (editingItem) {
         await updateInventoryItem(editingItem.id, payload);
         setToast({ message: t('inventory.updateSuccess'), type: 'success' });
       } else {
-        await createInventoryItem(payload);
+        await createInventoryItem(
+          payload as Omit<InventoryItem, 'id' | 'created_at' | 'updated_at'>
+        );
         setToast({ message: t('inventory.createSuccess'), type: 'success' });
       }
       setShowModal(false);
       loadInventory();
-    } catch (err: any) {
-      setFormError(err?.response?.data?.error || 'Failed to save item. Please try again.');
+    } catch (err: unknown) {
+      // Re-throw so the modal can display the error
+      throw err;
     } finally {
       setSaving(false);
     }
@@ -325,34 +204,24 @@ const InventoryPage: React.FC = () => {
 
   const openMovement = (item: InventoryItem) => {
     setMovementItem(item);
-    setMovementData({ type: 'purchase', quantity: '', notes: '' });
-    setMovementError(null);
   };
 
-  const handleMovement = async () => {
+  const handleMovement = async (data: { type: string; quantity: number; notes?: string }) => {
     if (!movementItem) return;
-    if (
-      !movementData.quantity ||
-      isNaN(Number(movementData.quantity)) ||
-      Number(movementData.quantity) <= 0
-    ) {
-      setMovementError('Quantity must be a positive number.');
-      return;
-    }
     try {
       setMovementSaving(true);
-      setMovementError(null);
       await createInventoryMovement({
         item_id: movementItem.id,
-        type: movementData.type,
-        quantity: Number(movementData.quantity),
-        notes: movementData.notes.trim() || undefined,
+        type: data.type as 'purchase' | 'usage' | 'sale' | 'adjustment' | 'waste',
+        quantity: data.quantity,
+        notes: data.notes || undefined,
       });
       setMovementItem(null);
       setToast({ message: t('inventory.movementSuccess'), type: 'success' });
       loadInventory();
-    } catch (err: any) {
-      setMovementError(err?.response?.data?.error || 'Failed to record movement.');
+    } catch (err: unknown) {
+      // Re-throw so the modal can display the error
+      throw err;
     } finally {
       setMovementSaving(false);
     }
@@ -366,8 +235,11 @@ const InventoryPage: React.FC = () => {
       setDeleteId(null);
       setToast({ message: t('inventory.deleteSuccess'), type: 'success' });
       loadInventory();
-    } catch (err: any) {
-      setToast({ message: err?.response?.data?.error || 'Failed to delete item', type: 'error' });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        t('inventory.failedDelete');
+      setToast({ message, type: 'error' });
       setDeleteId(null);
     } finally {
       setDeleting(false);
@@ -457,7 +329,7 @@ const InventoryPage: React.FC = () => {
           }}
           className="mt-2 text-sm text-red-600 underline"
         >
-          Try Again
+          {t('inventory.tryAgain')}
         </button>
       </div>
     );
@@ -479,7 +351,7 @@ const InventoryPage: React.FC = () => {
             }}
             className="ml-4 text-red-600 underline"
           >
-            Retry
+            {t('inventory.retry')}
           </button>
         </div>
       )}
@@ -536,7 +408,7 @@ const InventoryPage: React.FC = () => {
           <div className="flex-1">
             <input
               type="text"
-              placeholder={t('common.search') + ' materials...'}
+              placeholder={t('inventory.searchMaterials')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -553,7 +425,7 @@ const InventoryPage: React.FC = () => {
             <option value="all">{t('inventory.allCategories')}</option>
             {CATEGORIES.map((cat) => (
               <option key={cat} value={cat}>
-                {CATEGORY_LABELS[cat]}
+                {t(CATEGORY_I18N[cat] || cat)}
               </option>
             ))}
           </select>
@@ -570,37 +442,37 @@ const InventoryPage: React.FC = () => {
                   onClick={() => handleSort('name')}
                   className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Material <SortIcon column="name" />
+                  {t('inventory.material')} <SortIcon column="name" />
                 </th>
                 <th
                   onClick={() => handleSort('category')}
                   className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Category <SortIcon column="category" />
+                  {t('inventory.category')} <SortIcon column="category" />
                 </th>
                 <th
                   onClick={() => handleSort('current_stock')}
                   className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Stock <SortIcon column="current_stock" />
+                  {t('inventory.stock')} <SortIcon column="current_stock" />
                 </th>
                 <th
                   onClick={() => handleSort('reorder_level')}
                   className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Reorder <SortIcon column="reorder_level" />
+                  {t('inventory.reorder')} <SortIcon column="reorder_level" />
                 </th>
                 <th
                   onClick={() => handleSort('unit_cost')}
                   className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Cost <SortIcon column="unit_cost" />
+                  {t('inventory.cost')} <SortIcon column="unit_cost" />
                 </th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Status
+                  {t('inventory.status')}
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Actions
+                  {t('inventory.actions')}
                 </th>
               </tr>
             </thead>
@@ -664,7 +536,7 @@ const InventoryPage: React.FC = () => {
                       <span
                         className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getCategoryColor(item.category)}`}
                       >
-                        {CATEGORY_LABELS[item.category] || item.category || '-'}
+                        {t(CATEGORY_I18N[item.category] || item.category) || '-'}
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-4">
@@ -690,7 +562,7 @@ const InventoryPage: React.FC = () => {
                         onClick={() => openMovement(item)}
                         className="text-sm font-medium text-green-600 hover:text-green-800"
                       >
-                        Stock
+                        {t('inventory.stockAction')}
                       </button>
                       <button
                         onClick={() => openEdit(item)}
@@ -724,14 +596,14 @@ const InventoryPage: React.FC = () => {
                 onClick={() => setPage((p) => p - 1)}
                 className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:bg-gray-100 disabled:opacity-40"
               >
-                Previous
+                {t('inventory.previous')}
               </button>
               <button
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:bg-gray-100 disabled:opacity-40"
               >
-                Next
+                {t('inventory.next')}
               </button>
             </div>
           </div>
@@ -739,275 +611,31 @@ const InventoryPage: React.FC = () => {
       </div>
 
       {/* Create/Edit Modal */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowModal(false);
-          }}
-        >
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {editingItem ? t('inventory.editMaterial') : t('inventory.addMaterial')}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-4 p-6">
-              {formError && (
-                <div
-                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-                  role="alert"
-                >
-                  {formError}
-                </div>
-              )}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('inventory.name')} *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="Material name"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    {t('inventory.category')} *
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {CATEGORY_LABELS[c]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    {t('inventory.unit')}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="pcs, kg, m..."
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    {t('inventory.unitCost')}
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.unit_cost}
-                    onChange={(e) => setFormData({ ...formData, unit_cost: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="0"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    {t('inventory.reorderLevel')}
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.reorder_level}
-                    onChange={(e) => setFormData({ ...formData, reorder_level: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="0"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    {t('inventory.currentStock')}
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.current_stock}
-                    onChange={(e) => setFormData({ ...formData, current_stock: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="0"
-                    min="0"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('inventory.supplier')}
-                </label>
-                <input
-                  type="text"
-                  value={formData.supplier}
-                  onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="Supplier name"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('inventory.notes')}
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={2}
-                  className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="Optional notes..."
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4">
-              <button
-                onClick={() => setShowModal(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || !formData.name.trim()}
-                className="rounded-lg bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : editingItem ? 'Update' : 'Create'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <InventoryFormModal
+        key={editingItem ? editingItem.id : 'create'}
+        open={showModal}
+        editingItem={editingItem}
+        onClose={() => setShowModal(false)}
+        onSave={handleSave}
+        saving={saving}
+      />
 
       {/* Stock Movement Modal */}
-      {movementItem && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setMovementItem(null);
-          }}
-        >
-          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {t('inventory.stockMovement')}
-                </h2>
-                <p className="text-sm text-gray-500">
-                  {movementItem.name} ({t('inventory.current')}: {movementItem.current_stock}{' '}
-                  {movementItem.unit})
-                </p>
-              </div>
-              <button
-                onClick={() => setMovementItem(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-4 p-6">
-              {movementError && (
-                <div
-                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-                  role="alert"
-                >
-                  {movementError}
-                </div>
-              )}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('inventory.movementType')}
-                </label>
-                <select
-                  value={movementData.type}
-                  onChange={(e) => setMovementData({ ...movementData, type: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  {MOVEMENT_TYPES.map((mt) => (
-                    <option key={mt} value={mt}>
-                      {MOVEMENT_LABELS[mt]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('inventory.quantity')} *
-                </label>
-                <input
-                  type="number"
-                  value={movementData.quantity}
-                  onChange={(e) => setMovementData({ ...movementData, quantity: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="0"
-                  min="1"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('inventory.notes')}
-                </label>
-                <input
-                  type="text"
-                  value={movementData.notes}
-                  onChange={(e) => setMovementData({ ...movementData, notes: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="Optional notes..."
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4">
-              <button
-                onClick={() => setMovementItem(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleMovement}
-                disabled={movementSaving || !movementData.quantity}
-                className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700 disabled:opacity-50"
-              >
-                {movementSaving ? 'Recording...' : t('inventory.record')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <StockMovementModal
+        key={movementItem ? movementItem.id : 'none'}
+        item={movementItem}
+        onClose={() => setMovementItem(null)}
+        onSubmit={handleMovement}
+        saving={movementSaving}
+      />
 
       {/* Delete Confirmation */}
       {deleteId && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={t('inventory.deleteMaterial')}
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeleteId(null);
           }}
@@ -1046,7 +674,7 @@ const InventoryPage: React.FC = () => {
                 disabled={deleting}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {deleting ? 'Deleting...' : t('common.delete')}
+                {deleting ? t('inventory.deleting') : t('common.delete')}
               </button>
             </div>
           </div>
