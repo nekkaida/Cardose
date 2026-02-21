@@ -19,7 +19,7 @@ vi.mock('react-router-dom', () => ({
 // Mock AuthContext
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: '1', username: 'admin', email: 'admin@test.com', role: 'admin' },
+    user: { id: '1', username: 'admin', email: 'admin@test.com', role: 'owner' },
     isAuthenticated: true,
     loading: false,
     login: vi.fn(),
@@ -30,6 +30,9 @@ vi.mock('../../contexts/AuthContext', () => ({
 
 // Mock ApiContext
 const mockGetInventory = vi.fn();
+const mockCreateInventoryMovement = vi
+  .fn()
+  .mockResolvedValue({ success: true, movementId: 'mov-1', newStock: 90, message: 'OK' });
 
 vi.mock('../../contexts/ApiContext', () => ({
   useApi: () => ({
@@ -45,7 +48,7 @@ vi.mock('../../contexts/ApiContext', () => ({
     updateInventoryItem: vi.fn().mockResolvedValue({}),
     updateInventoryStock: vi.fn().mockResolvedValue({}),
     deleteInventoryItem: vi.fn().mockResolvedValue({}),
-    createInventoryMovement: vi.fn().mockResolvedValue({}),
+    createInventoryMovement: mockCreateInventoryMovement,
     getFinancialSummary: vi.fn().mockResolvedValue({}),
     getTransactions: vi.fn().mockResolvedValue({}),
     createTransaction: vi.fn().mockResolvedValue({}),
@@ -92,12 +95,79 @@ vi.mock('../../contexts/LanguageContext', () => ({
         'inventory.noItems': 'No items found',
         'inventory.adjustFilters': 'Try adjusting your filters.',
         'inventory.createFirst': 'Add your first material to get started.',
+        'inventory.stockMovement': 'Stock Movement',
+        'inventory.movementType': 'Type',
+        'inventory.quantity': 'Quantity',
+        'inventory.notes': 'Notes',
+        'inventory.record': 'Record',
+        'inventory.recording': 'Recording...',
+        'inventory.current': 'current',
+        'inventory.stockAction': 'Stock',
+        'inventory.movementSuccess': 'Stock movement recorded successfully',
+        'inventory.positiveQuantity': 'Quantity must be a positive number.',
+        'inventory.failedMovement': 'Failed to record movement.',
+        'inventory.optionalNotes': 'Optional notes...',
+        'inventory.newStockAfter': 'New stock',
+        'inventory.insufficientStock': 'Insufficient stock. Available: {n} {unit}',
+        'inventory.wasteWarning': 'This will record waste and reduce stock.',
+        'inventory.movePurchase': 'Purchase (add stock)',
+        'inventory.moveUsage': 'Usage (reduce stock)',
+        'inventory.moveSale': 'Sale (reduce stock)',
+        'inventory.moveAdjustment': 'Adjustment (set stock)',
+        'inventory.moveWaste': 'Waste (reduce stock)',
+        'inventory.material': 'Material',
+        'inventory.stock': 'Stock',
+        'inventory.reorder': 'Reorder',
+        'inventory.cost': 'Cost',
+        'inventory.status': 'Status',
+        'inventory.actions': 'Actions',
+        'inventory.category': 'Category',
+        'inventory.catCardboard': 'Cardboard',
+        'inventory.catFabric': 'Fabric',
+        'inventory.catRibbon': 'Ribbon',
+        'inventory.catAccessories': 'Accessories',
+        'inventory.catPackaging': 'Packaging',
+        'inventory.catTools': 'Tools',
+        'inventory.previous': 'Previous',
+        'inventory.next': 'Next',
+        'inventory.pageOf': 'Page {page} of {total} ({items} items)',
+        'inventory.tryAgain': 'Try Again',
+        'inventory.failedLoad': 'Failed to load inventory. Please try again.',
+        'inventory.searchMaterials': 'Search materials...',
         'common.loading': 'Loading...',
         'common.error': 'Error',
         'common.search': 'Search',
         'common.edit': 'Edit',
         'common.delete': 'Delete',
         'common.cancel': 'Cancel',
+        'common.save': 'Save',
+        'inventory.editMaterial': 'Edit Material',
+        'inventory.deleteMaterial': 'Delete Material',
+        'inventory.name': 'Name',
+        'inventory.unit': 'Unit',
+        'inventory.unitCost': 'Unit Cost (IDR)',
+        'inventory.reorderLevel': 'Reorder Level',
+        'inventory.currentStock': 'Current Stock',
+        'inventory.supplier': 'Supplier',
+        'inventory.retry': 'Retry',
+        'inventory.failedSave': 'Failed to save item. Please try again.',
+        'inventory.failedDelete': 'Failed to delete item',
+        'inventory.nameRequired': 'Material name is required.',
+        'inventory.categoryRequired': 'Category is required.',
+        'inventory.invalidUnitCost': 'Unit cost must be a valid number.',
+        'inventory.negativeNumber': 'Values cannot be negative.',
+        'inventory.saving': 'Saving...',
+        'inventory.update': 'Update',
+        'inventory.create': 'Create',
+        'inventory.deleting': 'Deleting...',
+        'inventory.materialName': 'Material name',
+        'inventory.supplierName': 'Supplier name',
+        'inventory.unitPlaceholder': 'pcs, kg, m...',
+        'inventory.createSuccess': 'Material created successfully',
+        'inventory.updateSuccess': 'Material updated successfully',
+        'inventory.deleteSuccess': 'Material deleted successfully',
+        'inventory.confirmDelete':
+          'Are you sure? This will remove the material and all its movement history.',
       };
       return translations[key] || key;
     },
@@ -279,6 +349,385 @@ describe('InventoryPage', () => {
         expect(screen.getByText('Previous')).toBeInTheDocument();
         expect(screen.getByText('Next')).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Stock Movement Modal', () => {
+    beforeEach(() => {
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+      mockCreateInventoryMovement.mockResolvedValue({
+        success: true,
+        movementId: 'mov-1',
+        newStock: 90,
+        message: 'OK',
+      });
+    });
+
+    const openMovementModal = async () => {
+      render(<InventoryPage />);
+      await waitFor(() => {
+        expect(screen.getByText('Premium Box')).toBeInTheDocument();
+      });
+      // Click the first "Stock" button (only match buttons, not table headers)
+      const stockButtons = screen.getAllByRole('button', { name: 'Stock' });
+      await userEvent.click(stockButtons[0]);
+      await waitFor(() => {
+        expect(screen.getByText('Stock Movement')).toBeInTheDocument();
+      });
+    };
+
+    it('should open modal when Stock button is clicked', async () => {
+      await openMovementModal();
+
+      expect(screen.getByText('Stock Movement')).toBeInTheDocument();
+      // Modal shows item name and current stock in the subtitle
+      expect(screen.getByText(/current.*100/)).toBeInTheDocument();
+    });
+
+    it('should have proper accessibility attributes', async () => {
+      await openMovementModal();
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+      expect(dialog).toHaveAttribute('aria-labelledby', 'movement-modal-title');
+    });
+
+    it('should display all movement type options', async () => {
+      await openMovementModal();
+
+      const select = screen.getByLabelText('Type');
+      expect(select).toBeInTheDocument();
+      expect(screen.getByText('Purchase (add stock)')).toBeInTheDocument();
+    });
+
+    it('should show stock preview when quantity is entered', async () => {
+      await openMovementModal();
+
+      const quantityInput = screen.getByLabelText(/Quantity/);
+      await userEvent.type(quantityInput, '10');
+
+      await waitFor(() => {
+        expect(screen.getByText(/100 → 110/)).toBeInTheDocument();
+      });
+    });
+
+    it('should show stock preview for usage type', async () => {
+      await openMovementModal();
+
+      const select = screen.getByLabelText('Type');
+      await userEvent.selectOptions(select, 'usage');
+
+      const quantityInput = screen.getByLabelText(/Quantity/);
+      await userEvent.type(quantityInput, '30');
+
+      await waitFor(() => {
+        expect(screen.getByText(/100 → 70/)).toBeInTheDocument();
+      });
+    });
+
+    it('should show insufficient stock warning when quantity exceeds available', async () => {
+      await openMovementModal();
+
+      const select = screen.getByLabelText('Type');
+      await userEvent.selectOptions(select, 'usage');
+
+      const quantityInput = screen.getByLabelText(/Quantity/);
+      await userEvent.type(quantityInput, '200');
+
+      await waitFor(() => {
+        expect(screen.getByText(/Insufficient stock. Available: 100 pcs/)).toBeInTheDocument();
+      });
+    });
+
+    it('should disable Record button when stock would go negative', async () => {
+      await openMovementModal();
+
+      const select = screen.getByLabelText('Type');
+      await userEvent.selectOptions(select, 'usage');
+
+      const quantityInput = screen.getByLabelText(/Quantity/);
+      await userEvent.type(quantityInput, '200');
+
+      await waitFor(() => {
+        const recordButton = screen.getByText('Record');
+        expect(recordButton).toBeDisabled();
+      });
+    });
+
+    it('should show waste warning when waste type is selected', async () => {
+      await openMovementModal();
+
+      const select = screen.getByLabelText('Type');
+      await userEvent.selectOptions(select, 'waste');
+
+      const quantityInput = screen.getByLabelText(/Quantity/);
+      await userEvent.type(quantityInput, '5');
+
+      await waitFor(() => {
+        expect(screen.getByText('This will record waste and reduce stock.')).toBeInTheDocument();
+      });
+    });
+
+    it('should call createInventoryMovement with correct payload on submit', async () => {
+      await openMovementModal();
+
+      const quantityInput = screen.getByLabelText(/Quantity/);
+      await userEvent.type(quantityInput, '10');
+
+      mockGetInventory.mockResolvedValueOnce(mockInventoryData);
+      await userEvent.click(screen.getByText('Record'));
+
+      await waitFor(() => {
+        expect(mockCreateInventoryMovement).toHaveBeenCalledWith({
+          item_id: '1',
+          type: 'purchase',
+          quantity: 10,
+          notes: undefined,
+        });
+      });
+    });
+
+    it('should show validation error for empty quantity', async () => {
+      await openMovementModal();
+
+      await userEvent.click(screen.getByText('Record'));
+
+      // Record button is disabled when quantity is empty, so the click does nothing
+      expect(mockCreateInventoryMovement).not.toHaveBeenCalled();
+    });
+
+    it('should close modal on Cancel', async () => {
+      await openMovementModal();
+
+      await userEvent.click(screen.getByText('Cancel'));
+
+      await waitFor(() => {
+        expect(screen.queryByText('Stock Movement')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should show error message when API call fails', async () => {
+      mockCreateInventoryMovement.mockRejectedValueOnce({
+        response: { data: { error: 'Insufficient stock. Available: 100 pcs' } },
+      });
+
+      await openMovementModal();
+
+      const quantityInput = screen.getByLabelText(/Quantity/);
+      await userEvent.type(quantityInput, '10');
+
+      await userEvent.click(screen.getByText('Record'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Insufficient stock. Available: 100 pcs')).toBeInTheDocument();
+      });
+    });
+
+    it('should show success toast after successful movement', async () => {
+      await openMovementModal();
+
+      const quantityInput = screen.getByLabelText(/Quantity/);
+      await userEvent.type(quantityInput, '10');
+
+      mockGetInventory.mockResolvedValueOnce(mockInventoryData);
+      await userEvent.click(screen.getByText('Record'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Stock movement recorded successfully')).toBeInTheDocument();
+      });
+    });
+
+    it('should have a textarea for notes', async () => {
+      await openMovementModal();
+
+      const notesField = screen.getByLabelText('Notes');
+      expect(notesField.tagName).toBe('TEXTAREA');
+    });
+  });
+
+  describe('Create Material Modal', () => {
+    beforeEach(() => {
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+    });
+
+    it('should open create modal when Add Material is clicked', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Add Material/ })).toBeInTheDocument();
+    });
+
+    it('should have autoFocus on name input', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
+
+      const nameInput = screen.getByPlaceholderText('Material name');
+      expect(nameInput).toHaveFocus();
+    });
+
+    it('should close modal when Cancel is clicked', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      // Click the Cancel button in the modal footer
+      const cancelButtons = screen.getAllByText('Cancel');
+      await userEvent.click(cancelButtons[cancelButtons.length - 1]);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should close modal on Escape key', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+      await userEvent.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should disable Create button when name is empty', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
+
+      const createButton = screen.getByText('Create');
+      expect(createButton).toBeDisabled();
+    });
+
+    it('should enable Create button when name is filled', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
+
+      await userEvent.type(screen.getByPlaceholderText('Material name'), 'New Material');
+
+      const createButton = screen.getByText('Create');
+      expect(createButton).not.toBeDisabled();
+    });
+
+    it('should display category dropdown with translated labels', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
+
+      // Check the category select exists with translated options
+      const categorySelect = screen.getAllByRole('combobox')[0];
+      expect(categorySelect).toBeInTheDocument();
+    });
+  });
+
+  describe('Edit Material Modal', () => {
+    beforeEach(() => {
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+    });
+
+    it('should open edit modal with pre-filled data when Edit is clicked', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const editButtons = screen.getAllByText('Edit');
+      await userEvent.click(editButtons[0]);
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Premium Box')).toBeInTheDocument();
+    });
+
+    it('should show Update button instead of Create when editing', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const editButtons = screen.getAllByText('Edit');
+      await userEvent.click(editButtons[0]);
+
+      expect(screen.getByText('Update')).toBeInTheDocument();
+    });
+
+    it('should show Edit Material title when editing', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const editButtons = screen.getAllByText('Edit');
+      await userEvent.click(editButtons[0]);
+
+      expect(screen.getByText('Edit Material')).toBeInTheDocument();
+    });
+  });
+
+  describe('Delete Confirmation Modal', () => {
+    beforeEach(() => {
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+    });
+
+    it('should open delete confirmation when Delete is clicked', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const deleteButtons = screen.getAllByText('Delete');
+      await userEvent.click(deleteButtons[0]);
+
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      expect(screen.getByText('Delete Material')).toBeInTheDocument();
+    });
+
+    it('should close delete modal when Cancel is clicked', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const deleteButtons = screen.getAllByText('Delete');
+      await userEvent.click(deleteButtons[0]);
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+      const cancelButtons = screen.getAllByText('Cancel');
+      await userEvent.click(cancelButtons[cancelButtons.length - 1]);
+
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Accessibility', () => {
+    beforeEach(() => {
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+    });
+
+    it('should have role="dialog" on create modal', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toHaveAttribute('aria-modal', 'true');
+    });
+
+    it('should have role="alertdialog" on delete modal', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const deleteButtons = screen.getAllByText('Delete');
+      await userEvent.click(deleteButtons[0]);
+
+      const alertDialog = screen.getByRole('alertdialog');
+      expect(alertDialog).toHaveAttribute('aria-modal', 'true');
     });
   });
 });
