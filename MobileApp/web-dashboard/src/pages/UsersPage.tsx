@@ -1,20 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApi } from '../contexts/ApiContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import type { UserData, UserStats } from '@shared/types/users';
+import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog';
+import UserFormModal from '../components/users/UserFormModal';
+import type { UserData, UserStats, CreateUserPayload } from '@shared/types/users';
 
 // ── Constants ─────────────────────────────────────────────────────
 
 const PAGE_SIZE = 25;
-
-const EMPTY_FORM = {
-  username: '',
-  email: '',
-  password: '',
-  full_name: '',
-  phone: '',
-  role: 'employee',
-};
 
 const ROLE_BADGE: Record<string, string> = {
   owner: 'bg-primary-100 text-primary-800',
@@ -35,12 +28,12 @@ const UsersPage: React.FC = () => {
   const [stats, setStats] = useState<UserStats | null>(null);
 
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState(EMPTY_FORM);
-  const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
 
   const [deleteConfirm, setDeleteConfirm] = useState<UserData | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { getUsers, createUser, updateUser, updateUserStatus, deleteUser } = useApi();
   const { t } = useLanguage();
@@ -52,7 +45,7 @@ const UsersPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const params: Record<string, any> = { page: currentPage, limit: PAGE_SIZE };
+        const params: Record<string, string | number> = { page: currentPage, limit: PAGE_SIZE };
         if (currentRole !== 'all') params.role = currentRole;
         if (currentSearch) params.search = currentSearch;
         const data = await getUsers(params);
@@ -89,94 +82,62 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  const handleDeleteConfirmed = async () => {
+  const handleDeleteConfirmed = useCallback(async () => {
     if (!deleteConfirm) return;
     try {
+      setDeleting(true);
+      setDeleteError(null);
       await deleteUser(deleteConfirm.id);
       setDeleteConfirm(null);
+      setDeleteError(null);
       loadUsers(page, roleFilter, searchTerm);
-    } catch {
-      setError(t('users.deleteError'));
-      setDeleteConfirm(null);
-    }
-  };
-
-  const handleSaveUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setSaving(true);
-      setFormError(null);
-      if (editingUser) {
-        const updates: Record<string, string> = {
-          full_name: formData.full_name,
-          email: formData.email,
-          phone: formData.phone,
-          role: formData.role,
-        };
-        if (formData.password) updates.password = formData.password;
-        await updateUser(editingUser.id, updates);
-      } else {
-        await createUser(formData);
-      }
-      closeModal();
-      loadUsers(page, roleFilter, searchTerm);
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || t('users.saveError');
-      setFormError(msg);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setDeleteError(axiosErr?.response?.data?.error || t('users.deleteError'));
     } finally {
-      setSaving(false);
+      setDeleting(false);
     }
-  };
+  }, [deleteConfirm, deleteUser, loadUsers, page, roleFilter, searchTerm, t]);
+
+  const cancelDelete = useCallback(() => {
+    setDeleteConfirm(null);
+    setDeleteError(null);
+  }, []);
+
+  // ── Modal open / close / save ─────────────────────────────────
 
   const handleEditUser = (user: UserData) => {
     setEditingUser(user);
-    setFormData({
-      username: user.username,
-      email: user.email,
-      password: '',
-      full_name: user.full_name,
-      phone: user.phone || '',
-      role: user.role,
-    });
-    setFormError(null);
     setShowModal(true);
   };
 
   const openCreateModal = () => {
     setEditingUser(null);
-    setFormData(EMPTY_FORM);
-    setFormError(null);
     setShowModal(true);
   };
 
   const closeModal = useCallback(() => {
     setShowModal(false);
     setEditingUser(null);
-    setFormData(EMPTY_FORM);
-    setFormError(null);
   }, []);
 
-  // ── Modal keyboard / outside-click ────────────────────────────
-
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!showModal && !deleteConfirm) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (deleteConfirm) setDeleteConfirm(null);
-        else closeModal();
+  const handleSave = useCallback(
+    async (formData: CreateUserPayload | Record<string, string>) => {
+      setSaving(true);
+      try {
+        if (editingUser) {
+          await updateUser(editingUser.id, formData as Record<string, string>);
+        } else {
+          await createUser(formData as CreateUserPayload);
+        }
+        closeModal();
+        loadUsers(page, roleFilter, searchTerm);
+      } finally {
+        setSaving(false);
       }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showModal, deleteConfirm, closeModal]);
-
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-      closeModal();
-    }
-  };
+    },
+    [editingUser, updateUser, createUser, closeModal, loadUsers, page, roleFilter, searchTerm]
+  );
 
   // ── Render ────────────────────────────────────────────────────
 
@@ -395,172 +356,24 @@ const UsersPage: React.FC = () => {
       </div>
 
       {/* Create/Edit modal */}
-      {showModal && (
-        <div // eslint-disable-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- Escape key handled via useEffect
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-          onClick={handleBackdropClick}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div ref={modalRef} className="w-full max-w-md rounded-xl bg-white p-6">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              {editingUser ? t('users.editUser') : t('users.createUser')}
-            </h2>
-            {formError && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {formError}
-              </div>
-            )}
-            <form onSubmit={handleSaveUser} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="user-full-name"
-                  className="mb-1 block text-sm font-medium text-gray-700"
-                >
-                  {t('users.fullName')}
-                </label>
-                <input
-                  id="user-full-name"
-                  type="text"
-                  required
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="user-username"
-                  className="mb-1 block text-sm font-medium text-gray-700"
-                >
-                  {t('users.username')}
-                </label>
-                <input
-                  id="user-username"
-                  type="text"
-                  required
-                  value={formData.username}
-                  disabled={!!editingUser}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600 ${editingUser ? 'cursor-not-allowed bg-gray-100' : ''}`}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="user-email"
-                  className="mb-1 block text-sm font-medium text-gray-700"
-                >
-                  {t('users.email')}
-                </label>
-                <input
-                  id="user-email"
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="user-password"
-                  className="mb-1 block text-sm font-medium text-gray-700"
-                >
-                  {t('users.password')}
-                  {editingUser ? t('users.passwordEditHint') : ''}
-                </label>
-                <input
-                  id="user-password"
-                  type="password"
-                  required={!editingUser}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="user-phone"
-                  className="mb-1 block text-sm font-medium text-gray-700"
-                >
-                  {t('users.phone')}
-                </label>
-                <input
-                  id="user-phone"
-                  type="text"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
-                />
-              </div>
-              <div>
-                <label htmlFor="user-role" className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('users.role')}
-                </label>
-                <select
-                  id="user-role"
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-600"
-                >
-                  <option value="employee">{t('users.employee')}</option>
-                  <option value="manager">{t('users.manager')}</option>
-                  <option value="owner">{t('users.owner')}</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
-                >
-                  {t('users.cancel')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-lg bg-primary-600 px-4 py-2 text-white hover:bg-primary-700 disabled:opacity-50"
-                >
-                  {saving
-                    ? t('users.saving')
-                    : editingUser
-                      ? t('users.saveChanges')
-                      : t('users.addUser')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <UserFormModal
+        open={showModal}
+        editingUser={editingUser}
+        onClose={closeModal}
+        onSave={handleSave}
+        saving={saving}
+      />
 
       {/* Delete confirmation dialog */}
       {deleteConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-          role="alertdialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-sm rounded-xl bg-white p-6">
-            <h3 className="mb-2 text-lg font-semibold text-gray-900">{t('users.delete')}</h3>
-            <p className="mb-4 text-sm text-gray-600">
-              {t('users.deleteConfirm')} &quot;{deleteConfirm.full_name}&quot;?
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
-              >
-                {t('users.cancel')}
-              </button>
-              <button
-                onClick={handleDeleteConfirmed}
-                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-              >
-                {t('users.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDeleteDialog
+          itemLabel={deleteConfirm.full_name}
+          titleKey="users.delete"
+          deleting={deleting}
+          onConfirm={handleDeleteConfirmed}
+          onCancel={cancelDelete}
+          error={deleteError}
+        />
       )}
     </div>
   );
