@@ -256,7 +256,7 @@ const AnalyticsPage: React.FC = () => {
     // Dashboard
     if (dashResult.status === 'fulfilled') {
       const raw = dashResult.value;
-      setDashboard(raw?.analytics ?? raw ?? null);
+      setDashboard(raw ?? null);
       setErrors((prev) => ({ ...prev, dashboard: null }));
     } else {
       setErrors((prev) => ({
