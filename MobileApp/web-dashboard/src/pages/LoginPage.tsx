@@ -22,8 +22,12 @@ const LoginPage: React.FC = () => {
       if (!success) {
         setError(t('login.error'));
       }
-    } catch (err: any) {
-      setError(err.message || 'Unable to connect to server');
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        (err as Error)?.message ||
+        'Unable to connect to server';
+      setError(message);
     } finally {
       setLoading(false);
     }
