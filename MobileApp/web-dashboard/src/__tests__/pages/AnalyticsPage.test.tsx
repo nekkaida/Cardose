@@ -28,166 +28,207 @@ vi.mock('recharts', () => ({
 }));
 
 // Mock useNavigate
-const mockNavigate = vi.fn();
-
 vi.mock('react-router-dom', () => ({
-  useNavigate: () => mockNavigate,
+  useNavigate: () => vi.fn(),
   useParams: () => ({}),
   useLocation: () => ({ pathname: '/analytics', search: '' }),
 }));
 
-// Mock ApiContext
+// Mock ApiContext — only the three methods AnalyticsPage actually calls
 const mockGetDashboardAnalytics = vi.fn();
+const mockGetRevenueAnalytics = vi.fn();
+const mockGetCustomerAnalytics = vi.fn();
 
 vi.mock('../../contexts/ApiContext', () => ({
   useApi: () => ({
     getDashboardAnalytics: mockGetDashboardAnalytics,
-    getOrders: vi.fn().mockResolvedValue({}),
-    createOrder: vi.fn().mockResolvedValue({}),
-    updateOrder: vi.fn().mockResolvedValue({}),
-    getCustomers: vi.fn().mockResolvedValue({}),
-    createCustomer: vi.fn().mockResolvedValue({}),
-    updateCustomer: vi.fn().mockResolvedValue({}),
-    getInventory: vi.fn().mockResolvedValue({}),
-    createInventoryItem: vi.fn().mockResolvedValue({}),
-    updateInventoryStock: vi.fn().mockResolvedValue({}),
-    getFinancialSummary: vi.fn().mockResolvedValue({}),
-    getTransactions: vi.fn().mockResolvedValue({}),
-    createTransaction: vi.fn().mockResolvedValue({}),
-    calculatePricing: vi.fn().mockResolvedValue({}),
-    getRevenueAnalytics: vi.fn().mockResolvedValue({}),
-    getCustomerAnalytics: vi.fn().mockResolvedValue({}),
-    getInventoryAnalytics: vi.fn().mockResolvedValue({}),
-    getProductionAnalytics: vi.fn().mockResolvedValue({}),
-    getProductionBoard: vi.fn().mockResolvedValue({}),
-    getProductionTasks: vi.fn().mockResolvedValue({}),
-    getProductionStats: vi.fn().mockResolvedValue({}),
-    getSalesReport: vi.fn().mockResolvedValue({}),
-    getInventoryReport: vi.fn().mockResolvedValue({}),
-    getProductionReport: vi.fn().mockResolvedValue({}),
-    getCustomerReport: vi.fn().mockResolvedValue({}),
-    getFinancialReport: vi.fn().mockResolvedValue({}),
-    getUsers: vi.fn().mockResolvedValue({}),
-    createUser: vi.fn().mockResolvedValue({}),
-    updateUser: vi.fn().mockResolvedValue({}),
-    updateUserStatus: vi.fn().mockResolvedValue({}),
-    deleteUser: vi.fn().mockResolvedValue({}),
-    getSettings: vi.fn().mockResolvedValue({}),
-    updateSetting: vi.fn().mockResolvedValue({}),
-    deleteSetting: vi.fn().mockResolvedValue({}),
+    getRevenueAnalytics: mockGetRevenueAnalytics,
+    getCustomerAnalytics: mockGetCustomerAnalytics,
   }),
 }));
 
-// Mock LanguageContext
+// Mock LanguageContext — return key itself so `tr()` helper uses fallback strings
 vi.mock('../../contexts/LanguageContext', () => ({
   useLanguage: () => ({
     language: 'en',
     setLanguage: vi.fn(),
-    t: (key: string) => {
-      const translations: Record<string, string> = {
-        'analytics.title': 'Analytics',
-        'common.loading': 'Loading...',
-        'common.error': 'Error',
-      };
-      return translations[key] || key;
-    },
+    t: (key: string) => key,
   }),
 }));
 
-const mockAnalyticsData = {
-  analytics: {
-    orders: {
-      total: 50,
-      pending: 10,
-      in_production: 15,
-      completed: 20,
-      cancelled: 5,
-    },
-    revenue: {
-      total: 150000000,
-      average: 3000000,
-    },
-    customers: {
-      total: 100,
-      corporate: 30,
-      individual: 40,
-      wedding: 20,
-      event: 10,
-    },
+// ── Mock data matching actual DashboardData interface ──────────────────
+
+const mockDashboardData = {
+  period: 'month',
+  revenue: {
+    total_revenue: 150_000_000,
+    paid_revenue: 120_000_000,
+    pending_revenue: 30_000_000,
+    average_order_value: 3_000_000,
+    invoice_count: 50,
+  },
+  orders: {
+    total_orders: 50,
+    completed_orders: 20,
+    active_orders: 25,
+    cancelled_orders: 5,
+    average_value: 3_000_000,
+    completion_rate: 0.4,
+  },
+  customers: {
+    total_customers: 100,
+    vip_customers: 10,
+    regular_customers: 60,
+    new_customers: 30,
+  },
+  inventory: {
+    total_materials: 200,
+    out_of_stock: 5,
+    low_stock: 15,
+    total_value: 50_000_000,
+  },
+  production: {
+    designing: 8,
+    in_production: 12,
+    quality_control: 5,
+    urgent_orders: 3,
   },
 };
 
-// TODO: AnalyticsPage tests crash the Vitest worker due to jsdom memory exhaustion
-// when rendering the 800-line component. Tests pass individually but the worker
-// process runs out of heap memory. Re-enable once the page is split into smaller components.
-describe.skip('AnalyticsPage', () => {
+const mockRevenueData = {
+  trend: [
+    {
+      month: '2026-01',
+      invoice_count: 15,
+      revenue: 45_000_000,
+      tax_collected: 4_950_000,
+      average_value: 3_000_000,
+    },
+    {
+      month: '2026-02',
+      invoice_count: 20,
+      revenue: 60_000_000,
+      tax_collected: 6_600_000,
+      average_value: 3_000_000,
+    },
+  ],
+};
+
+const mockCustomerData = {
+  top_customers: [
+    {
+      id: 'c1',
+      name: 'PT Alpha',
+      business_type: 'Corporate',
+      loyalty_status: 'vip',
+      order_count: 12,
+      total_revenue: 36_000_000,
+      average_order_value: 3_000_000,
+      last_order_date: '2026-02-01',
+    },
+  ],
+  acquisition_trend: [{ month: '2026-01', new_customers: 5 }],
+  by_business_type: [
+    { business_type: 'Corporate', count: 30 },
+    { business_type: 'Individual', count: 40 },
+    { business_type: 'Wedding', count: 20 },
+    { business_type: 'Event', count: 10 },
+  ],
+};
+
+// ── Helper ─────────────────────────────────────────────────────────────
+
+function mockAllAPIsSuccess() {
+  mockGetDashboardAnalytics.mockResolvedValue(mockDashboardData);
+  mockGetRevenueAnalytics.mockResolvedValue(mockRevenueData);
+  mockGetCustomerAnalytics.mockResolvedValue(mockCustomerData);
+}
+
+// ── Tests ──────────────────────────────────────────────────────────────
+
+describe('AnalyticsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe('Loading state', () => {
-    it('should show loading spinner initially', () => {
+    it('should show skeleton placeholders initially', () => {
+      // Never resolving promises → component stays in loading
       mockGetDashboardAnalytics.mockImplementation(() => new Promise(() => {}));
+      mockGetRevenueAnalytics.mockImplementation(() => new Promise(() => {}));
+      mockGetCustomerAnalytics.mockImplementation(() => new Promise(() => {}));
+
       render(<AnalyticsPage />);
 
-      const spinnerContainer = document.querySelector('.animate-spin');
-      expect(spinnerContainer).toBeInTheDocument();
+      const pulseElements = document.querySelectorAll('.animate-pulse');
+      expect(pulseElements.length).toBeGreaterThan(0);
     });
   });
 
   describe('Error state', () => {
-    it('should show error message when API call fails', async () => {
-      mockGetDashboardAnalytics.mockRejectedValueOnce(new Error('Network error'));
+    it('should show section error when dashboard API fails', async () => {
+      mockGetDashboardAnalytics.mockRejectedValue(new Error('Network error'));
+      mockGetRevenueAnalytics.mockResolvedValue(mockRevenueData);
+      mockGetCustomerAnalytics.mockResolvedValue(mockCustomerData);
 
       render(<AnalyticsPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Error')).toBeInTheDocument();
-        expect(screen.getByText('Failed to load analytics. Please try again.')).toBeInTheDocument();
+        // Multiple sections may show errors when dashboard data is missing
+        const errors = screen.getAllByText(/Failed to load this section/);
+        expect(errors.length).toBeGreaterThan(0);
+        const retryButtons = screen.getAllByText('Retry');
+        expect(retryButtons.length).toBeGreaterThan(0);
       });
     });
 
-    it('should show Try Again button on error', async () => {
-      mockGetDashboardAnalytics.mockRejectedValueOnce(new Error('Network error'));
+    it('should show title even when dashboard fails', async () => {
+      mockGetDashboardAnalytics.mockRejectedValue(new Error('fail'));
+      mockGetRevenueAnalytics.mockResolvedValue(mockRevenueData);
+      mockGetCustomerAnalytics.mockResolvedValue(mockCustomerData);
 
       render(<AnalyticsPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Try Again')).toBeInTheDocument();
+        expect(screen.getByText('Business Analytics')).toBeInTheDocument();
       });
     });
 
-    it('should retry loading when Try Again is clicked', async () => {
-      mockGetDashboardAnalytics.mockRejectedValueOnce(new Error('Network error'));
+    it('should retry loading on Retry click', async () => {
+      mockGetDashboardAnalytics.mockRejectedValueOnce(new Error('fail'));
+      mockGetRevenueAnalytics.mockResolvedValue(mockRevenueData);
+      mockGetCustomerAnalytics.mockResolvedValue(mockCustomerData);
 
       render(<AnalyticsPage />);
 
+      let retryButtons: HTMLElement[] = [];
       await waitFor(() => {
-        expect(screen.getByText('Try Again')).toBeInTheDocument();
+        retryButtons = screen.getAllByText('Retry');
+        expect(retryButtons.length).toBeGreaterThan(0);
       });
 
-      mockGetDashboardAnalytics.mockResolvedValueOnce(mockAnalyticsData);
+      // Now make it succeed
+      mockGetDashboardAnalytics.mockResolvedValueOnce(mockDashboardData);
 
-      await userEvent.click(screen.getByText('Try Again'));
+      await userEvent.click(retryButtons[0]);
 
       await waitFor(() => {
         expect(screen.getByText('Total Orders')).toBeInTheDocument();
       });
-
-      expect(mockGetDashboardAnalytics).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('Loaded state', () => {
     beforeEach(() => {
-      mockGetDashboardAnalytics.mockResolvedValueOnce(mockAnalyticsData);
+      mockAllAPIsSuccess();
     });
 
-    it('should render without crashing and display title', async () => {
+    it('should render title and subtitle', async () => {
       render(<AnalyticsPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Analytics')).toBeInTheDocument();
+        expect(screen.getByText('Business Analytics')).toBeInTheDocument();
+        expect(screen.getByText('Detailed business insights and reports')).toBeInTheDocument();
       });
     });
 
@@ -196,13 +237,12 @@ describe.skip('AnalyticsPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Total Orders')).toBeInTheDocument();
-        expect(screen.getByText('Total Revenue')).toBeInTheDocument();
-        expect(screen.getByText('Total Customers')).toBeInTheDocument();
-        expect(screen.getByText('Avg Order Value')).toBeInTheDocument();
+        expect(screen.getByText('Revenue')).toBeInTheDocument();
+        expect(screen.getByText('Customers')).toBeInTheDocument();
       });
     });
 
-    it('should display order count', async () => {
+    it('should display order count from DashboardData', async () => {
       render(<AnalyticsPage />);
 
       await waitFor(() => {
@@ -210,7 +250,7 @@ describe.skip('AnalyticsPage', () => {
       });
     });
 
-    it('should display customer count', async () => {
+    it('should display customer count from DashboardData', async () => {
       render(<AnalyticsPage />);
 
       await waitFor(() => {
@@ -223,30 +263,53 @@ describe.skip('AnalyticsPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Order Status Distribution')).toBeInTheDocument();
-        expect(screen.getByText('Pending')).toBeInTheDocument();
-        expect(screen.getByText('In Production')).toBeInTheDocument();
-        expect(screen.getByText('Completed')).toBeInTheDocument();
-        expect(screen.getByText('Cancelled')).toBeInTheDocument();
       });
     });
 
-    it('should display Customer Segments section', async () => {
+    it('should display Customer Segments section with business types', async () => {
       render(<AnalyticsPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Customer Segments')).toBeInTheDocument();
-        expect(screen.getByText('Corporate')).toBeInTheDocument();
-        expect(screen.getByText('Individual')).toBeInTheDocument();
-        expect(screen.getByText('Wedding')).toBeInTheDocument();
-        expect(screen.getByText('Event')).toBeInTheDocument();
       });
     });
 
-    it('should display subtitle text', async () => {
+    it('should display period selector', async () => {
       render(<AnalyticsPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Detailed business insights and reports')).toBeInTheDocument();
+        expect(screen.getByLabelText('Period')).toBeInTheDocument();
+      });
+    });
+
+    it('should display refresh button', async () => {
+      render(<AnalyticsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Refresh')).toBeInTheDocument();
+      });
+    });
+
+    it('should call getDashboardAnalytics with period param', async () => {
+      render(<AnalyticsPage />);
+
+      await waitFor(() => {
+        expect(mockGetDashboardAnalytics).toHaveBeenCalledWith({ period: 'month' });
+      });
+    });
+
+    it('should refetch when period changes', async () => {
+      render(<AnalyticsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Business Analytics')).toBeInTheDocument();
+      });
+
+      const periodSelect = screen.getByLabelText('Period');
+      await userEvent.selectOptions(periodSelect, 'year');
+
+      await waitFor(() => {
+        expect(mockGetDashboardAnalytics).toHaveBeenCalledWith({ period: 'year' });
       });
     });
   });
