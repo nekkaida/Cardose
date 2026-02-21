@@ -117,6 +117,10 @@ vi.mock('../../contexts/LanguageContext', () => ({
         'common.loading': 'Loading...',
         'common.error': 'Error',
         'common.search': 'Search',
+        'common.delete': 'Delete',
+        'common.deleting': 'Deleting...',
+        'common.cancel': 'Cancel',
+        'common.confirmDeleteGeneric': 'Are you sure you want to delete',
       };
       return translations[key] || key;
     },
@@ -390,6 +394,102 @@ describe('UsersPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('No users found.')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Delete flow', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mockGetUsers.mockResolvedValue(mockUsersData);
+    });
+
+    it('should open delete confirmation when Delete is clicked', async () => {
+      render(<UsersPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Admin User')).toBeInTheDocument();
+      });
+
+      const deleteButtons = screen.getAllByText('Delete');
+      await userEvent.click(deleteButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      });
+    });
+
+    it('should call deleteUser API when confirmed', async () => {
+      mockDeleteUser.mockResolvedValueOnce({});
+      render(<UsersPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Admin User')).toBeInTheDocument();
+      });
+
+      const deleteButtons = screen.getAllByText('Delete');
+      await userEvent.click(deleteButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      });
+
+      const dialogDeleteBtns = screen
+        .getAllByRole('button')
+        .filter((b) => b.textContent === 'Delete');
+      await userEvent.click(dialogDeleteBtns[dialogDeleteBtns.length - 1]);
+
+      await waitFor(() => {
+        expect(mockDeleteUser).toHaveBeenCalledWith('1');
+      });
+    });
+
+    it('should close delete dialog on Cancel', async () => {
+      render(<UsersPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Admin User')).toBeInTheDocument();
+      });
+
+      const deleteButtons = screen.getAllByText('Delete');
+      await userEvent.click(deleteButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByRole('button', { name: /Cancel/ }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should show inline error on delete failure', async () => {
+      mockDeleteUser.mockRejectedValueOnce({
+        response: { data: { error: 'Cannot delete this user' } },
+      });
+      render(<UsersPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Admin User')).toBeInTheDocument();
+      });
+
+      const deleteButtons = screen.getAllByText('Delete');
+      await userEvent.click(deleteButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      });
+
+      const dialogDeleteBtns = screen
+        .getAllByRole('button')
+        .filter((b) => b.textContent === 'Delete');
+      await userEvent.click(dialogDeleteBtns[dialogDeleteBtns.length - 1]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Cannot delete this user')).toBeInTheDocument();
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument();
       });
     });
   });
