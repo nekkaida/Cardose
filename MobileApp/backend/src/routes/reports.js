@@ -1,5 +1,53 @@
 // Advanced reporting routes
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidDate(str) {
+  if (!ISO_DATE_RE.test(str)) return false;
+  const [y, m, d] = str.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  // Verify the date didn't roll over (e.g. Feb 30 → Mar 2)
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+}
+
+function defaultDateRange() {
+  const end = new Date();
+  const start = new Date(end);
+  start.setDate(start.getDate() - 30);
+  return {
+    start: start.toISOString().split('T')[0],
+    end: end.toISOString().split('T')[0],
+  };
+}
+
+function parseDateParams(startDate, endDate, reply) {
+  if (startDate && !isValidDate(startDate)) {
+    reply.code(400);
+    return {
+      error: true,
+      body: { success: false, error: 'Invalid startDate format. Use YYYY-MM-DD.' },
+    };
+  }
+  if (endDate && !isValidDate(endDate)) {
+    reply.code(400);
+    return {
+      error: true,
+      body: { success: false, error: 'Invalid endDate format. Use YYYY-MM-DD.' },
+    };
+  }
+  const defaults = defaultDateRange();
+  const start = startDate || defaults.start;
+  const end = endDate || defaults.end;
+  if (start > end) {
+    reply.code(400);
+    return {
+      error: true,
+      body: { success: false, error: 'startDate must not be after endDate.' },
+    };
+  }
+  return { error: false, start, end };
+}
+
 async function reportRoutes(fastify, options) {
   const db = fastify.db;
 
@@ -14,20 +62,16 @@ async function reportRoutes(fastify, options) {
           properties: {
             startDate: { type: 'string' },
             endDate: { type: 'string' },
-            groupBy: { type: 'string', enum: ['day', 'week', 'month'], default: 'day' },
           },
         },
       },
     },
     async (request, reply) => {
       try {
-        const { startDate, endDate, groupBy = 'day' } = request.query;
-
-        // Default to last 30 days if no dates provided
-        const now = new Date();
-        const end = endDate || now.toISOString().split('T')[0];
-        const start =
-          startDate || new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0];
+        const { startDate, endDate } = request.query;
+        const dates = parseDateParams(startDate, endDate, reply);
+        if (dates.error) return dates.body;
+        const { start, end } = dates;
 
         // Get sales data
         const sales = db.db
@@ -154,7 +198,7 @@ async function reportRoutes(fastify, options) {
       const recentMovements = db.db
         .prepare(
           `
-        SELECT im.*, m.name as item_name
+        SELECT m.name as item_name, im.type, im.quantity, im.created_at
         FROM inventory_movements im
         LEFT JOIN inventory_materials m ON im.item_id = m.id
         ORDER BY im.created_at DESC
@@ -202,12 +246,9 @@ async function reportRoutes(fastify, options) {
     async (request, reply) => {
       try {
         const { startDate, endDate } = request.query;
-
-        // Default to last 30 days if no dates provided
-        const now = new Date();
-        const end = endDate || now.toISOString().split('T')[0];
-        const start =
-          startDate || new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0];
+        const dates = parseDateParams(startDate, endDate, reply);
+        if (dates.error) return dates.body;
+        const { start, end } = dates;
 
         // Get orders by status
         const ordersByStatus = db.db
@@ -271,7 +312,7 @@ async function reportRoutes(fastify, options) {
 
         const completionRate =
           completionStats?.total > 0
-            ? ((completionStats.completed / completionStats.total) * 100).toFixed(2)
+            ? Math.round((completionStats.completed / completionStats.total) * 100 * 100) / 100
             : 0;
 
         return {
@@ -295,8 +336,6 @@ async function reportRoutes(fastify, options) {
   // Customer report (requires authentication)
   fastify.get('/customers', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { startDate, endDate } = request.query;
-
       // Get customer summary
       const summary = db.db
         .prepare(
@@ -404,11 +443,9 @@ async function reportRoutes(fastify, options) {
     async (request, reply) => {
       try {
         const { startDate, endDate } = request.query;
-
-        const now = new Date();
-        const end = endDate || now.toISOString().split('T')[0];
-        const start =
-          startDate || new Date(now.setDate(now.getDate() - 30)).toISOString().split('T')[0];
+        const dates = parseDateParams(startDate, endDate, reply);
+        if (dates.error) return dates.body;
+        const { start, end } = dates;
 
         // Get income/expense summary
         const transactions = db.db
