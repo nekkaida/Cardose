@@ -6,68 +6,25 @@ import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog';
 import Toast from '../components/Toast';
 import OrderFormModal from '../components/orders/OrderFormModal';
 import StatusUpdateModal from '../components/orders/StatusUpdateModal';
+import OrderStats from '../components/orders/OrderStats';
+import { SkeletonRow, SortIcon, Pagination } from '../components/TableHelpers';
+import {
+  STATUSES,
+  PRIORITIES,
+  STATUS_LABELS,
+  PRIORITY_LABELS,
+  getStatusColor,
+  getPriorityColor,
+  isOverdue,
+} from '../components/orders/orderHelpers';
+import type { Order, OrderStatsData } from '../components/orders/orderHelpers';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import type { OrderStatus, OrderCreatePayload, OrderUpdatePayload } from '@shared/types/orders';
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  customerName: string;
-  customerId: string;
-  status: string;
-  priority: string;
-  totalAmount: number;
-  dueDate: string;
-  createdAt: string;
-  boxType: string;
-  specialRequests: string;
-}
 
 interface Customer {
   id: string;
   name: string;
 }
-
-interface OrderStats {
-  total: number;
-  pending: number;
-  designing: number;
-  approved: number;
-  production: number;
-  quality_control: number;
-  completed: number;
-  cancelled: number;
-  totalValue: number;
-  overdue: number;
-}
-
-const STATUSES = [
-  'pending',
-  'designing',
-  'approved',
-  'production',
-  'quality_control',
-  'completed',
-  'cancelled',
-] as const;
-const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  designing: 'Designing',
-  approved: 'Approved',
-  production: 'Production',
-  quality_control: 'Quality Control',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  low: 'Low',
-  normal: 'Normal',
-  high: 'High',
-  urgent: 'Urgent',
-};
 
 const OrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -81,7 +38,7 @@ const OrdersPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
-  const [stats, setStats] = useState<OrderStats>({
+  const [stats, setStats] = useState<OrderStatsData>({
     total: 0,
     pending: 0,
     designing: 0,
@@ -285,68 +242,6 @@ const OrdersPage: React.FC = () => {
     setPage(1);
   };
 
-  const SortIcon: React.FC<{ column: string }> = ({ column }) => {
-    if (sortBy !== column) return <span className="ml-1 text-gray-300">&#8645;</span>;
-    return (
-      <span className="ml-1 text-primary-600">{sortOrder === 'asc' ? '&#8593;' : '&#8595;'}</span>
-    );
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'designing':
-        return 'bg-blue-100 text-blue-800';
-      case 'approved':
-        return 'bg-purple-100 text-purple-800';
-      case 'production':
-        return 'bg-orange-100 text-orange-800';
-      case 'quality_control':
-        return 'bg-amber-100 text-amber-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return 'bg-red-100 text-red-800';
-      case 'high':
-        return 'bg-orange-100 text-orange-800';
-      case 'normal':
-        return 'bg-blue-100 text-blue-800';
-      case 'low':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const isOverdue = (order: Order) => {
-    if (!order.dueDate || order.status === 'completed' || order.status === 'cancelled')
-      return false;
-    return new Date(order.dueDate) < new Date(new Date().toDateString());
-  };
-
-  const activeCount = stats.designing + stats.approved + stats.production + stats.quality_control;
-
-  // Skeleton loader
-  const SkeletonRow = () => (
-    <tr className="animate-pulse">
-      {Array.from({ length: 7 }).map((_, i) => (
-        <td key={i} className="px-6 py-4">
-          <div className="h-4 w-3/4 rounded bg-gray-200"></div>
-        </td>
-      ))}
-    </tr>
-  );
-
   // Prepare order data for the form modal
   const formOrder = editingOrder
     ? {
@@ -405,33 +300,7 @@ const OrdersPage: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase text-gray-500">
-            {t('orders.pending') || 'Pending'}
-          </p>
-          <p className="mt-1 text-2xl font-bold text-yellow-600">{stats.pending}</p>
-        </div>
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase text-gray-500">Active</p>
-          <p className="mt-1 text-2xl font-bold text-blue-600">{activeCount}</p>
-          <p className="mt-0.5 text-xs text-gray-400">
-            {stats.designing} design · {stats.production} prod
-          </p>
-        </div>
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase text-gray-500">
-            {t('orders.completed') || 'Completed'}
-          </p>
-          <p className="mt-1 text-2xl font-bold text-green-600">{stats.completed}</p>
-        </div>
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase text-gray-500">Total Value</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
-            {formatCurrency(stats.totalValue)}
-          </p>
-        </div>
-      </div>
+      <OrderStats stats={stats} t={t} />
 
       {/* Filters */}
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -488,37 +357,37 @@ const OrdersPage: React.FC = () => {
                   onClick={() => handleSort('order_number')}
                   className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Order <SortIcon column="order_number" />
+                  Order <SortIcon column="order_number" sortBy={sortBy} sortOrder={sortOrder} />
                 </th>
                 <th
                   onClick={() => handleSort('customer_name')}
                   className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Customer <SortIcon column="customer_name" />
+                  Customer <SortIcon column="customer_name" sortBy={sortBy} sortOrder={sortOrder} />
                 </th>
                 <th
                   onClick={() => handleSort('status')}
                   className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Status <SortIcon column="status" />
+                  Status <SortIcon column="status" sortBy={sortBy} sortOrder={sortOrder} />
                 </th>
                 <th
                   onClick={() => handleSort('priority')}
                   className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Priority <SortIcon column="priority" />
+                  Priority <SortIcon column="priority" sortBy={sortBy} sortOrder={sortOrder} />
                 </th>
                 <th
                   onClick={() => handleSort('total_amount')}
                   className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Amount <SortIcon column="total_amount" />
+                  Amount <SortIcon column="total_amount" sortBy={sortBy} sortOrder={sortOrder} />
                 </th>
                 <th
                   onClick={() => handleSort('due_date')}
                   className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
-                  Due Date <SortIcon column="due_date" />
+                  Due Date <SortIcon column="due_date" sortBy={sortBy} sortOrder={sortOrder} />
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                   Actions
@@ -527,7 +396,7 @@ const OrdersPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {loading ? (
-                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
+                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} columns={7} />)
               ) : orders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-16 text-center">
@@ -633,27 +502,16 @@ const OrdersPage: React.FC = () => {
           </table>
         </div>
         {!loading && orders.length > 0 && (
-          <div className="flex items-center justify-between border-t bg-gray-50 px-6 py-3">
-            <span className="text-sm text-gray-600">
-              Page {page} of {totalPages} ({totalOrders} orders)
-            </span>
-            <div className="space-x-2">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:bg-gray-100 disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <button
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:bg-gray-100 disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={totalOrders}
+            label="orders"
+            onPrev={() => setPage((p) => p - 1)}
+            onNext={() => setPage((p) => p + 1)}
+            prevText={t('orders.previous') || 'Previous'}
+            nextText={t('orders.next') || 'Next'}
+          />
         )}
       </div>
 
