@@ -25,6 +25,14 @@ async function analyticsRoutes(fastify, options) {
     '/dashboard',
     {
       preHandler: [fastify.authenticate],
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            period: { type: 'string', enum: ['week', 'month', 'quarter', 'year'] },
+          },
+        },
+      },
     },
     async (request, reply) => {
       try {
@@ -113,11 +121,13 @@ async function analyticsRoutes(fastify, options) {
             average_value: orderStats.average_order_value || 0,
             completion_rate:
               orderStats.total_orders - orderStats.cancelled_orders > 0
-                ? (
-                    (orderStats.completed_orders /
-                      (orderStats.total_orders - orderStats.cancelled_orders)) *
-                    100
-                  ).toFixed(2)
+                ? parseFloat(
+                    (
+                      (orderStats.completed_orders /
+                        (orderStats.total_orders - orderStats.cancelled_orders)) *
+                      100
+                    ).toFixed(2)
+                  )
                 : 0,
           },
           customers: {
@@ -320,8 +330,11 @@ async function analyticsRoutes(fastify, options) {
             (await db.get(`
           SELECT
             COUNT(*) as total_completed,
-            COUNT(*) as on_time_deliveries,
-            100.0 as on_time_rate
+            SUM(CASE WHEN due_date IS NOT NULL AND DATE(updated_at) <= DATE(due_date) THEN 1 ELSE 0 END) as on_time_deliveries,
+            CASE WHEN COUNT(CASE WHEN due_date IS NOT NULL THEN 1 END) > 0
+              THEN CAST(SUM(CASE WHEN due_date IS NOT NULL AND DATE(updated_at) <= DATE(due_date) THEN 1 ELSE 0 END) AS REAL) * 100.0 / COUNT(CASE WHEN due_date IS NOT NULL THEN 1 END)
+              ELSE 0
+            END as on_time_rate
           FROM orders
           WHERE status = 'completed'
         `)) || deliveryPerformance;
