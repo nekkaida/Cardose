@@ -1,8 +1,20 @@
-// Order management routes - Using DatabaseService
-const { v4: uuidv4 } = require('uuid');
+// Order management routes - Using OrderService
 const { parsePagination } = require('../utils/pagination');
+const OrderService = require('../services/OrderService');
+
+const VALID_STATUSES = [
+  'pending',
+  'designing',
+  'approved',
+  'production',
+  'quality_control',
+  'completed',
+  'cancelled',
+];
+
 async function ordersRoutes(fastify, options) {
   const db = fastify.db;
+  const service = new OrderService(db);
 
   // Get all orders (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
@@ -10,96 +22,19 @@ async function ordersRoutes(fastify, options) {
       const { status, priority, customer_id, search, sort_by, sort_order } = request.query;
       const { limit, page, offset } = parsePagination(request.query);
 
-      let query =
-        'SELECT o.*, c.name as customer_name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id WHERE 1=1';
-      const params = [];
-
-      if (status) {
-        query += ' AND o.status = ?';
-        params.push(status);
-      }
-      if (priority) {
-        query += ' AND o.priority = ?';
-        params.push(priority);
-      }
-      if (customer_id) {
-        query += ' AND o.customer_id = ?';
-        params.push(customer_id);
-      }
-      if (search) {
-        query += ' AND (o.order_number LIKE ? OR c.name LIKE ?)';
-        params.push(`%${search}%`, `%${search}%`);
-      }
-
-      // Dynamic sorting with whitelist to prevent SQL injection
-      const allowedSortColumns = {
-        order_number: 'o.order_number',
-        customer_name: 'c.name',
-        status: 'o.status',
-        priority: 'o.priority',
-        total_amount: 'o.total_amount',
-        due_date: 'o.due_date',
-        created_at: 'o.created_at',
-      };
-      const sortColumn = allowedSortColumns[sort_by] || 'o.created_at';
-      const sortDirection = sort_order === 'asc' ? 'ASC' : 'DESC';
-      query += ` ORDER BY ${sortColumn} ${sortDirection}`;
-
-      // Get total count
-      const countQuery = query.replace(
-        'SELECT o.*, c.name as customer_name',
-        'SELECT COUNT(*) as total'
-      );
-      const countResult = db.db.prepare(countQuery).get(...params);
-      const total = countResult ? countResult.total : 0;
-
-      // Add pagination
-      query += ' LIMIT ? OFFSET ?';
-      params.push(limit, offset);
-
-      const orders = db.db.prepare(query).all(...params);
-
-      // Calculate stats using SQL aggregates
-      const statsRow = db.db
-        .prepare(
-          `
-        SELECT
-          COUNT(*) as total,
-          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-          SUM(CASE WHEN status = 'designing' THEN 1 ELSE 0 END) as designing,
-          SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-          SUM(CASE WHEN status = 'production' THEN 1 ELSE 0 END) as production,
-          SUM(CASE WHEN status = 'quality_control' THEN 1 ELSE 0 END) as quality_control,
-          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-          SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
-          COALESCE(SUM(total_amount), 0) as totalValue,
-          SUM(CASE WHEN due_date IS NOT NULL AND DATE(due_date) < DATE('now') AND status NOT IN ('completed', 'cancelled') THEN 1 ELSE 0 END) as overdue
-        FROM orders
-      `
-        )
-        .get();
-      const stats = {
-        total: statsRow.total,
-        pending: statsRow.pending,
-        designing: statsRow.designing,
-        approved: statsRow.approved,
-        production: statsRow.production,
-        quality_control: statsRow.quality_control,
-        completed: statsRow.completed,
-        cancelled: statsRow.cancelled,
-        totalValue: statsRow.totalValue,
-        overdue: statsRow.overdue,
-      };
-
-      return {
-        success: true,
-        orders,
-        total,
-        page,
+      const result = await service.getOrders({
+        status,
+        priority,
+        customerId: customer_id,
+        search,
+        sortBy: sort_by,
+        sortOrder: sort_order,
         limit,
-        totalPages: Math.ceil(total / limit),
-        stats,
-      };
+        page,
+        offset,
+      });
+
+      return { success: true, ...result };
     } catch (error) {
       fastify.log.error(error);
       reply.code(500);
@@ -110,50 +45,7 @@ async function ordersRoutes(fastify, options) {
   // Get order stats (requires authentication)
   fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const statsRow = db.db
-        .prepare(
-          `
-        SELECT
-          COUNT(*) as total,
-          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-          SUM(CASE WHEN status = 'designing' THEN 1 ELSE 0 END) as designing,
-          SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-          SUM(CASE WHEN status = 'production' THEN 1 ELSE 0 END) as production,
-          SUM(CASE WHEN status = 'quality_control' THEN 1 ELSE 0 END) as quality_control,
-          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-          SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
-          SUM(CASE WHEN priority = 'low' THEN 1 ELSE 0 END) as priority_low,
-          SUM(CASE WHEN priority = 'normal' THEN 1 ELSE 0 END) as priority_normal,
-          SUM(CASE WHEN priority = 'high' THEN 1 ELSE 0 END) as priority_high,
-          SUM(CASE WHEN priority = 'urgent' THEN 1 ELSE 0 END) as priority_urgent,
-          COALESCE(SUM(total_amount), 0) as totalValue,
-          SUM(CASE WHEN due_date IS NOT NULL AND DATE(due_date) < DATE('now') AND status NOT IN ('completed', 'cancelled') THEN 1 ELSE 0 END) as overdue
-        FROM orders
-      `
-        )
-        .get();
-
-      const stats = {
-        total: statsRow.total,
-        byStatus: {
-          pending: statsRow.pending,
-          designing: statsRow.designing,
-          approved: statsRow.approved,
-          production: statsRow.production,
-          quality_control: statsRow.quality_control,
-          completed: statsRow.completed,
-          cancelled: statsRow.cancelled,
-        },
-        byPriority: {
-          low: statsRow.priority_low,
-          normal: statsRow.priority_normal,
-          high: statsRow.priority_high,
-          urgent: statsRow.priority_urgent,
-        },
-        totalValue: statsRow.totalValue,
-        overdue: statsRow.overdue,
-      };
-
+      const stats = await service.getOrderStats();
       return { success: true, stats };
     } catch (error) {
       fastify.log.error(error);
@@ -165,12 +57,8 @@ async function ordersRoutes(fastify, options) {
   // Get latest order number (requires authentication)
   fastify.get('/latest-number', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const nextOrderNumber = await generateOrderNumber(db);
-
-      return {
-        success: true,
-        orderNumber: nextOrderNumber,
-      };
+      const orderNumber = await service.generateOrderNumber();
+      return { success: true, orderNumber };
     } catch (error) {
       fastify.log.error(error);
       reply.code(500);
@@ -182,26 +70,14 @@ async function ordersRoutes(fastify, options) {
   fastify.get('/:id', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
       const { id } = request.params;
-      const order = db.db
-        .prepare(
-          'SELECT o.*, c.name as customer_name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id WHERE o.id = ?'
-        )
-        .get(id);
+      const order = await service.getOrderById(id);
 
       if (!order) {
         reply.code(404);
         return { success: false, error: 'Order not found' };
       }
 
-      // Get order stages
-      const stages = db.db
-        .prepare('SELECT * FROM order_stages WHERE order_id = ? ORDER BY created_at')
-        .all(id);
-
-      return {
-        success: true,
-        order: { ...order, stages },
-      };
+      return { success: true, order };
     } catch (error) {
       fastify.log.error(error);
       reply.code(500);
@@ -236,48 +112,19 @@ async function ordersRoutes(fastify, options) {
     },
     async (request, reply) => {
       try {
-        const {
-          customer_id,
-          total_amount,
-          priority = 'normal',
-          due_date,
-          box_type,
-          special_requests,
-        } = request.body;
+        const { customer_id } = request.body;
 
         if (!customer_id) {
           reply.code(400);
           return { success: false, error: 'customer_id is required' };
         }
 
-        const id = uuidv4();
-        const orderNumber = await generateOrderNumber(db);
-
-        db.db
-          .prepare(
-            `
-        INSERT INTO orders (id, order_number, customer_id, status, priority, total_amount, due_date, box_type, special_requests)
-        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)
-      `
-          )
-          .run(
-            id,
-            orderNumber,
-            customer_id,
-            priority,
-            total_amount || 0,
-            due_date,
-            box_type,
-            special_requests
-          );
-
-        const order = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+        const result = await service.createOrder(request.body);
 
         return {
           success: true,
           message: 'Order created successfully',
-          orderId: id,
-          order,
+          ...result,
         };
       } catch (error) {
         fastify.log.error(error);
@@ -311,54 +158,18 @@ async function ordersRoutes(fastify, options) {
     async (request, reply) => {
       try {
         const { id } = request.params;
-        const updates = request.body;
+        const result = await service.updateOrder(id, request.body);
 
-        const existing = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-        if (!existing) {
+        if (!result) {
           reply.code(404);
           return { success: false, error: 'Order not found' };
         }
 
-        const fields = [];
-        const values = [];
-
-        if (updates.status !== undefined) {
-          fields.push('status = ?');
-          values.push(updates.status);
-        }
-        if (updates.priority !== undefined) {
-          fields.push('priority = ?');
-          values.push(updates.priority);
-        }
-        if (updates.total_amount !== undefined) {
-          fields.push('total_amount = ?');
-          values.push(updates.total_amount);
-        }
-        if (updates.due_date !== undefined) {
-          fields.push('due_date = ?');
-          values.push(updates.due_date);
-        }
-        if (updates.box_type !== undefined) {
-          fields.push('box_type = ?');
-          values.push(updates.box_type);
-        }
-        if (updates.special_requests !== undefined) {
-          fields.push('special_requests = ?');
-          values.push(updates.special_requests);
-        }
-
-        if (fields.length === 0) {
+        if (!result.changed) {
           return { success: true, message: 'No changes made' };
         }
 
-        fields.push('updated_at = CURRENT_TIMESTAMP');
-        values.push(id);
-
-        db.db.prepare(`UPDATE orders SET ${fields.join(', ')} WHERE id = ?`).run(...values);
-
-        const order = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-
-        return { success: true, message: 'Order updated successfully', order };
+        return { success: true, message: 'Order updated successfully', order: result.order };
       } catch (error) {
         fastify.log.error(error);
         reply.code(500);
@@ -393,39 +204,17 @@ async function ordersRoutes(fastify, options) {
           return { success: false, error: 'Status is required' };
         }
 
-        const validStatuses = [
-          'pending',
-          'designing',
-          'approved',
-          'production',
-          'quality_control',
-          'completed',
-          'cancelled',
-        ];
-        if (!validStatuses.includes(status)) {
+        if (!VALID_STATUSES.includes(status)) {
           reply.code(400);
           return { success: false, error: 'Invalid status value' };
         }
 
-        const existing = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-        if (!existing) {
+        const result = await service.updateOrderStatus(id, status, notes);
+
+        if (!result) {
           reply.code(404);
           return { success: false, error: 'Order not found' };
         }
-
-        db.db
-          .prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-          .run(status, id);
-
-        // Add to order stages
-        db.db
-          .prepare(
-            `
-        INSERT INTO order_stages (id, order_id, stage, notes, created_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `
-          )
-          .run(uuidv4(), id, status, notes || '');
 
         return { success: true, message: 'Order status updated successfully' };
       } catch (error) {
@@ -443,15 +232,12 @@ async function ordersRoutes(fastify, options) {
     async (request, reply) => {
       try {
         const { id } = request.params;
+        const result = await service.deleteOrder(id);
 
-        const existing = db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-        if (!existing) {
+        if (!result) {
           reply.code(404);
           return { success: false, error: 'Order not found' };
         }
-
-        db.db.prepare('DELETE FROM order_stages WHERE order_id = ?').run(id);
-        db.db.prepare('DELETE FROM orders WHERE id = ?').run(id);
 
         return { success: true, message: 'Order deleted successfully' };
       } catch (error) {
@@ -461,26 +247,6 @@ async function ordersRoutes(fastify, options) {
       }
     }
   );
-}
-
-// Generate unique order number
-async function generateOrderNumber(db) {
-  const year = new Date().getFullYear();
-  const prefix = `PGB-${year}-`;
-
-  const latestOrder = db.db
-    .prepare(
-      'SELECT order_number FROM orders WHERE order_number LIKE ? ORDER BY order_number DESC LIMIT 1'
-    )
-    .get(`${prefix}%`);
-
-  let nextNumber = 1;
-  if (latestOrder) {
-    const currentNumber = parseInt(latestOrder.order_number.split('-').pop());
-    nextNumber = currentNumber + 1;
-  }
-
-  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
 }
 
 module.exports = ordersRoutes;
