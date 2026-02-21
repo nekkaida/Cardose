@@ -4,41 +4,16 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
   Alert,
-  Modal,
 } from 'react-native';
 import { useAuthenticatedFetch } from '../../hooks/useAuthenticatedFetch';
 import { theme } from '../../theme/theme';
-
-interface Order {
-  id: string;
-  order_number: string;
-  customer_name: string;
-  box_type: string;
-  status: string;
-  priority: string;
-  due_date: string;
-  total_amount: number;
-}
-
-interface StatusOption {
-  value: string;
-  label: string;
-  color: string;
-}
-
-const DEFAULT_STATUSES: StatusOption[] = [
-  { value: 'pending', label: 'Pending', color: '#FFA500' },
-  { value: 'designing', label: 'Designing', color: '#4169E1' },
-  { value: 'approved', label: 'Approved', color: '#9370DB' },
-  { value: 'production', label: 'In Production', color: '#FF8C00' },
-  { value: 'quality_control', label: 'Quality Control', color: '#FFD700' },
-  { value: 'completed', label: 'Completed', color: '#228B22' },
-  { value: 'cancelled', label: 'Cancelled', color: '#DC143C' },
-];
+import { Order, StatusOption, DEFAULT_STATUSES } from './types';
+import StatusColumn from './components/StatusColumn';
+import StatusChangeModal from './components/StatusChangeModal';
+import EmptyState from './components/EmptyState';
 
 export default function StatusBoardScreen({ navigation }: { navigation: any }) {
   const authenticatedFetch = useAuthenticatedFetch();
@@ -118,18 +93,28 @@ export default function StatusBoardScreen({ navigation }: { navigation: any }) {
     }
   };
 
-  const getStatusColor = (status: string): string => {
-    return statuses.find(s => s.value === status)?.color || theme.colors.disabled;
-  };
+  const handleOrderPress = useCallback((order: Order) => {
+    setSelectedOrder(order);
+    setShowStatusModal(true);
+  }, []);
 
-  const getStatusLabel = (status: string): string => {
-    return statuses.find(s => s.value === status)?.label || status;
-  };
+  const handlePhotos = useCallback((order: Order) => {
+    navigation.navigate('OrderPhotos', {
+      orderId: order.id,
+      orderNumber: order.order_number,
+    });
+  }, [navigation]);
 
-  const isOverdue = (dueDate: string): boolean => {
-    if (!dueDate) return false;
-    return new Date(dueDate) < new Date();
-  };
+  const handleQualityCheck = useCallback((order: Order) => {
+    navigation.navigate('QualityCheck', {
+      orderId: order.id,
+    });
+  }, [navigation]);
+
+  const handleModalClose = useCallback(() => {
+    setShowStatusModal(false);
+    setSelectedOrder(null);
+  }, []);
 
   // Group orders by status (exclude completed and cancelled from main view)
   const activeStatuses = statuses.filter(s => s.value !== 'completed' && s.value !== 'cancelled');
@@ -159,149 +144,28 @@ export default function StatusBoardScreen({ navigation }: { navigation: any }) {
         </View>
 
         {/* Status columns */}
-        {activeStatuses.map(status => {
-          const statusOrders = orders.filter(o => o.status === status.value);
-          if (statusOrders.length === 0) return null;
+        {activeStatuses.map(status => (
+          <StatusColumn
+            key={status.value}
+            status={status}
+            orders={orders.filter(o => o.status === status.value)}
+            onOrderPress={handleOrderPress}
+            onPhotos={handlePhotos}
+            onQualityCheck={handleQualityCheck}
+          />
+        ))}
 
-          return (
-            <View key={status.value} style={styles.statusGroup}>
-              <View style={[styles.statusHeader, { backgroundColor: status.color + '20' }]}>
-                <View style={[styles.statusDot, { backgroundColor: status.color }]} />
-                <Text style={[styles.statusTitle, { color: status.color }]}>
-                  {status.label}
-                </Text>
-                <View style={[styles.countBadge, { backgroundColor: status.color }]}>
-                  <Text style={styles.countText}>{statusOrders.length}</Text>
-                </View>
-              </View>
-
-              {statusOrders.map(order => (
-                <TouchableOpacity
-                  key={order.id}
-                  style={[
-                    styles.orderCard,
-                    isOverdue(order.due_date) && order.status !== 'completed' && styles.overdueCard,
-                  ]}
-                  onPress={() => {
-                    setSelectedOrder(order);
-                    setShowStatusModal(true);
-                  }}
-                >
-                  <View style={styles.orderHeader}>
-                    <Text style={styles.orderNumber}>{order.order_number}</Text>
-                    {isOverdue(order.due_date) && order.status !== 'completed' && (
-                      <Text style={styles.overdueBadge}>OVERDUE</Text>
-                    )}
-                  </View>
-                  <Text style={styles.customerName} numberOfLines={1}>
-                    {order.customer_name}
-                  </Text>
-                  <View style={styles.orderMeta}>
-                    <Text style={styles.boxType}>{order.box_type || 'Standard'}</Text>
-                    {order.due_date && (
-                      <Text style={styles.dueDate}>
-                        Due: {new Date(order.due_date).toLocaleDateString()}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Quick action buttons */}
-                  <View style={styles.quickActions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => navigation.navigate('OrderPhotos', {
-                        orderId: order.id,
-                        orderNumber: order.order_number,
-                      })}
-                    >
-                      <Text style={styles.actionIcon}>📸</Text>
-                      <Text style={styles.actionLabel}>Photos</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => navigation.navigate('QualityCheck', {
-                        orderId: order.id,
-                      })}
-                    >
-                      <Text style={styles.actionIcon}>✅</Text>
-                      <Text style={styles.actionLabel}>QC</Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          );
-        })}
-
-        {orders.length === 0 && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>📋</Text>
-            <Text style={styles.emptyTitle}>No Orders</Text>
-            <Text style={styles.emptySubtitle}>
-              Create orders from the web dashboard
-            </Text>
-          </View>
-        )}
+        {orders.length === 0 && <EmptyState />}
       </ScrollView>
 
-      {/* Status Change Modal */}
-      <Modal
+      <StatusChangeModal
         visible={showStatusModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowStatusModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Update Status</Text>
-            {selectedOrder && (
-              <Text style={styles.modalSubtitle}>
-                {selectedOrder.order_number} — {selectedOrder.customer_name}
-              </Text>
-            )}
-
-            <View style={styles.statusOptions}>
-              {statuses.map(status => (
-                <TouchableOpacity
-                  key={status.value}
-                  style={[
-                    styles.statusOption,
-                    selectedOrder?.status === status.value && styles.statusOptionCurrent,
-                    { borderLeftColor: status.color },
-                  ]}
-                  onPress={() => handleStatusChange(status.value)}
-                  disabled={isUpdating || selectedOrder?.status === status.value}
-                >
-                  <View style={[styles.statusOptionDot, { backgroundColor: status.color }]} />
-                  <Text style={[
-                    styles.statusOptionText,
-                    selectedOrder?.status === status.value && styles.statusOptionTextCurrent,
-                  ]}>
-                    {status.label}
-                  </Text>
-                  {selectedOrder?.status === status.value && (
-                    <Text style={styles.currentLabel}>Current</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {isUpdating && (
-              <ActivityIndicator style={{ marginTop: 12 }} color={theme.colors.primary} />
-            )}
-
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => {
-                setShowStatusModal(false);
-                setSelectedOrder(null);
-              }}
-            >
-              <Text style={styles.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        order={selectedOrder}
+        statuses={statuses}
+        isUpdating={isUpdating}
+        onStatusChange={handleStatusChange}
+        onClose={handleModalClose}
+      />
     </View>
   );
 }
@@ -337,209 +201,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-  },
-  statusGroup: {
-    marginBottom: 20,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
-  },
-  statusTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    flex: 1,
-  },
-  countBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  countText: {
-    color: theme.colors.surface,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  orderCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: theme.colors.divider,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  overdueCard: {
-    borderLeftColor: theme.colors.errorBorder,
-    backgroundColor: theme.colors.errorLight,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  orderNumber: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: theme.colors.text,
-  },
-  overdueBadge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: theme.colors.errorBorder,
-    backgroundColor: theme.colors.errorLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  customerName: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginBottom: 6,
-  },
-  orderMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  boxType: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    backgroundColor: theme.colors.backgroundVariant,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  dueDate: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.backgroundVariant,
-    paddingTop: 10,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: theme.colors.surfaceVariant,
-    borderRadius: 6,
-    gap: 4,
-  },
-  actionIcon: {
-    fontSize: 14,
-  },
-  actionLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: theme.colors.textSecondary,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: theme.colors.text,
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-  },
-
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: theme.colors.backdrop,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: theme.colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    maxHeight: '70%',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: theme.colors.text,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 20,
-  },
-  statusOptions: {
-    gap: 6,
-  },
-  statusOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 10,
-    backgroundColor: theme.colors.surfaceVariant,
-    borderLeftWidth: 4,
-    gap: 10,
-  },
-  statusOptionCurrent: {
-    backgroundColor: '#EEF2FF',
-  },
-  statusOptionDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  statusOptionText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: theme.colors.text,
-    flex: 1,
-  },
-  statusOptionTextCurrent: {
-    fontWeight: '700',
-  },
-  currentLabel: {
-    fontSize: 11,
-    color: theme.colors.textSecondary,
-    fontWeight: '500',
-  },
-  modalCancel: {
-    marginTop: 16,
-    padding: 14,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontSize: 15,
-    color: theme.colors.textSecondary,
-    fontWeight: '500',
   },
 });
