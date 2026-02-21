@@ -1,0 +1,751 @@
+// Production business logic service - extracted from production routes
+const { v4: uuidv4 } = require('uuid');
+const { safeJsonParse } = require('../utils/pagination');
+
+class ProductionService {
+  constructor(db) {
+    this.db = db;
+  }
+
+  /**
+   * Get production board (Kanban view) with orders grouped by status.
+   */
+  async getBoard() {
+    const orders = this.db.db
+      .prepare(
+        `
+        SELECT o.*, c.name as customer_name
+        FROM orders o
+        LEFT JOIN customers c ON o.customer_id = c.id
+        WHERE o.status IN ('pending', 'designing', 'approved', 'production', 'quality_control')
+        ORDER BY
+          CASE o.priority
+            WHEN 'urgent' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'normal' THEN 3
+            ELSE 4
+          END,
+          o.due_date ASC
+      `
+      )
+      .all();
+
+    const board = {
+      pending: orders.filter((o) => o.status === 'pending'),
+      designing: orders.filter((o) => o.status === 'designing'),
+      approved: orders.filter((o) => o.status === 'approved'),
+      production: orders.filter((o) => o.status === 'production'),
+      quality_control: orders.filter((o) => o.status === 'quality_control'),
+    };
+
+    return { board, totalActive: orders.length };
+  }
+
+  /**
+   * Get production statistics.
+   */
+  async getStats() {
+    // Get active orders count
+    const activeOrders = this.db.db
+      .prepare(
+        `
+        SELECT COUNT(*) as count FROM orders
+        WHERE status IN ('designing', 'approved', 'production', 'quality_control')
+      `
+      )
+      .get();
+
+    // Get completed today count
+    const completedToday = this.db.db
+      .prepare(
+        `
+        SELECT COUNT(*) as count FROM orders
+        WHERE status = 'completed'
+        AND DATE(updated_at) = DATE('now')
+      `
+      )
+      .get();
+
+    // Get pending approval count
+    const pendingApproval = this.db.db
+      .prepare(
+        `
+        SELECT COUNT(*) as count FROM orders
+        WHERE status = 'designing'
+      `
+      )
+      .get();
+
+    // Get quality issues count (orders in quality_control for more than 2 days)
+    const qualityIssues = this.db.db
+      .prepare(
+        `
+        SELECT COUNT(*) as count FROM orders
+        WHERE status = 'quality_control'
+        AND julianday('now') - julianday(updated_at) > 2
+      `
+      )
+      .get();
+
+    // Get stage distribution
+    const stageDistribution = this.db.db
+      .prepare(
+        `
+        SELECT
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'designing' THEN 1 ELSE 0 END) as designing,
+          SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+          SUM(CASE WHEN status = 'production' THEN 1 ELSE 0 END) as production,
+          SUM(CASE WHEN status = 'quality_control' THEN 1 ELSE 0 END) as quality_control,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+        FROM orders
+      `
+      )
+      .get();
+
+    // Get overdue orders
+    const overdueOrders = this.db.db
+      .prepare(
+        `
+        SELECT COUNT(*) as count FROM orders
+        WHERE due_date < DATE('now')
+        AND status NOT IN ('completed', 'cancelled')
+      `
+      )
+      .get();
+
+    return {
+      active_orders: activeOrders.count,
+      completed_today: completedToday.count,
+      pending_approval: pendingApproval.count,
+      quality_issues: qualityIssues.count,
+      overdue_orders: overdueOrders.count,
+      stage_distribution: {
+        pending: stageDistribution.pending || 0,
+        designing: stageDistribution.designing || 0,
+        approved: stageDistribution.approved || 0,
+        production: stageDistribution.production || 0,
+        quality_control: stageDistribution.quality_control || 0,
+        completed: stageDistribution.completed || 0,
+      },
+    };
+  }
+
+  /**
+   * Get production tasks with filtering, pagination, and stats.
+   */
+  async getTasks({ status, assigned_to, order_id, priority, limit, offset, page }) {
+    let query = `
+      SELECT pt.*, o.order_number, u.full_name as assigned_to_name
+      FROM production_tasks pt
+      LEFT JOIN orders o ON pt.order_id = o.id
+      LEFT JOIN users u ON pt.assigned_to = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (status) {
+      query += ' AND pt.status = ?';
+      params.push(status);
+    }
+    if (assigned_to) {
+      query += ' AND pt.assigned_to = ?';
+      params.push(assigned_to);
+    }
+    if (order_id) {
+      query += ' AND pt.order_id = ?';
+      params.push(order_id);
+    }
+    if (priority) {
+      query += ' AND pt.priority = ?';
+      params.push(priority);
+    }
+
+    query += ' ORDER BY pt.due_date ASC, pt.priority DESC';
+
+    // Get total count
+    const countQuery = query.replace(
+      /SELECT pt\.\*, o\.order_number, u\.full_name as assigned_to_name/,
+      'SELECT COUNT(*) as total'
+    );
+    const countResult = this.db.db.prepare(countQuery).get(...params);
+    const total = countResult ? countResult.total : 0;
+
+    // Add pagination
+    query += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const tasks = this.db.db.prepare(query).all(...params);
+
+    // Calculate stats using SQL aggregates
+    const statsRow = this.db.db
+      .prepare(
+        `
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+          SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
+          SUM(CASE WHEN priority = 'urgent' THEN 1 ELSE 0 END) as priority_urgent,
+          SUM(CASE WHEN priority = 'high' THEN 1 ELSE 0 END) as priority_high,
+          SUM(CASE WHEN priority = 'normal' THEN 1 ELSE 0 END) as priority_normal,
+          SUM(CASE WHEN priority = 'low' THEN 1 ELSE 0 END) as priority_low
+        FROM production_tasks
+      `
+      )
+      .get();
+    const stats = {
+      total: statsRow.total,
+      pending: statsRow.pending,
+      in_progress: statsRow.in_progress,
+      completed: statsRow.completed,
+      cancelled: statsRow.cancelled,
+      byPriority: {
+        urgent: statsRow.priority_urgent,
+        high: statsRow.priority_high,
+        normal: statsRow.priority_normal,
+        low: statsRow.priority_low,
+      },
+    };
+
+    return {
+      tasks,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      stats,
+    };
+  }
+
+  /**
+   * Create a production task.
+   */
+  async createTask(data) {
+    const { order_id, title, description, assigned_to, due_date, priority = 'normal' } = data;
+
+    // Verify order exists
+    const order = this.db.db.prepare('SELECT id FROM orders WHERE id = ?').get(order_id);
+    if (!order) {
+      return { error: 'Order not found', notFound: true };
+    }
+
+    const id = uuidv4();
+
+    this.db.db
+      .prepare(
+        `
+        INSERT INTO production_tasks (id, order_id, title, description, assigned_to, due_date, priority, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+      `
+      )
+      .run(id, order_id, title, description, assigned_to, due_date, priority);
+
+    const task = this.db.db.prepare('SELECT * FROM production_tasks WHERE id = ?').get(id);
+
+    return { taskId: id, task };
+  }
+
+  /**
+   * Get a single task by ID.
+   */
+  async getTaskById(id) {
+    const task = this.db.db
+      .prepare(
+        `
+        SELECT pt.*, o.order_number, u.full_name as assigned_to_name
+        FROM production_tasks pt
+        LEFT JOIN orders o ON pt.order_id = o.id
+        LEFT JOIN users u ON pt.assigned_to = u.id
+        WHERE pt.id = ?
+      `
+      )
+      .get(id);
+
+    return task || null;
+  }
+
+  /**
+   * Update a task's fields.
+   */
+  async updateTask(id, updates) {
+    const existing = this.db.db.prepare('SELECT * FROM production_tasks WHERE id = ?').get(id);
+    if (!existing) {
+      return null;
+    }
+
+    const fields = [];
+    const values = [];
+
+    if (updates.title !== undefined) {
+      fields.push('title = ?');
+      values.push(updates.title);
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = ?');
+      values.push(updates.description);
+    }
+    if (updates.assigned_to !== undefined) {
+      fields.push('assigned_to = ?');
+      values.push(updates.assigned_to);
+    }
+    if (updates.due_date !== undefined) {
+      fields.push('due_date = ?');
+      values.push(updates.due_date);
+    }
+    if (updates.priority !== undefined) {
+      fields.push('priority = ?');
+      values.push(updates.priority);
+    }
+    if (updates.status !== undefined) {
+      fields.push('status = ?');
+      values.push(updates.status);
+      if (updates.status === 'completed') {
+        fields.push('completed_at = CURRENT_TIMESTAMP');
+      }
+    }
+
+    if (fields.length === 0) {
+      return { noChanges: true };
+    }
+
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    this.db.db
+      .prepare(`UPDATE production_tasks SET ${fields.join(', ')} WHERE id = ?`)
+      .run(...values);
+
+    const task = this.db.db.prepare('SELECT * FROM production_tasks WHERE id = ?').get(id);
+
+    return { task };
+  }
+
+  /**
+   * Update task status.
+   */
+  async updateTaskStatus(id, status) {
+    const existing = this.db.db.prepare('SELECT * FROM production_tasks WHERE id = ?').get(id);
+    if (!existing) {
+      return null;
+    }
+
+    const completedAt = status === 'completed' ? new Date().toISOString() : null;
+
+    this.db.db
+      .prepare(
+        `
+        UPDATE production_tasks
+        SET status = ?, completed_at = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `
+      )
+      .run(status, completedAt, id);
+
+    return existing;
+  }
+
+  /**
+   * Delete a task by ID.
+   */
+  async deleteTask(id) {
+    const existing = this.db.db.prepare('SELECT * FROM production_tasks WHERE id = ?').get(id);
+    if (!existing) {
+      return null;
+    }
+
+    this.db.db.prepare('DELETE FROM production_tasks WHERE id = ?').run(id);
+
+    return existing;
+  }
+
+  /**
+   * Update order stage (production workflow transition).
+   */
+  async updateOrderStage(id, stage, notes) {
+    const existing = this.db.db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+    if (!existing) {
+      return null;
+    }
+
+    // Update order status
+    this.db.db
+      .prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(stage, id);
+
+    // Record stage transition
+    this.db.db
+      .prepare(
+        `
+        INSERT INTO order_stages (id, order_id, stage, notes, created_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `
+      )
+      .run(uuidv4(), id, stage, notes || '');
+
+    return existing;
+  }
+
+  /**
+   * Get quality checks with filtering and pagination.
+   */
+  async getQualityChecks({ order_id, status, limit, offset, page }) {
+    let query = `
+      SELECT qc.*, o.order_number, u.full_name as checked_by_name
+      FROM quality_checks qc
+      LEFT JOIN orders o ON qc.order_id = o.id
+      LEFT JOIN users u ON qc.checked_by = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (order_id) {
+      query += ' AND qc.order_id = ?';
+      params.push(order_id);
+    }
+    if (status) {
+      query += ' AND qc.status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY qc.checked_at DESC';
+
+    // Get total count
+    const countQuery = query.replace(
+      /SELECT qc\.\*, o\.order_number, u\.full_name as checked_by_name/,
+      'SELECT COUNT(*) as total'
+    );
+    const countResult = this.db.db.prepare(countQuery).get(...params);
+    const total = countResult ? countResult.total : 0;
+
+    // Add pagination
+    query += ' LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const checks = this.db.db.prepare(query).all(...params);
+
+    return {
+      checks,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Create a quality check record, optionally completing the order if passed.
+   */
+  async createQualityCheck(data, userId) {
+    const { order_id, check_type, status, notes } = data;
+
+    const id = uuidv4();
+
+    this.db.db
+      .prepare(
+        `
+        INSERT INTO quality_checks (id, order_id, check_type, status, notes, checked_by, checked_at)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `
+      )
+      .run(id, order_id, check_type, status || 'pending', notes, userId);
+
+    // If passed, update order status to completed
+    if (status === 'passed') {
+      this.db.db
+        .prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run('completed', order_id);
+    }
+
+    const check = this.db.db.prepare('SELECT * FROM quality_checks WHERE id = ?').get(id);
+
+    return { checkId: id, check };
+  }
+
+  /**
+   * Create a production workflow.
+   */
+  async createWorkflow(data, userId) {
+    const { order_id, name, steps } = data;
+
+    // Verify order exists
+    const order = this.db.db.prepare('SELECT id FROM orders WHERE id = ?').get(order_id);
+    if (!order) {
+      return { error: 'Order not found', notFound: true };
+    }
+
+    const id = uuidv4();
+    const stepsArray = steps || [];
+    const totalSteps = stepsArray.length;
+
+    this.db.db
+      .prepare(
+        `
+        INSERT INTO production_workflows (id, order_id, name, steps, total_steps, created_by)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `
+      )
+      .run(id, order_id, name, JSON.stringify(stepsArray), totalSteps, userId);
+
+    const workflow = this.db.db.prepare('SELECT * FROM production_workflows WHERE id = ?').get(id);
+
+    return {
+      workflowId: id,
+      workflow: {
+        ...workflow,
+        steps: safeJsonParse(workflow.steps, []),
+      },
+    };
+  }
+
+  /**
+   * Get workflows for a specific order.
+   */
+  async getWorkflowsByOrder(orderId) {
+    const workflows = this.db.db
+      .prepare(
+        `
+        SELECT pw.*, u.full_name as created_by_name
+        FROM production_workflows pw
+        LEFT JOIN users u ON pw.created_by = u.id
+        WHERE pw.order_id = ?
+        ORDER BY pw.created_at DESC
+      `
+      )
+      .all(orderId);
+
+    return workflows.map((w) => ({
+      ...w,
+      steps: safeJsonParse(w.steps, []),
+    }));
+  }
+
+  /**
+   * Assign a task to a user.
+   */
+  async assignTask(id, assigned_to) {
+    const existing = this.db.db.prepare('SELECT * FROM production_tasks WHERE id = ?').get(id);
+    if (!existing) {
+      return null;
+    }
+
+    this.db.db
+      .prepare(
+        `
+        UPDATE production_tasks
+        SET assigned_to = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `
+      )
+      .run(assigned_to, id);
+
+    const task = this.db.db
+      .prepare(
+        `
+        SELECT pt.*, u.full_name as assigned_to_name
+        FROM production_tasks pt
+        LEFT JOIN users u ON pt.assigned_to = u.id
+        WHERE pt.id = ?
+      `
+      )
+      .get(id);
+
+    return { task };
+  }
+
+  /**
+   * Update task quality status by appending quality notes.
+   */
+  async updateTaskQuality(id, quality_status, quality_notes) {
+    const existing = this.db.db.prepare('SELECT * FROM production_tasks WHERE id = ?').get(id);
+    if (!existing) {
+      return null;
+    }
+
+    // Update task with quality info in notes
+    const updatedNotes = existing.notes
+      ? `${existing.notes}\n\nQuality Check (${quality_status}): ${quality_notes || 'No notes'}`
+      : `Quality Check (${quality_status}): ${quality_notes || 'No notes'}`;
+
+    this.db.db
+      .prepare(
+        `
+        UPDATE production_tasks
+        SET notes = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `
+      )
+      .run(updatedNotes, id);
+
+    const task = this.db.db.prepare('SELECT * FROM production_tasks WHERE id = ?').get(id);
+
+    return { task };
+  }
+
+  /**
+   * Create a production issue.
+   */
+  async createIssue(data, userId) {
+    const { order_id, task_id, type, severity = 'medium', title, description, assigned_to } = data;
+
+    const id = uuidv4();
+
+    this.db.db
+      .prepare(
+        `
+        INSERT INTO production_issues (id, order_id, task_id, type, severity, title, description, reported_by, assigned_to)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+      )
+      .run(id, order_id, task_id, type, severity, title, description, userId, assigned_to);
+
+    const issue = this.db.db.prepare('SELECT * FROM production_issues WHERE id = ?').get(id);
+
+    return { issueId: id, issue };
+  }
+
+  /**
+   * Get production schedule, optionally filtered by date, grouped by date.
+   */
+  async getSchedule(date) {
+    let query = `
+      SELECT pt.*, o.order_number, o.customer_id, c.name as customer_name, u.full_name as assigned_to_name
+      FROM production_tasks pt
+      LEFT JOIN orders o ON pt.order_id = o.id
+      LEFT JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN users u ON pt.assigned_to = u.id
+      WHERE pt.status IN ('pending', 'in_progress')
+    `;
+    const params = [];
+
+    if (date) {
+      query += ' AND DATE(pt.due_date) = DATE(?)';
+      params.push(date);
+    }
+
+    query += ' ORDER BY pt.due_date ASC, pt.priority DESC';
+
+    const tasks = this.db.db.prepare(query).all(...params);
+
+    // Group by date
+    const schedule = {};
+    tasks.forEach((task) => {
+      const taskDate = task.due_date ? task.due_date.split('T')[0] : 'unscheduled';
+      if (!schedule[taskDate]) {
+        schedule[taskDate] = [];
+      }
+      schedule[taskDate].push(task);
+    });
+
+    return { schedule, totalTasks: tasks.length };
+  }
+
+  /**
+   * Get production analytics for a given period.
+   */
+  async getAnalytics(period = 'week') {
+    // Determine date offset based on period
+    let dateOffset = '-7 days';
+    if (period === 'day') {
+      dateOffset = '-1 days';
+    } else if (period === 'month') {
+      dateOffset = '-30 days';
+    }
+
+    // Tasks completed
+    const tasksCompleted = this.db.db
+      .prepare(
+        `
+        SELECT COUNT(*) as count FROM production_tasks
+        WHERE status = 'completed' AND DATE(created_at) >= DATE('now', ?)
+      `
+      )
+      .get(dateOffset);
+
+    // Average completion time (in hours)
+    const avgCompletionTime = this.db.db
+      .prepare(
+        `
+        SELECT AVG(julianday(completed_at) - julianday(created_at)) * 24 as avg_hours
+        FROM production_tasks
+        WHERE status = 'completed' AND completed_at IS NOT NULL AND DATE(created_at) >= DATE('now', ?)
+      `
+      )
+      .get(dateOffset);
+
+    // Orders processed
+    const ordersProcessed = this.db.db
+      .prepare(
+        `
+        SELECT COUNT(*) as count FROM orders
+        WHERE status = 'completed' AND DATE(created_at) >= DATE('now', ?)
+      `
+      )
+      .get(dateOffset);
+
+    // Quality pass rate
+    const qualityStats = this.db.db
+      .prepare(
+        `
+        SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed
+        FROM quality_checks
+        WHERE DATE(checked_at) >= DATE('now', ?)
+      `
+      )
+      .get(dateOffset);
+
+    const passRate =
+      qualityStats.total > 0 ? ((qualityStats.passed / qualityStats.total) * 100).toFixed(1) : 0;
+
+    // Productivity by user
+    const productivityByUser = this.db.db
+      .prepare(
+        `
+        SELECT u.full_name, COUNT(*) as tasks_completed
+        FROM production_tasks pt
+        LEFT JOIN users u ON pt.assigned_to = u.id
+        WHERE pt.status = 'completed' AND DATE(pt.created_at) >= DATE('now', ?)
+        GROUP BY pt.assigned_to
+        ORDER BY tasks_completed DESC
+        LIMIT 10
+      `
+      )
+      .all(dateOffset);
+
+    return {
+      period,
+      tasks_completed: tasksCompleted.count,
+      avg_completion_time_hours: avgCompletionTime.avg_hours?.toFixed(1) || 0,
+      orders_processed: ordersProcessed.count,
+      quality_pass_rate: passRate,
+      productivity_by_user: productivityByUser,
+    };
+  }
+
+  /**
+   * Get active production templates.
+   */
+  async getTemplates() {
+    const templates = this.db.db
+      .prepare(
+        `
+        SELECT pt.*, u.full_name as created_by_name
+        FROM production_templates pt
+        LEFT JOIN users u ON pt.created_by = u.id
+        WHERE pt.is_active = 1
+        ORDER BY pt.name ASC
+      `
+      )
+      .all();
+
+    return templates.map((t) => ({
+      ...t,
+      steps: safeJsonParse(t.steps, []),
+    }));
+  }
+}
+
+module.exports = ProductionService;
