@@ -12,7 +12,7 @@ export interface DashboardOrders {
   active_orders: number;
   cancelled_orders: number;
   average_value: number;
-  completion_rate: number | string;
+  completion_rate: number;
 }
 
 export interface DashboardCustomers {
