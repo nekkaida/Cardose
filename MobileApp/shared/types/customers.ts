@@ -16,6 +16,29 @@ export interface Customer {
   updated_at: string;
 }
 
+export interface CustomerCreatePayload {
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  business_type: BusinessType;
+  notes?: string;
+}
+
+export interface CustomerUpdatePayload extends Partial<CustomerCreatePayload> {}
+
+export interface CustomerStatsResponse {
+  corporate: number;
+  wedding: number;
+  trading: number;
+  individual: number;
+  event: number;
+  totalValue: number;
+  loyalty_new: number;
+  loyalty_regular: number;
+  loyalty_vip: number;
+}
+
 export interface CustomersListResponse {
   success: boolean;
   customers: Customer[];
@@ -23,4 +46,5 @@ export interface CustomersListResponse {
   page: number;
   limit: number;
   totalPages: number;
+  stats?: CustomerStatsResponse;
 }
