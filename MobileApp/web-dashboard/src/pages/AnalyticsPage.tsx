@@ -1,21 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApi } from '../contexts/ApiContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+// Sub-components
+import { SkeletonKPICard, SkeletonChart } from '../components/analytics/AnalyticsPrimitives';
+import KpiCards from '../components/analytics/KpiCards';
+import OrderStatusChart from '../components/analytics/OrderStatusChart';
+import CustomerSegmentChart from '../components/analytics/CustomerSegmentChart';
+import RevenueTrendChart from '../components/analytics/RevenueTrendChart';
+import TopCustomersChart from '../components/analytics/TopCustomersChart';
+import ProductionPipelineChart from '../components/analytics/ProductionPipelineChart';
+import InventoryOverviewCards from '../components/analytics/InventoryOverviewCards';
 
 // ---------------------------------------------------------------------------
 // TypeScript interfaces matching exact backend response shapes
@@ -109,12 +103,6 @@ interface SectionErrors {
 }
 
 // ---------------------------------------------------------------------------
-// Brand color palette
-// ---------------------------------------------------------------------------
-
-const BRAND_COLORS = ['#2C5530', '#C4A962', '#4e3a21', '#3a7a40', '#a67c36', '#1a3a1e', '#d4b97a'];
-
-// ---------------------------------------------------------------------------
 // Period options
 // ---------------------------------------------------------------------------
 
@@ -133,82 +121,8 @@ const PERIOD_OPTIONS: PeriodOption[] = [
   { value: 'year', labelKey: 'analytics.thisYear', fallback: 'This Year' },
 ];
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-  }).format(amount || 0);
-};
-
-const formatShortCurrency = (amount: number): string => {
-  if (amount >= 1_000_000_000) return `Rp ${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (amount >= 1_000_000) return `Rp ${(amount / 1_000_000).toFixed(0)}M`;
-  if (amount >= 1_000) return `Rp ${(amount / 1_000).toFixed(0)}K`;
-  return `Rp ${amount}`;
-};
-
 // Max months to display in revenue trend chart for readability
 const MAX_TREND_MONTHS = 6;
-
-// ---------------------------------------------------------------------------
-// Skeleton components
-// ---------------------------------------------------------------------------
-
-const SkeletonKPICard: React.FC = () => (
-  <div className="animate-pulse rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-    <div className="mb-3 h-3 w-24 rounded bg-gray-200" />
-    <div className="mb-2 h-7 w-20 rounded bg-gray-200" />
-    <div className="h-3 w-28 rounded bg-gray-200" />
-  </div>
-);
-
-const SkeletonChart: React.FC<{ height?: number }> = ({ height = 280 }) => (
-  <div className="animate-pulse rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-    <div className="mb-6 h-4 w-48 rounded bg-gray-200" />
-    <div className="rounded bg-gray-100" style={{ height }} />
-  </div>
-);
-
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-
-const EmptyState: React.FC<{ message: string }> = ({ message }) => (
-  <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-    <svg
-      className="mb-2 h-10 w-10"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.5}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
-      />
-    </svg>
-    <p className="text-sm">{message}</p>
-  </div>
-);
-
-// ---------------------------------------------------------------------------
-// Section error banner
-// ---------------------------------------------------------------------------
-
-const SectionError: React.FC<{ message: string; onRetry: () => void }> = ({ message, onRetry }) => (
-  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-    {message}
-    <button onClick={onRetry} className="ml-2 underline">
-      Retry
-    </button>
-  </div>
-);
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -353,17 +267,6 @@ const AnalyticsPage: React.FC = () => {
   const customers = dashboard?.customers;
   const inventory = dashboard?.inventory;
 
-  // ---- Consistent chart formatting ----
-
-  const TICK_STYLE = { fontSize: 11 };
-
-  const tooltipRevenue = (value: number) => [
-    formatCurrency(value),
-    tr('analytics.revenue', 'Revenue'),
-  ];
-  const tooltipOrders = (value: number) => [value, tr('analytics.orders', 'Orders')];
-  const tooltipCustomers = (value: number) => [value, tr('analytics.customers', 'Customers')];
-
   // ---- Render ----
 
   // Skeleton loading state
@@ -464,64 +367,15 @@ const AnalyticsPage: React.FC = () => {
       {/* ---------------------------------------------------------------- */}
       {/* KPI Cards                                                        */}
       {/* ---------------------------------------------------------------- */}
-      {errors.dashboard ? (
-        <SectionError
-          message={tr('analytics.loadError', 'Failed to load this section')}
-          onRetry={loadAnalytics}
-        />
-      ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {/* Total Orders */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              {tr('analytics.totalOrders', 'Total Orders')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{orders?.total_orders ?? 0}</p>
-            <p className="mt-1 text-xs text-gray-400">
-              {orders?.completed_orders ?? 0} {tr('analytics.completed', 'completed')}
-            </p>
-          </div>
-
-          {/* Revenue */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              {tr('analytics.revenue', 'Revenue')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">
-              {formatShortCurrency(revenue?.total_revenue ?? 0)}
-            </p>
-            <p className="mt-1 text-xs text-gray-400">
-              {formatShortCurrency(revenue?.paid_revenue ?? 0)} {tr('analytics.paid', 'paid')}
-            </p>
-          </div>
-
-          {/* Customers */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              {tr('analytics.customers', 'Customers')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">
-              {customers?.total_customers ?? 0}
-            </p>
-            <p className="mt-1 text-xs text-gray-400">
-              {customers?.vip_customers ?? 0} {tr('analytics.vip', 'VIP')}
-            </p>
-          </div>
-
-          {/* Avg Order */}
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              {tr('analytics.avgOrder', 'Avg Order')}
-            </p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">
-              {formatShortCurrency(revenue?.average_order_value ?? 0)}
-            </p>
-            <p className="mt-1 text-xs text-gray-400">
-              {revenue?.invoice_count ?? 0} {tr('analytics.invoices', 'invoices')}
-            </p>
-          </div>
-        </div>
-      )}
+      <KpiCards
+        orders={orders}
+        revenue={revenue}
+        customers={customers}
+        inventory={inventory}
+        error={errors.dashboard}
+        onRetry={loadAnalytics}
+        tr={tr}
+      />
 
       {/* ---------------------------------------------------------------- */}
       {/* Completion Rate (from backend orders.completion_rate directly)    */}
@@ -549,241 +403,54 @@ const AnalyticsPage: React.FC = () => {
       {/* Charts Row 1: Order Status + Customer Segments                   */}
       {/* ---------------------------------------------------------------- */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Order Status Distribution */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">
-            {tr('analytics.orderStatus', 'Order Status Distribution')}
-          </h2>
-          {errors.dashboard ? (
-            <SectionError
-              message={tr('analytics.loadError', 'Failed to load this section')}
-              onRetry={loadAnalytics}
-            />
-          ) : orderStatusData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={orderStatusData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={3}
-                  dataKey="value"
-                  label={({ name, percent }: any) =>
-                    `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                  }
-                >
-                  {orderStatusData.map((_, i) => (
-                    <Cell key={`os-${i}`} fill={BRAND_COLORS[i % BRAND_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={tooltipOrders} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyState message={tr('analytics.noData', 'No data available')} />
-          )}
-        </div>
-
-        {/* Customer Segments */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">
-            {tr('analytics.customerSegments', 'Customer Segments')}
-          </h2>
-          {errors.customer ? (
-            <SectionError
-              message={tr('analytics.loadError', 'Failed to load this section')}
-              onRetry={loadAnalytics}
-            />
-          ) : customerSegmentData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={customerSegmentData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={3}
-                  dataKey="value"
-                  label={({ name, percent }: any) =>
-                    `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                  }
-                >
-                  {customerSegmentData.map((_, i) => (
-                    <Cell key={`cs-${i}`} fill={BRAND_COLORS[i % BRAND_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={tooltipCustomers} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyState message={tr('analytics.noData', 'No data available')} />
-          )}
-        </div>
+        <OrderStatusChart
+          data={orderStatusData}
+          error={errors.dashboard}
+          onRetry={loadAnalytics}
+          tr={tr}
+        />
+        <CustomerSegmentChart
+          data={customerSegmentData}
+          error={errors.customer}
+          onRetry={loadAnalytics}
+          tr={tr}
+        />
       </div>
 
       {/* ---------------------------------------------------------------- */}
       {/* Charts Row 2: Revenue Trend + Top Customers                      */}
       {/* ---------------------------------------------------------------- */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Revenue Trend */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">
-            {tr('analytics.revenueTrend', 'Revenue Trend')}
-          </h2>
-          {errors.revenue ? (
-            <SectionError
-              message={tr('analytics.loadError', 'Failed to load this section')}
-              onRetry={loadAnalytics}
-            />
-          ) : revenueTrend.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={revenueTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={TICK_STYLE} />
-                <YAxis tickFormatter={formatShortCurrency} tick={TICK_STYLE} />
-                <Tooltip
-                  formatter={tooltipRevenue}
-                  labelStyle={{ fontSize: 12 }}
-                  contentStyle={{ fontSize: 12 }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#2C5530"
-                  fill="#2C5530"
-                  fillOpacity={0.15}
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyState message={tr('analytics.noData', 'No data available')} />
-          )}
-        </div>
-
-        {/* Top Customers */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">
-            {tr('analytics.topCustomers', 'Top Customers by Revenue')}
-          </h2>
-          {errors.customer ? (
-            <SectionError
-              message={tr('analytics.loadError', 'Failed to load this section')}
-              onRetry={loadAnalytics}
-            />
-          ) : topCustomers.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={topCustomers} layout="vertical" margin={{ left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis type="number" tickFormatter={formatShortCurrency} tick={TICK_STYLE} />
-                <YAxis type="category" dataKey="name" width={120} tick={TICK_STYLE} />
-                <Tooltip
-                  formatter={tooltipRevenue}
-                  labelStyle={{ fontSize: 12 }}
-                  contentStyle={{ fontSize: 12 }}
-                />
-                <Bar dataKey="revenue" fill="#C4A962" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyState message={tr('analytics.noData', 'No data available')} />
-          )}
-        </div>
+        <RevenueTrendChart
+          data={revenueTrend}
+          error={errors.revenue}
+          onRetry={loadAnalytics}
+          tr={tr}
+        />
+        <TopCustomersChart
+          data={topCustomers}
+          error={errors.customer}
+          onRetry={loadAnalytics}
+          tr={tr}
+        />
       </div>
 
       {/* ---------------------------------------------------------------- */}
       {/* Charts Row 3: Production Pipeline + Inventory Overview           */}
       {/* ---------------------------------------------------------------- */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Production Pipeline */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">
-            {tr('analytics.productionPipeline', 'Production Pipeline')}
-          </h2>
-          {errors.dashboard ? (
-            <SectionError
-              message={tr('analytics.loadError', 'Failed to load this section')}
-              onRetry={loadAnalytics}
-            />
-          ) : productionData.some((d) => d.count > 0) ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={productionData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="stage" tick={TICK_STYLE} />
-                <YAxis allowDecimals={false} tick={TICK_STYLE} />
-                <Tooltip
-                  formatter={(value: number) => [value, tr('analytics.orders', 'Orders')]}
-                  labelStyle={{ fontSize: 12 }}
-                  contentStyle={{ fontSize: 12 }}
-                />
-                <Bar dataKey="count" fill="#4e3a21" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyState message={tr('analytics.noData', 'No data available')} />
-          )}
-        </div>
-
-        {/* Inventory Overview */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">
-            {tr('analytics.inventoryOverview', 'Inventory Overview')}
-          </h2>
-          {errors.dashboard ? (
-            <SectionError
-              message={tr('analytics.loadError', 'Failed to load this section')}
-              onRetry={loadAnalytics}
-            />
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-lg bg-gray-50 p-4">
-                <p className="text-xs uppercase text-gray-500">
-                  {tr('analytics.totalMaterials', 'Total Materials')}
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {inventory?.total_materials ?? 0}
-                </p>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-4">
-                <p className="text-xs uppercase text-gray-500">
-                  {tr('analytics.outOfStock', 'Out of Stock')}
-                </p>
-                <p
-                  className={`text-2xl font-bold ${
-                    (inventory?.out_of_stock ?? 0) > 0 ? 'text-red-600' : 'text-gray-900'
-                  }`}
-                >
-                  {inventory?.out_of_stock ?? 0}
-                </p>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-4">
-                <p className="text-xs uppercase text-gray-500">
-                  {tr('analytics.lowStock', 'Low Stock')}
-                </p>
-                <p
-                  className={`text-2xl font-bold ${
-                    (inventory?.low_stock ?? 0) > 0 ? 'text-orange-600' : 'text-gray-900'
-                  }`}
-                >
-                  {inventory?.low_stock ?? 0}
-                </p>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-4">
-                <p className="text-xs uppercase text-gray-500">
-                  {tr('analytics.totalValue', 'Total Value')}
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {formatShortCurrency(inventory?.total_value ?? 0)}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        <ProductionPipelineChart
+          data={productionData}
+          error={errors.dashboard}
+          onRetry={loadAnalytics}
+          tr={tr}
+        />
+        <InventoryOverviewCards
+          inventory={inventory}
+          error={errors.dashboard}
+          onRetry={loadAnalytics}
+          tr={tr}
+        />
       </div>
     </div>
   );
