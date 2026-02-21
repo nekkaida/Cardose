@@ -1,14 +1,21 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { apiClient } from './AuthContext';
+import type { DashboardData } from '@shared/types/analytics';
 import {
   validateResponse,
-  reportResponseSchema,
+  salesReportResponseSchema,
+  inventoryReportResponseSchema,
+  productionReportResponseSchema,
+  customerReportResponseSchema,
+  financialReportResponseSchema,
   dashboardAnalyticsSchema,
   productionBoardSchema,
   productionStatsSchema,
   financialSummarySchema,
   orderStatsSchema,
   listResponseSchema,
+  usersListResponseSchema,
+  settingsListResponseSchema,
 } from '../utils/apiValidation';
 
 // NOTE: Shared types exist in @shared/types but most pages haven't been updated
@@ -49,7 +56,7 @@ interface ApiContextType {
   updateInvoiceStatus: (id: string, status: string) => Promise<any>;
 
   // Analytics
-  getDashboardAnalytics: (params?: Record<string, any>) => Promise<any>;
+  getDashboardAnalytics: (params?: Record<string, any>) => Promise<DashboardData>;
   getRevenueAnalytics: () => Promise<any>;
   getCustomerAnalytics: () => Promise<any>;
   getInventoryAnalytics: () => Promise<any>;
@@ -74,15 +81,28 @@ interface ApiContextType {
 
   // Users
   getUsers: (params?: Record<string, any>) => Promise<any>;
-  createUser: (userData: any) => Promise<any>;
-  updateUser: (id: string, updates: any) => Promise<any>;
-  updateUserStatus: (id: string, status: any) => Promise<any>;
+  createUser: (userData: Record<string, any>) => Promise<any>;
+  updateUser: (id: string, updates: Record<string, any>) => Promise<any>;
+  updateUserStatus: (id: string, status: { is_active: boolean }) => Promise<any>;
   deleteUser: (id: string) => Promise<any>;
 
   // Settings
   getSettings: () => Promise<any>;
-  updateSetting: (key: string, data: any) => Promise<any>;
+  updateSetting: (key: string, data: { value: string; description?: string }) => Promise<any>;
   deleteSetting: (key: string) => Promise<any>;
+
+  // Dashboard
+  getRecentOrders: (
+    limit?: number
+  ) => Promise<{
+    orders: Array<{
+      id: string;
+      customer_name: string;
+      total_amount: number;
+      status: string;
+      created_at: string;
+    }>;
+  }>;
 }
 
 const ApiContext = createContext<ApiContextType | undefined>(undefined);
@@ -301,51 +321,52 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Reports API
   const getSalesReport = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/reports/sales`, { params });
-    validateResponse(reportResponseSchema, response.data, 'GET /reports/sales');
+    validateResponse(salesReportResponseSchema, response.data, 'GET /reports/sales');
     return response.data;
   };
 
   const getInventoryReport = async () => {
     const response = await apiClient.get(`/reports/inventory`);
-    validateResponse(reportResponseSchema, response.data, 'GET /reports/inventory');
+    validateResponse(inventoryReportResponseSchema, response.data, 'GET /reports/inventory');
     return response.data;
   };
 
   const getProductionReport = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/reports/production`, { params });
-    validateResponse(reportResponseSchema, response.data, 'GET /reports/production');
+    validateResponse(productionReportResponseSchema, response.data, 'GET /reports/production');
     return response.data;
   };
 
   const getCustomerReport = async () => {
     const response = await apiClient.get(`/reports/customers`);
-    validateResponse(reportResponseSchema, response.data, 'GET /reports/customers');
+    validateResponse(customerReportResponseSchema, response.data, 'GET /reports/customers');
     return response.data;
   };
 
   const getFinancialReport = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/reports/financial`, { params });
-    validateResponse(reportResponseSchema, response.data, 'GET /reports/financial');
+    validateResponse(financialReportResponseSchema, response.data, 'GET /reports/financial');
     return response.data;
   };
 
   // Users API
   const getUsers = async (params?: Record<string, any>) => {
     const response = await apiClient.get(`/users`, { params });
+    validateResponse(usersListResponseSchema, response.data, 'GET /users');
     return response.data;
   };
 
-  const createUser = async (userData: any) => {
+  const createUser = async (userData: Record<string, any>) => {
     const response = await apiClient.post(`/users`, userData);
     return response.data;
   };
 
-  const updateUser = async (id: string, updates: any) => {
+  const updateUser = async (id: string, updates: Record<string, any>) => {
     const response = await apiClient.put(`/users/${id}`, updates);
     return response.data;
   };
 
-  const updateUserStatus = async (id: string, status: any) => {
+  const updateUserStatus = async (id: string, status: { is_active: boolean }) => {
     const response = await apiClient.patch(`/users/${id}/status`, status);
     return response.data;
   };
@@ -358,16 +379,23 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
   // Settings API
   const getSettings = async () => {
     const response = await apiClient.get(`/settings`);
+    validateResponse(settingsListResponseSchema, response.data, 'GET /settings');
     return response.data;
   };
 
-  const updateSetting = async (key: string, data: any) => {
+  const updateSetting = async (key: string, data: { value: string; description?: string }) => {
     const response = await apiClient.put(`/settings/${key}`, data);
     return response.data;
   };
 
   const deleteSetting = async (key: string) => {
     const response = await apiClient.delete(`/settings/${key}`);
+    return response.data;
+  };
+
+  // Dashboard API
+  const getRecentOrders = async (limit = 5) => {
+    const response = await apiClient.get('/dashboard/recent-orders', { params: { limit } });
     return response.data;
   };
 
@@ -439,6 +467,9 @@ export const ApiProvider: React.FC<ApiProviderProps> = ({ children }) => {
     getSettings,
     updateSetting,
     deleteSetting,
+
+    // Dashboard
+    getRecentOrders,
   };
 
   return <ApiContext.Provider value={value}>{children}</ApiContext.Provider>;
