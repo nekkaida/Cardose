@@ -12,7 +12,9 @@ async function settingsRoutes(fastify, options) {
     },
     async (request, reply) => {
       try {
-        const settings = await db.all('SELECT * FROM settings ORDER BY key ASC');
+        const settings = db.db
+          .prepare('SELECT key, value, description FROM settings ORDER BY key ASC')
+          .all();
 
         const settingsMap = {};
         settings.forEach((setting) => {
@@ -28,7 +30,8 @@ async function settingsRoutes(fastify, options) {
         };
       } catch (error) {
         fastify.log.error(error);
-        return reply.status(500).send({ error: 'Failed to get settings' });
+        reply.code(500);
+        return { success: false, error: 'Failed to get settings' };
       }
     }
   );
@@ -45,10 +48,13 @@ async function settingsRoutes(fastify, options) {
       try {
         const { key } = request.params;
 
-        const setting = await db.get('SELECT * FROM settings WHERE key = ?', [key]);
+        const setting = db.db
+          .prepare('SELECT key, value, description FROM settings WHERE key = ?')
+          .get(key);
 
         if (!setting) {
-          return reply.status(404).send({ error: 'Setting not found' });
+          reply.code(404);
+          return { success: false, error: 'Setting not found' };
         }
 
         return {
@@ -57,13 +63,14 @@ async function settingsRoutes(fastify, options) {
         };
       } catch (error) {
         fastify.log.error(error);
-        return reply.status(500).send({ error: 'Failed to get setting' });
+        reply.code(500);
+        return { success: false, error: 'Failed to get setting' };
       }
     }
   );
 
   /**
-   * Update setting
+   * Update setting (upsert)
    */
   fastify.put(
     '/:key',
@@ -73,7 +80,10 @@ async function settingsRoutes(fastify, options) {
         body: {
           type: 'object',
           required: ['value'],
-          properties: { value: { type: 'string' }, description: { type: 'string' } },
+          properties: {
+            value: { type: 'string' },
+            description: { type: 'string' },
+          },
         },
       },
     },
@@ -82,37 +92,34 @@ async function settingsRoutes(fastify, options) {
         const { key } = request.params;
         const { value, description } = request.body;
 
-        if (value === undefined) {
-          return reply.status(400).send({ error: 'Value is required' });
-        }
-
         // Check if setting exists
-        const existing = await db.get('SELECT * FROM settings WHERE key = ?', [key]);
+        const existing = db.db
+          .prepare('SELECT key, description FROM settings WHERE key = ?')
+          .get(key);
 
         if (existing) {
-          // Update existing setting
-          await db.run('UPDATE settings SET value = ?, description = ? WHERE key = ?', [
-            value,
-            description || existing.description,
-            key,
-          ]);
+          db.db
+            .prepare(
+              'UPDATE settings SET value = ?, description = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+            )
+            .run(value, description || existing.description, request.user.id, key);
         } else {
-          // Create new setting
-          await db.run('INSERT INTO settings (key, value, description) VALUES (?, ?, ?)', [
-            key,
-            value,
-            description || '',
-          ]);
+          db.db
+            .prepare(
+              'INSERT INTO settings (key, value, description, updated_by, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)'
+            )
+            .run(key, value, description || '', request.user.id);
         }
 
         return {
           success: true,
           message: 'Setting updated successfully',
-          setting: { key, value, description },
+          setting: { key, value, description: description || existing?.description || '' },
         };
       } catch (error) {
         fastify.log.error(error);
-        return reply.status(500).send({ error: 'Failed to update setting' });
+        reply.code(500);
+        return { success: false, error: 'Failed to update setting' };
       }
     }
   );
@@ -129,7 +136,12 @@ async function settingsRoutes(fastify, options) {
       try {
         const { key } = request.params;
 
-        await db.run('DELETE FROM settings WHERE key = ?', [key]);
+        const result = db.db.prepare('DELETE FROM settings WHERE key = ?').run(key);
+
+        if (result.changes === 0) {
+          reply.code(404);
+          return { success: false, error: 'Setting not found' };
+        }
 
         return {
           success: true,
@@ -137,13 +149,14 @@ async function settingsRoutes(fastify, options) {
         };
       } catch (error) {
         fastify.log.error(error);
-        return reply.status(500).send({ error: 'Failed to delete setting' });
+        reply.code(500);
+        return { success: false, error: 'Failed to delete setting' };
       }
     }
   );
 
   /**
-   * Batch update settings
+   * Batch update settings (transactional)
    */
   fastify.post(
     '/batch',
@@ -161,19 +174,27 @@ async function settingsRoutes(fastify, options) {
       try {
         const { settings } = request.body;
 
-        if (!settings || typeof settings !== 'object') {
-          return reply.status(400).send({ error: 'Settings object is required' });
-        }
+        const upsert = db.db.transaction((entries) => {
+          for (const [key, value] of entries) {
+            const existing = db.db.prepare('SELECT key FROM settings WHERE key = ?').get(key);
 
-        for (const [key, value] of Object.entries(settings)) {
-          const existing = await db.get('SELECT * FROM settings WHERE key = ?', [key]);
-
-          if (existing) {
-            await db.run('UPDATE settings SET value = ? WHERE key = ?', [value, key]);
-          } else {
-            await db.run('INSERT INTO settings (key, value) VALUES (?, ?)', [key, value]);
+            if (existing) {
+              db.db
+                .prepare(
+                  'UPDATE settings SET value = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?'
+                )
+                .run(value, request.user.id, key);
+            } else {
+              db.db
+                .prepare(
+                  'INSERT INTO settings (key, value, updated_by, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)'
+                )
+                .run(key, value, request.user.id);
+            }
           }
-        }
+        });
+
+        upsert(Object.entries(settings));
 
         return {
           success: true,
@@ -182,7 +203,8 @@ async function settingsRoutes(fastify, options) {
         };
       } catch (error) {
         fastify.log.error(error);
-        return reply.status(500).send({ error: 'Failed to batch update settings' });
+        reply.code(500);
+        return { success: false, error: 'Failed to batch update settings' };
       }
     }
   );
