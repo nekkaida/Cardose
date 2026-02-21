@@ -1,7 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApi } from '../contexts/ApiContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog';
+import Toast from '../components/Toast';
+import OrderFormModal from '../components/orders/OrderFormModal';
+import StatusUpdateModal from '../components/orders/StatusUpdateModal';
+import { formatCurrency, formatDate } from '../utils/formatters';
+import type { OrderStatus, OrderCreatePayload, OrderUpdatePayload } from '@shared/types/orders';
 
 interface Order {
   id: string;
@@ -45,7 +51,6 @@ const STATUSES = [
   'cancelled',
 ] as const;
 const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
-const BOX_TYPES = ['standard', 'premium', 'luxury', 'custom'] as const;
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pending',
@@ -62,42 +67,6 @@ const PRIORITY_LABELS: Record<string, string> = {
   normal: 'Normal',
   high: 'High',
   urgent: 'Urgent',
-};
-
-// Toast notification component
-const Toast: React.FC<{ message: string; type: 'success' | 'error'; onClose: () => void }> = ({
-  message,
-  type,
-  onClose,
-}) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 4000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  return (
-    <div
-      className={`animate-slide-in fixed right-4 top-4 z-[60] flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium shadow-lg ${
-        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-      }`}
-    >
-      {type === 'success' ? (
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-      ) : (
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      )}
-      {message}
-    </div>
-  );
 };
 
 const OrdersPage: React.FC = () => {
@@ -131,25 +100,14 @@ const OrdersPage: React.FC = () => {
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    customer_id: '',
-    box_type: 'standard',
-    priority: 'normal',
-    total_amount: '',
-    due_date: '',
-    special_requests: '',
-  });
-  const [customerSearch, setCustomerSearch] = useState('');
 
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Status update
   const [statusUpdateId, setStatusUpdateId] = useState<string | null>(null);
-  const [newStatus, setNewStatus] = useState('');
   const [statusUpdating, setStatusUpdating] = useState(false);
 
   // Toast
@@ -175,7 +133,7 @@ const OrdersPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const params: Record<string, any> = {
+      const params: Record<string, string | number> = {
         page,
         limit: pageSize,
         sort_by: sortBy,
@@ -186,17 +144,17 @@ const OrdersPage: React.FC = () => {
       if (priorityFilter !== 'all') params.priority = priorityFilter;
 
       const data = await getOrders(params);
-      const apiOrders = (data.orders || []).map((o: any) => ({
+      const apiOrders = (data.orders || []).map((o) => ({
         id: o.id,
-        orderNumber: o.order_number || o.orderNumber || '',
-        customerName: o.customer_name || o.customerName || 'Unknown',
+        orderNumber: o.order_number || '',
+        customerName: o.customer_name || 'Unknown',
         customerId: o.customer_id || '',
         status: o.status || 'pending',
         priority: o.priority || 'normal',
-        totalAmount: o.total_amount || o.totalAmount || 0,
-        dueDate: o.due_date || o.dueDate || '',
-        createdAt: o.created_at || o.createdAt || '',
-        boxType: o.box_type || o.boxType || '',
+        totalAmount: o.total_amount || 0,
+        dueDate: o.due_date || '',
+        createdAt: o.created_at || '',
+        boxType: o.box_type || '',
         specialRequests: o.special_requests || '',
       }));
       setOrders(apiOrders);
@@ -233,7 +191,7 @@ const OrdersPage: React.FC = () => {
   useEffect(() => {
     getCustomers({ limit: 200 })
       .then((data) => {
-        setCustomers((data.customers || []).map((c: any) => ({ id: c.id, name: c.name })));
+        setCustomers((data.customers || []).map((c) => ({ id: c.id, name: c.name })));
       })
       .catch((err) => {
         console.error('Failed to load customers:', err);
@@ -247,111 +205,71 @@ const OrdersPage: React.FC = () => {
       if (e.key === 'Escape') {
         if (showModal) setShowModal(false);
         if (statusUpdateId) setStatusUpdateId(null);
-        if (deleteId) setDeleteId(null);
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showModal, statusUpdateId, deleteId]);
+  }, [showModal, statusUpdateId]);
 
   const openCreate = () => {
     setEditingOrder(null);
-    setFormData({
-      customer_id: '',
-      box_type: 'standard',
-      priority: 'normal',
-      total_amount: '',
-      due_date: '',
-      special_requests: '',
-    });
-    setFormError(null);
-    setCustomerSearch('');
     setShowModal(true);
   };
 
   const openEdit = (order: Order) => {
     setEditingOrder(order);
-    setFormData({
-      customer_id: order.customerId,
-      box_type: order.boxType || 'standard',
-      priority: order.priority,
-      total_amount: String(order.totalAmount || ''),
-      due_date: order.dueDate ? order.dueDate.split('T')[0] : '',
-      special_requests: order.specialRequests || '',
-    });
-    setFormError(null);
-    setCustomerSearch('');
     setShowModal(true);
   };
 
-  const validateForm = (): string | null => {
-    if (!editingOrder && !formData.customer_id) return 'Please select a customer.';
-    const amount = Number(formData.total_amount);
-    if (formData.total_amount && (isNaN(amount) || amount < 0))
-      return 'Amount must be a positive number.';
-    return null;
+  const handleSave = async (isEdit: boolean, data: OrderCreatePayload | OrderUpdatePayload) => {
+    if (isEdit && editingOrder) {
+      await updateOrder(editingOrder.id, data as OrderUpdatePayload);
+      setToast({ message: 'Order updated successfully', type: 'success' });
+    } else {
+      await createOrder(data as OrderCreatePayload);
+      setToast({ message: 'Order created successfully', type: 'success' });
+    }
+    setShowModal(false);
+    loadOrders();
   };
 
-  const handleSave = async () => {
-    const validationError = validateForm();
-    if (validationError) {
-      setFormError(validationError);
-      return;
-    }
-    try {
-      setSaving(true);
-      setFormError(null);
-      const payload: Record<string, any> = {
-        box_type: formData.box_type,
-        priority: formData.priority,
-        total_amount: Number(formData.total_amount) || 0,
-        due_date: formData.due_date || undefined,
-        special_requests: formData.special_requests || undefined,
-      };
-      if (editingOrder) {
-        await updateOrder(editingOrder.id, payload);
-        setToast({ message: 'Order updated successfully', type: 'success' });
-      } else {
-        payload.customer_id = formData.customer_id;
-        await createOrder(payload);
-        setToast({ message: 'Order created successfully', type: 'success' });
-      }
-      setShowModal(false);
-      loadOrders();
-    } catch (err: any) {
-      setFormError(err?.response?.data?.error || 'Failed to save order. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!deleteId) return;
     try {
       setDeleting(true);
+      setDeleteError(null);
       await deleteOrder(deleteId);
       setDeleteId(null);
       setToast({ message: 'Order deleted successfully', type: 'success' });
       loadOrders();
-    } catch (err: any) {
-      setToast({ message: err?.response?.data?.error || 'Failed to delete order', type: 'error' });
-      setDeleteId(null);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } } };
+      setDeleteError(axiosErr?.response?.data?.error || t('orders.deleteError'));
     } finally {
       setDeleting(false);
     }
-  };
+  }, [deleteId, deleteOrder, loadOrders, t]);
 
-  const handleStatusUpdate = async () => {
-    if (!statusUpdateId || !newStatus) return;
+  const cancelDelete = useCallback(() => {
+    setDeleteId(null);
+    setDeleteError(null);
+  }, []);
+
+  const handleStatusUpdate = async (status: OrderStatus) => {
+    if (!statusUpdateId || !status) return;
+    const currentOrder = orders.find((o) => o.id === statusUpdateId);
+    if (currentOrder && status === currentOrder.status) return;
     try {
       setStatusUpdating(true);
-      await updateOrderStatus(statusUpdateId, newStatus);
+      await updateOrderStatus(statusUpdateId, status);
       setStatusUpdateId(null);
-      setNewStatus('');
       setToast({ message: 'Status updated successfully', type: 'success' });
       loadOrders();
-    } catch (err: any) {
-      setToast({ message: err?.response?.data?.error || 'Failed to update status', type: 'error' });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        'Failed to update status';
+      setToast({ message, type: 'error' });
     } finally {
       setStatusUpdating(false);
     }
@@ -416,30 +334,7 @@ const OrdersPage: React.FC = () => {
     return new Date(order.dueDate) < new Date(new Date().toDateString());
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
   const activeCount = stats.designing + stats.approved + stats.production + stats.quality_control;
-
-  const filteredCustomers = customerSearch
-    ? customers.filter((c) => c.name.toLowerCase().includes(customerSearch.toLowerCase()))
-    : customers;
-
-  const today = new Date().toISOString().split('T')[0];
 
   // Skeleton loader
   const SkeletonRow = () => (
@@ -451,6 +346,21 @@ const OrdersPage: React.FC = () => {
       ))}
     </tr>
   );
+
+  // Prepare order data for the form modal
+  const formOrder = editingOrder
+    ? {
+        customerId: editingOrder.customerId,
+        boxType: editingOrder.boxType,
+        priority: editingOrder.priority,
+        totalAmount: editingOrder.totalAmount,
+        dueDate: editingOrder.dueDate,
+        specialRequests: editingOrder.specialRequests,
+      }
+    : null;
+
+  // Get current order for status update modal
+  const statusUpdateOrder = statusUpdateId ? orders.find((o) => o.id === statusUpdateId) : null;
 
   if (error && !orders.length) {
     return (
@@ -672,7 +582,6 @@ const OrdersPage: React.FC = () => {
                       <button
                         onClick={() => {
                           setStatusUpdateId(order.id);
-                          setNewStatus(order.status);
                         }}
                         className={`inline-flex cursor-pointer rounded-full px-2 py-1 text-xs font-semibold hover:opacity-80 ${getStatusColor(order.status)}`}
                       >
@@ -749,259 +658,36 @@ const OrdersPage: React.FC = () => {
       </div>
 
       {/* Create/Edit Modal */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowModal(false);
-          }}
-        >
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {editingOrder ? 'Edit Order' : 'New Order'}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-4 p-6">
-              {formError && (
-                <div
-                  className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-                  role="alert"
-                >
-                  {formError}
-                </div>
-              )}
-              {!editingOrder && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Customer *</label>
-                  <input
-                    type="text"
-                    placeholder="Search customers..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="mb-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                  <select
-                    value={formData.customer_id}
-                    onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    size={Math.min(filteredCustomers.length + 1, 6)}
-                  >
-                    <option value="">Select customer...</option>
-                    {filteredCustomers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Box Type</label>
-                  <select
-                    value={formData.box_type}
-                    onChange={(e) => setFormData({ ...formData, box_type: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    {BOX_TYPES.map((bt) => (
-                      <option key={bt} value={bt}>
-                        {bt.charAt(0).toUpperCase() + bt.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Priority</label>
-                  <select
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  >
-                    {PRIORITIES.map((p) => (
-                      <option key={p} value={p}>
-                        {PRIORITY_LABELS[p]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Amount (IDR)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.total_amount}
-                    onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="0"
-                    min="0"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Due Date</label>
-                  <input
-                    type="date"
-                    value={formData.due_date}
-                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    min={!editingOrder ? today : undefined}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Special Requests
-                </label>
-                <textarea
-                  value={formData.special_requests}
-                  onChange={(e) => setFormData({ ...formData, special_requests: e.target.value })}
-                  rows={2}
-                  className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  placeholder="Optional notes or special requests..."
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4">
-              <button
-                onClick={() => setShowModal(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || (!editingOrder && !formData.customer_id)}
-                className="rounded-lg bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : editingOrder ? 'Update' : 'Create'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <OrderFormModal
+        open={showModal}
+        order={formOrder}
+        customers={customers}
+        onClose={() => setShowModal(false)}
+        onSave={handleSave}
+      />
 
       {/* Status Update Modal */}
-      {statusUpdateId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setStatusUpdateId(null);
-          }}
-        >
-          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">Update Status</h2>
-              <button
-                onClick={() => setStatusUpdateId(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-            <div className="p-6">
-              <select
-                value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4">
-              <button
-                onClick={() => setStatusUpdateId(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleStatusUpdate}
-                disabled={statusUpdating}
-                className="rounded-lg bg-primary-600 px-4 py-2 text-sm text-white hover:bg-primary-700 disabled:opacity-50"
-              >
-                {statusUpdating ? 'Updating...' : 'Update'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <StatusUpdateModal
+        open={!!statusUpdateId}
+        currentStatus={statusUpdateOrder?.status || 'pending'}
+        orderNumber={statusUpdateOrder?.orderNumber}
+        customerName={statusUpdateOrder?.customerName}
+        onClose={() => setStatusUpdateId(null)}
+        onUpdate={handleStatusUpdate}
+        updating={statusUpdating}
+      />
 
       {/* Delete Confirmation */}
       {deleteId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDeleteId(null);
-          }}
-        >
-          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl">
-            <div className="p-6 text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                <svg
-                  className="h-6 w-6 text-red-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                {t('common.delete')} Order
-              </h3>
-              <p className="text-sm text-gray-500">
-                Are you sure? This will permanently delete this order and its stage history.
-              </p>
-            </div>
-            <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4">
-              <button
-                onClick={() => setDeleteId(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {deleting ? 'Deleting...' : t('common.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDeleteDialog
+          itemLabel={orders.find((o) => o.id === deleteId)?.orderNumber || deleteId}
+          titleKey="orders.deleteOrder"
+          descriptionKey="orders.confirmDelete"
+          deleting={deleting}
+          onConfirm={handleDelete}
+          onCancel={cancelDelete}
+          error={deleteError}
+        />
       )}
     </div>
   );
