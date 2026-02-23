@@ -14,6 +14,15 @@ import {
   productionStatsSchema,
 } from '../../utils/apiValidation';
 
+export interface StageUpdateResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+  invalidTransition?: boolean;
+  currentStage?: string;
+  allowedStages?: string[];
+}
+
 export const useProductionApi = () => {
   const getProductionBoard = useCallback(async (): Promise<ProductionBoardResponse> => {
     const response = await apiClient.get(`/production/board`);
@@ -70,7 +79,7 @@ export const useProductionApi = () => {
   }, []);
 
   const updateProductionStage = useCallback(
-    async (id: string, stage: OrderStatus, notes?: string): Promise<ApiResponse> => {
+    async (id: string, stage: OrderStatus, notes?: string): Promise<StageUpdateResponse> => {
       const response = await apiClient.patch(`/production/orders/${id}/stage`, { stage, notes });
       return response.data;
     },
