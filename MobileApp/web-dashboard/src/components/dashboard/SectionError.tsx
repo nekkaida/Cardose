@@ -33,4 +33,4 @@ const SectionError: React.FC<SectionErrorProps> = ({ message, onRetry, retryLabe
   );
 };
 
-export default SectionError;
+export default React.memo(SectionError);
