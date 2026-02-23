@@ -1,6 +1,38 @@
 import { z } from 'zod';
 
 /**
+ * Strictly validate a security-critical API response.
+ * Unlike validateResponse, this throws on validation failure
+ * instead of passing through raw data. Use for auth endpoints.
+ */
+export function validateStrictResponse<T>(
+  schema: z.ZodType<T>,
+  data: unknown,
+  endpoint: string
+): T {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const issuesSummary = result.error.issues
+      .map((i) => `${i.path.join('.')}: ${i.message}`)
+      .join('; ');
+
+    try {
+      if (typeof window !== 'undefined' && (window as any).Sentry?.captureMessage) {
+        (window as any).Sentry.captureMessage(
+          `[API Validation STRICT] ${endpoint}: ${issuesSummary}`,
+          { level: 'error', extra: { endpoint, issues: result.error.issues } }
+        );
+      }
+    } catch {
+      // Sentry not available
+    }
+
+    throw new Error(`Validation failed for ${endpoint}`);
+  }
+  return result.data;
+}
+
+/**
  * Safely validate an API response against a Zod schema.
  * On failure: reports to Sentry (production) or logs a warning (dev),
  * then returns the raw data (graceful degradation so UI doesn't crash).
@@ -29,6 +61,13 @@ export function validateResponse<T>(schema: z.ZodType<T>, data: unknown, endpoin
       // Sentry not available
     }
 
+    // Attempt a lenient re-parse: if schema supports partial(), make all fields
+    // optional so valid fields still get Zod coercion/defaults while invalid
+    // ones are dropped instead of failing the entire parse.
+    if (typeof (schema as any).partial === 'function') {
+      const lenient = (schema as any).partial().safeParse(data);
+      if (lenient.success) return lenient.data as T;
+    }
     return data as T;
   }
   return result.data;
@@ -57,6 +96,46 @@ export const listResponseSchema = z.object({
   totalPages: z.number(),
 });
 
+// ── Inventory list response schema (validates items array shape) ──
+
+const inventoryItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  category: z.string().nullable(),
+  current_stock: z.number().nullable(),
+  reorder_level: z.number().nullable(),
+  unit_cost: z.number().nullable(),
+  unit: z.string().optional().nullable(),
+  supplier: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  sku: z.string().optional().nullable(),
+  created_at: z.string(),
+  updated_at: z.string().optional().nullable(),
+});
+
+export const inventoryListResponseSchema = z.object({
+  success: z.boolean(),
+  items: z.array(inventoryItemSchema),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+  stats: z
+    .object({
+      total: z.number(),
+      cardboard: z.number(),
+      fabric: z.number(),
+      ribbon: z.number(),
+      accessories: z.number(),
+      packaging: z.number(),
+      tools: z.number(),
+      lowStock: z.number(),
+      outOfStock: z.number(),
+      totalValue: z.number(),
+    })
+    .optional(),
+});
+
 // ── Customers list response schema ───────────────────────────────
 
 const customerSchema = z.object({
@@ -65,10 +144,10 @@ const customerSchema = z.object({
   email: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
-  business_type: z.string(),
-  loyalty_status: z.string(),
-  total_orders: z.number(),
-  total_spent: z.number(),
+  business_type: z.string().optional().nullable(),
+  loyalty_status: z.string().optional().nullable(),
+  total_orders: z.number().optional().nullable(),
+  total_spent: z.number().optional().nullable(),
   notes: z.string().optional().nullable(),
   created_at: z.string(),
   updated_at: z.string().optional().nullable(),
@@ -94,6 +173,28 @@ export const customersListSchema = z.object({
   limit: z.number(),
   totalPages: z.number(),
   stats: customerStatsSchema.optional(),
+});
+
+// ── Customer detail response schema ──────────────────────────────
+
+const customerOrderSchema = z.object({
+  id: z.string(),
+  order_number: z.string(),
+  status: z.string(),
+  priority: z.string(),
+  box_type: z.string().optional().nullable(),
+  total_amount: z.number(),
+  notes: z.string().optional().nullable(),
+  due_date: z.string().optional().nullable(),
+  created_at: z.string(),
+  updated_at: z.string().optional().nullable(),
+});
+
+export const customerDetailSchema = z.object({
+  success: z.boolean(),
+  customer: customerSchema.extend({
+    recentOrders: z.array(customerOrderSchema).optional(),
+  }),
 });
 
 // ── Report response schemas ───────────────────────────────────────
@@ -144,7 +245,7 @@ export const inventoryReportResponseSchema = z.object({
     lowStockItems: z.array(
       z.object({
         name: z.string(),
-        sku: z.string(),
+        sku: z.string().nullable(),
         category: z.string().nullable(),
         current_stock: z.number(),
         reorder_level: z.number(),
@@ -166,8 +267,12 @@ export const productionReportResponseSchema = z.object({
   success: z.boolean(),
   report: z.object({
     period: periodSchema,
+    summary: z.object({
+      totalOrders: z.number(),
+      completedOrders: z.number(),
+      completionRate: z.number(),
+    }),
     ordersByStatus: z.array(z.object({ status: z.string(), count: z.number(), value: z.number() })),
-    completionRate: z.number(),
     taskStats: z.array(z.object({ status: z.string(), count: z.number() })),
     qualityStats: z.array(z.object({ overall_status: z.string(), count: z.number() })),
   }),
@@ -246,7 +351,7 @@ const userSchema = z.object({
   full_name: z.string(),
   phone: z.string().nullable(),
   role: z.string(),
-  is_active: z.number(),
+  is_active: z.boolean(),
   created_at: z.string(),
   updated_at: z.string().nullable().optional(),
 });
@@ -277,6 +382,7 @@ export const usersListResponseSchema = z.object({
 const settingSchema = z.object({
   value: z.string(),
   description: z.string().nullable().optional(),
+  is_protected: z.boolean().optional(),
 });
 
 export const settingsListResponseSchema = z.object({
@@ -317,41 +423,117 @@ export const dashboardAnalyticsSchema = z.object({
   }),
   production: z.object({
     designing: z.number(),
+    approved: z.number(),
     in_production: z.number(),
     quality_control: z.number(),
     urgent_orders: z.number(),
   }),
 });
 
+// ── Recent orders schema ────────────────────────────────────────
+
+export const recentOrdersResponseSchema = z.object({
+  success: z.boolean(),
+  orders: z.array(
+    z.object({
+      id: z.string(),
+      order_number: z.string().optional(),
+      customer_name: z.string().nullable().optional(),
+      status: z.string(),
+      priority: z.string().optional(),
+      total_amount: z.number().optional(),
+      created_at: z.string(),
+    })
+  ),
+});
+
+// ── Revenue analytics schema ─────────────────────────────────────
+
+export const revenueAnalyticsSchema = z.object({
+  trend: z.array(
+    z.object({
+      month: z.string(),
+      invoice_count: z.number(),
+      revenue: z.number(),
+      tax_collected: z.number(),
+      average_value: z.number(),
+    })
+  ),
+});
+
+// ── Customer analytics schema ────────────────────────────────────
+
+export const customerAnalyticsSchema = z.object({
+  top_customers: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      business_type: z.string(),
+      loyalty_status: z.string(),
+      order_count: z.number(),
+      total_revenue: z.number(),
+      average_order_value: z.number(),
+      last_order_date: z.string().nullable(),
+    })
+  ),
+  acquisition_trend: z.array(
+    z.object({
+      month: z.string(),
+      new_customers: z.number(),
+    })
+  ),
+  by_business_type: z.array(
+    z.object({
+      business_type: z.string(),
+      count: z.number(),
+    })
+  ),
+});
+
 // ── Production board schema ───────────────────────────────────────
 
-const productionTaskSchema = z.object({
+const productionOrderSchema = z.object({
   id: z.string(),
-  order_id: z.string(),
-  title: z.string(),
+  order_number: z.string(),
+  customer_name: z.string().nullable().optional(),
   status: z.string(),
   priority: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  due_date: z.string().nullable().optional(),
+  total_amount: z.number(),
+  updated_at: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  special_requests: z.string().nullable().optional(),
+  stage_entered_at: z.string().nullable().optional(),
 });
 
 export const productionBoardSchema = z.object({
   success: z.boolean(),
   board: z.object({
-    pending: z.array(productionTaskSchema),
-    in_progress: z.array(productionTaskSchema),
-    completed: z.array(productionTaskSchema),
+    pending: z.array(productionOrderSchema),
+    designing: z.array(productionOrderSchema),
+    approved: z.array(productionOrderSchema),
+    production: z.array(productionOrderSchema),
+    quality_control: z.array(productionOrderSchema),
   }),
+  totalActive: z.number().optional(),
 });
 
 export const productionStatsSchema = z.object({
   success: z.boolean(),
   stats: z.object({
-    total: z.number(),
-    pending: z.number(),
-    inProgress: z.number(),
-    completed: z.number(),
-    completedToday: z.number(),
+    active_orders: z.number(),
+    completed_today: z.number(),
+    pending_approval: z.number().optional(),
+    quality_issues: z.number(),
+    overdue_orders: z.number(),
+    stage_distribution: z.object({
+      pending: z.number(),
+      designing: z.number(),
+      approved: z.number(),
+      production: z.number(),
+      quality_control: z.number(),
+      completed: z.number().optional(),
+    }),
   }),
 });
 
@@ -376,6 +558,48 @@ export const financialSummarySchema = z.object({
   }),
 });
 
+// ── Invoices list response schema ───────────────────────────────
+
+export const invoicesListSchema = z.object({
+  success: z.boolean(),
+  invoices: z.array(
+    z.object({
+      id: z.string(),
+      invoice_number: z.string(),
+      customer_id: z.string(),
+      customer_name: z.string().optional().nullable(),
+      order_number: z.string().optional().nullable(),
+      subtotal: z.number(),
+      discount: z.number(),
+      ppn_rate: z.number(),
+      ppn_amount: z.number(),
+      total_amount: z.number(),
+      status: z.enum(['unpaid', 'paid', 'overdue', 'cancelled', 'partial']),
+      issue_date: z.string(),
+      due_date: z.string().optional().nullable(),
+      paid_date: z.string().optional().nullable(),
+      notes: z.string().optional().nullable(),
+      created_at: z.string(),
+    })
+  ),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+  stats: z
+    .object({
+      total: z.number(),
+      unpaid: z.number(),
+      paid: z.number(),
+      overdue: z.number(),
+      cancelled: z.number(),
+      totalValue: z.number(),
+      paidValue: z.number(),
+      unpaidValue: z.number(),
+    })
+    .optional(),
+});
+
 // ── Transaction create payload schema ────────────────────────────
 
 export const createTransactionPayloadSchema = z.object({
@@ -389,7 +613,7 @@ export const createTransactionPayloadSchema = z.object({
 // ── Transactions list response schema ────────────────────────────
 
 export const transactionsListSchema = z.object({
-  success: z.boolean().optional(),
+  success: z.boolean(),
   transactions: z.array(
     z.object({
       id: z.string(),
@@ -404,8 +628,8 @@ export const transactionsListSchema = z.object({
   ),
   total: z.number(),
   totalPages: z.number(),
-  page: z.number().optional(),
-  limit: z.number().optional(),
+  page: z.number(),
+  limit: z.number(),
   categoryBreakdown: z
     .array(
       z.object({
