@@ -15,21 +15,28 @@ import {
   validateResponse,
   financialSummarySchema,
   transactionsListSchema,
+  invoicesListSchema,
   createTransactionPayloadSchema,
 } from '../../utils/apiValidation';
 
 export const useFinancialApi = () => {
   const getFinancialSummary = useCallback(async (): Promise<FinancialSummaryResponse> => {
     const response = await apiClient.get(`/financial/summary`);
-    validateResponse(financialSummarySchema, response.data, 'GET /financial/summary');
-    return response.data as FinancialSummaryResponse;
+    return validateResponse(
+      financialSummarySchema,
+      response.data,
+      'GET /financial/summary'
+    ) as FinancialSummaryResponse;
   }, []);
 
   const getTransactions = useCallback(
     async (params?: Record<string, string | number>): Promise<TransactionsListResponse> => {
       const response = await apiClient.get(`/financial/transactions`, { params });
-      validateResponse(transactionsListSchema, response.data, 'GET /financial/transactions');
-      return response.data as TransactionsListResponse;
+      return validateResponse(
+        transactionsListSchema,
+        response.data,
+        'GET /financial/transactions'
+      ) as TransactionsListResponse;
     },
     []
   );
@@ -58,7 +65,11 @@ export const useFinancialApi = () => {
   const getInvoices = useCallback(
     async (params?: Record<string, string | number>): Promise<InvoicesListResponse> => {
       const response = await apiClient.get(`/financial/invoices`, { params });
-      return response.data;
+      return validateResponse(
+        invoicesListSchema,
+        response.data,
+        'GET /financial/invoices'
+      ) as InvoicesListResponse;
     },
     []
   );
