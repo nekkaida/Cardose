@@ -2,8 +2,31 @@
 const { v4: uuidv4 } = require('uuid');
 const { parsePagination } = require('../utils/pagination');
 
+const VALID_BUSINESS_TYPES = ['corporate', 'individual', 'wedding', 'trading', 'event'];
+const VALID_LOYALTY_STATUSES = ['new', 'regular', 'vip'];
+
 async function customerRoutes(fastify, options) {
   const db = fastify.db;
+
+  const logAudit = (userId, action, entityType, entityId, details = null) => {
+    try {
+      db.db
+        .prepare(
+          `INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, details, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+        )
+        .run(
+          uuidv4(),
+          userId,
+          action,
+          entityType,
+          entityId,
+          details ? JSON.stringify(details) : null
+        );
+    } catch {
+      // Audit logging should not break the request
+    }
+  };
 
   // Get all customers (requires authentication)
   fastify.get('/', { preHandler: [fastify.authenticate] }, async (request, reply) => {
@@ -11,21 +34,21 @@ async function customerRoutes(fastify, options) {
       const { search, business_type, loyalty_status, sort_by, sort_order } = request.query;
       const { limit, page, offset } = parsePagination(request.query);
 
-      let query = 'SELECT * FROM customers WHERE 1=1';
+      let whereClause = 'WHERE 1=1';
       const params = [];
 
       if (search) {
-        query += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
+        whereClause += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
         params.push(`%${search}%`, `%${search}%`, `%${search}%`);
       }
 
       if (business_type) {
-        query += ' AND business_type = ?';
+        whereClause += ' AND business_type = ?';
         params.push(business_type);
       }
 
       if (loyalty_status) {
-        query += ' AND loyalty_status = ?';
+        whereClause += ' AND loyalty_status = ?';
         params.push(loyalty_status);
       }
 
@@ -41,20 +64,18 @@ async function customerRoutes(fastify, options) {
       };
       const sortColumn = allowedSortColumns[sort_by] || 'created_at';
       const sortDirection = sort_order === 'asc' ? 'ASC' : 'DESC';
-      query += ` ORDER BY ${sortColumn} ${sortDirection}`;
 
-      // Get total count
-      const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total');
-      const countResult = db.db.prepare(countQuery).get(...params);
+      // Count query (no ORDER BY needed)
+      const countResult = db.db
+        .prepare(`SELECT COUNT(*) as total FROM customers ${whereClause}`)
+        .get(...params);
       const total = countResult ? countResult.total : 0;
 
-      // Add pagination
-      query += ' LIMIT ? OFFSET ?';
-      params.push(limit, offset);
+      // Data query with sort + pagination
+      const dataQuery = `SELECT * FROM customers ${whereClause} ORDER BY ${sortColumn} ${sortDirection} LIMIT ? OFFSET ?`;
+      const customers = db.db.prepare(dataQuery).all(...params, limit, offset);
 
-      const customers = db.db.prepare(query).all(...params);
-
-      // Calculate stats using SQL aggregates
+      // Calculate stats using SQL aggregates (respects filters)
       const statsRow = db.db
         .prepare(
           `
@@ -63,18 +84,20 @@ async function customerRoutes(fastify, options) {
           SUM(CASE WHEN business_type = 'corporate' THEN 1 ELSE 0 END) as corporate,
           SUM(CASE WHEN business_type = 'wedding' THEN 1 ELSE 0 END) as wedding,
           SUM(CASE WHEN business_type = 'individual' THEN 1 ELSE 0 END) as individual,
+          SUM(CASE WHEN business_type = 'trading' THEN 1 ELSE 0 END) as trading,
           SUM(CASE WHEN business_type = 'event' THEN 1 ELSE 0 END) as event,
           COALESCE(SUM(total_spent), 0) as totalValue,
           SUM(CASE WHEN loyalty_status = 'new' THEN 1 ELSE 0 END) as loyalty_new,
           SUM(CASE WHEN loyalty_status = 'regular' THEN 1 ELSE 0 END) as loyalty_regular,
           SUM(CASE WHEN loyalty_status = 'vip' THEN 1 ELSE 0 END) as loyalty_vip
-        FROM customers
+        FROM customers ${whereClause}
       `
         )
-        .get();
+        .get(...params);
       const stats = {
         corporate: statsRow.corporate,
         wedding: statsRow.wedding,
+        trading: statsRow.trading,
         individual: statsRow.individual,
         event: statsRow.event,
         totalValue: statsRow.totalValue,
@@ -108,13 +131,13 @@ async function customerRoutes(fastify, options) {
           type: 'object',
           required: ['name'],
           properties: {
-            name: { type: 'string', minLength: 1 },
+            name: { type: 'string', minLength: 1, maxLength: 255 },
+            email: { type: 'string', maxLength: 255 },
+            phone: { type: 'string', maxLength: 25 },
+            address: { type: 'string', maxLength: 500 },
+            notes: { type: 'string', maxLength: 2000 },
             business_type: { type: 'string' },
-            email: { type: 'string' },
-            phone: { type: 'string' },
-            address: { type: 'string' },
             loyalty_status: { type: 'string' },
-            notes: { type: 'string' },
           },
         },
       },
@@ -129,6 +152,22 @@ async function customerRoutes(fastify, options) {
           return { success: false, error: 'Customer name is required' };
         }
 
+        if (business_type && !VALID_BUSINESS_TYPES.includes(business_type)) {
+          reply.code(400);
+          return {
+            success: false,
+            error: `Invalid business type. Must be one of: ${VALID_BUSINESS_TYPES.join(', ')}`,
+          };
+        }
+
+        if (!VALID_LOYALTY_STATUSES.includes(loyalty_status)) {
+          reply.code(400);
+          return {
+            success: false,
+            error: `Invalid loyalty status. Must be one of: ${VALID_LOYALTY_STATUSES.join(', ')}`,
+          };
+        }
+
         const id = uuidv4();
         const stmt = db.db.prepare(`
         INSERT INTO customers (id, name, email, phone, address, business_type, loyalty_status, total_orders, total_spent)
@@ -138,6 +177,9 @@ async function customerRoutes(fastify, options) {
 
         const customer = db.db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
 
+        logAudit(request.user.id, 'create', 'customer', id, { name });
+
+        reply.code(201);
         return {
           success: true,
           message: 'Customer created successfully',
@@ -190,13 +232,13 @@ async function customerRoutes(fastify, options) {
         body: {
           type: 'object',
           properties: {
-            name: { type: 'string' },
-            email: { type: 'string' },
-            phone: { type: 'string' },
-            address: { type: 'string' },
+            name: { type: 'string', minLength: 1, maxLength: 255 },
+            email: { type: 'string', maxLength: 255 },
+            phone: { type: 'string', maxLength: 25 },
+            address: { type: 'string', maxLength: 500 },
+            notes: { type: 'string', maxLength: 2000 },
             business_type: { type: 'string' },
             loyalty_status: { type: 'string' },
-            notes: { type: 'string' },
           },
         },
       },
@@ -217,6 +259,10 @@ async function customerRoutes(fastify, options) {
         const values = [];
 
         if (updates.name !== undefined) {
+          if (typeof updates.name === 'string' && !updates.name.trim()) {
+            reply.code(400);
+            return { success: false, error: 'Customer name cannot be empty' };
+          }
           fields.push('name = ?');
           values.push(updates.name);
         }
@@ -233,16 +279,34 @@ async function customerRoutes(fastify, options) {
           values.push(updates.address);
         }
         if (updates.business_type !== undefined) {
+          if (!VALID_BUSINESS_TYPES.includes(updates.business_type)) {
+            reply.code(400);
+            return {
+              success: false,
+              error: `Invalid business type. Must be one of: ${VALID_BUSINESS_TYPES.join(', ')}`,
+            };
+          }
           fields.push('business_type = ?');
           values.push(updates.business_type);
         }
         if (updates.loyalty_status !== undefined) {
+          if (!VALID_LOYALTY_STATUSES.includes(updates.loyalty_status)) {
+            reply.code(400);
+            return {
+              success: false,
+              error: `Invalid loyalty status. Must be one of: ${VALID_LOYALTY_STATUSES.join(', ')}`,
+            };
+          }
           fields.push('loyalty_status = ?');
           values.push(updates.loyalty_status);
         }
+        if (updates.notes !== undefined) {
+          fields.push('notes = ?');
+          values.push(updates.notes);
+        }
 
         if (fields.length === 0) {
-          return { success: true, message: 'No changes made' };
+          return { success: true, message: 'No changes made', customer: existing };
         }
 
         fields.push('updated_at = CURRENT_TIMESTAMP');
@@ -252,6 +316,10 @@ async function customerRoutes(fastify, options) {
         db.db.prepare(query).run(...values);
 
         const customer = db.db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
+
+        logAudit(request.user.id, 'update', 'customer', id, {
+          fields: Object.keys(updates).filter((k) => updates[k] !== undefined),
+        });
 
         return {
           success: true,
@@ -293,6 +361,8 @@ async function customerRoutes(fastify, options) {
 
         db.db.prepare('DELETE FROM customers WHERE id = ?').run(id);
 
+        logAudit(request.user.id, 'delete', 'customer', id, { name: existing.name });
+
         return {
           success: true,
           message: 'Customer deleted successfully',
@@ -312,7 +382,8 @@ async function customerRoutes(fastify, options) {
     async (request, reply) => {
       try {
         const { id } = request.params;
-        const { type, limit = 50 } = request.query;
+        const { type } = request.query;
+        const limit = Math.min(Math.max(parseInt(request.query.limit) || 50, 1), 200);
 
         // Check if customer exists
         const customer = db.db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
@@ -330,7 +401,7 @@ async function customerRoutes(fastify, options) {
         }
 
         query += ' ORDER BY created_at DESC LIMIT ?';
-        params.push(parseInt(limit));
+        params.push(limit);
 
         const communications = db.db.prepare(query).all(...params);
 
@@ -349,7 +420,21 @@ async function customerRoutes(fastify, options) {
   // Create customer communication (requires authentication)
   fastify.post(
     '/:id/communications',
-    { preHandler: [fastify.authenticate] },
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['type', 'content'],
+          properties: {
+            type: { type: 'string' },
+            direction: { type: 'string' },
+            subject: { type: 'string', maxLength: 500 },
+            content: { type: 'string', maxLength: 10000 },
+          },
+        },
+      },
+      preHandler: [fastify.authenticate],
+    },
     async (request, reply) => {
       try {
         const { id } = request.params;
@@ -376,6 +461,12 @@ async function customerRoutes(fastify, options) {
           };
         }
 
+        const validDirections = ['inbound', 'outbound'];
+        if (!validDirections.includes(direction)) {
+          reply.code(400);
+          return { success: false, error: 'Invalid direction. Must be inbound or outbound' };
+        }
+
         const commId = uuidv4();
         db.db
           .prepare(
@@ -390,6 +481,9 @@ async function customerRoutes(fastify, options) {
           .prepare('SELECT * FROM communication_messages WHERE id = ?')
           .get(commId);
 
+        logAudit(request.user.id, 'create', 'communication', commId, { customer_id: id, type });
+
+        reply.code(201);
         return {
           success: true,
           message: 'Communication created successfully',
