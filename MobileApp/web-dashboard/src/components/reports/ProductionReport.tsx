@@ -1,7 +1,16 @@
 import React from 'react';
-import { useLanguage } from '../../contexts/LanguageContext';
 import type { ProductionReportData } from '@shared/types/reports';
-import { StatCard, SectionTitle, DataTable, formatLabel } from './ReportPrimitives';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useReportTranslation } from '../../hooks/useReportTranslation';
+import { ReportDonutChart } from './ReportCharts';
+import {
+  StatCard,
+  SectionTitle,
+  DataTable,
+  formatLabel,
+  LOCALE_MAP,
+  buildPaginationLabels,
+} from './ReportPrimitives';
 
 export interface ProductionReportProps {
   data: ProductionReportData;
@@ -14,18 +23,40 @@ const ProductionReport: React.FC<ProductionReportProps> = ({
   formatCurrency,
   formatNumber,
 }) => {
-  const { t } = useLanguage();
-  const tr = (key: string, fallback: string) => {
-    const val = t(key);
-    return val === key ? fallback : val;
-  };
+  const { language } = useLanguage();
+  const tr = useReportTranslation();
 
   const emptyMessage = tr('reports.noData', 'No data available');
 
-  const statuses = data.ordersByStatus ?? [];
-  const totalOrders = statuses.reduce((sum, s) => sum + s.count, 0);
-  const completedCount = statuses.find((s) => s.status === 'completed')?.count ?? 0;
-  const rate = Number(data.completionRate) || 0;
+  const paginationLabels = buildPaginationLabels(tr);
+
+  const { completionRate } = data.summary;
+  const rateAccent =
+    completionRate >= 80
+      ? 'text-green-600'
+      : completionRate >= 50
+        ? 'text-amber-600'
+        : 'text-red-600';
+
+  const orderDistributionData = (data.ordersByStatus ?? []).map((s) => ({
+    name: formatLabel(s.status),
+    value: s.count,
+  }));
+
+  const taskDistributionData = (data.taskStats ?? []).map((s) => ({
+    name: formatLabel(s.status),
+    value: s.count,
+  }));
+
+  const qualityDistributionData = (data.qualityStats ?? []).map((s) => ({
+    name: formatLabel(s.overall_status),
+    value: s.count,
+  }));
+
+  const hasOrderChart = orderDistributionData.length > 0;
+  const hasTaskChart = taskDistributionData.length > 0;
+  const hasQualityChart = qualityDistributionData.length > 0;
+  const hasAnyChart = hasOrderChart || hasTaskChart || hasQualityChart;
 
   return (
     <>
@@ -33,17 +64,17 @@ const ProductionReport: React.FC<ProductionReportProps> = ({
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
         <StatCard
           label={tr('reports.totalOrders', 'Total Orders')}
-          value={formatNumber(totalOrders)}
+          value={formatNumber(data.summary.totalOrders)}
         />
         <StatCard
           label={tr('reports.completedOrders', 'Completed')}
-          value={formatNumber(completedCount)}
+          value={formatNumber(data.summary.completedOrders)}
           accent="text-green-600"
         />
         <StatCard
           label={tr('reports.completionRate', 'Completion Rate')}
-          value={`${rate.toFixed(1)}%`}
-          accent={rate >= 80 ? 'text-green-600' : rate >= 50 ? 'text-amber-600' : 'text-red-600'}
+          value={`${new Intl.NumberFormat(LOCALE_MAP[language] || 'id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(data.summary.completionRate)}%`}
+          accent={rateAccent}
         />
       </div>
 
@@ -54,71 +85,106 @@ const ProductionReport: React.FC<ProductionReportProps> = ({
         </p>
       )}
 
-      {/* Orders by status */}
+      {/* Donut charts grid */}
+      {hasAnyChart && (
+        <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
+          {hasOrderChart && (
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <SectionTitle>{tr('reports.orderDistribution', 'Order Distribution')}</SectionTitle>
+              <ReportDonutChart
+                data={orderDistributionData}
+                centerLabel={tr('reports.totalOrders', 'Total Orders')}
+                centerValue={String(data.summary.totalOrders)}
+              />
+            </div>
+          )}
+
+          {hasTaskChart && (
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <SectionTitle>{tr('reports.taskDistribution', 'Task Distribution')}</SectionTitle>
+              <ReportDonutChart data={taskDistributionData} />
+            </div>
+          )}
+
+          {hasQualityChart && (
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <SectionTitle>
+                {tr('reports.qualityDistribution', 'Quality Check Distribution')}
+              </SectionTitle>
+              <ReportDonutChart data={qualityDistributionData} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Orders by status table */}
       <div className="mb-6">
         <SectionTitle>{tr('reports.ordersByStatus', 'Orders by Status')}</SectionTitle>
         <DataTable
           emptyMessage={emptyMessage}
+          paginationLabels={paginationLabels}
           headers={[
             {
               key: 'status',
               label: tr('reports.status', 'Status'),
-              format: (v: string) => formatLabel(v || '-'),
+              format: (v) => formatLabel((v as string) || '-'),
             },
             {
               key: 'count',
               label: tr('reports.count', 'Count'),
-              format: (v: number) => formatNumber(v),
+              format: (v) => formatNumber(v as number),
             },
             {
               key: 'value',
               label: tr('reports.value', 'Value'),
-              format: (v: number) => formatCurrency(v),
+              format: (v) => formatCurrency(v as number),
             },
           ]}
-          rows={statuses}
+          rows={data.ordersByStatus ?? []}
         />
       </div>
 
-      {/* Task stats */}
+      {/* Task stats table */}
       <div className="mb-6">
         <SectionTitle>{tr('reports.taskStats', 'Task Statistics')}</SectionTitle>
         <DataTable
           emptyMessage={emptyMessage}
+          paginationLabels={paginationLabels}
           headers={[
             {
               key: 'status',
               label: tr('reports.status', 'Status'),
-              format: (v: string) => formatLabel(v || '-'),
+              format: (v) => formatLabel((v as string) || '-'),
             },
             {
               key: 'count',
               label: tr('reports.count', 'Count'),
-              format: (v: number) => formatNumber(v),
+              format: (v) => formatNumber(v as number),
             },
           ]}
-          rows={data.taskStats}
+          rows={data.taskStats ?? []}
         />
       </div>
 
-      {/* Quality stats */}
+      {/* Quality stats table */}
       <div>
         <SectionTitle>{tr('reports.qualityStats', 'Quality Check Statistics')}</SectionTitle>
         <DataTable
           emptyMessage={emptyMessage}
+          paginationLabels={paginationLabels}
           headers={[
             {
               key: 'overall_status',
               label: tr('reports.status', 'Status'),
-              format: (v: string) => formatLabel(v || '-'),
+              format: (v) => formatLabel((v as string) || '-'),
             },
             {
               key: 'count',
               label: tr('reports.count', 'Count'),
-              format: (v: number) => formatNumber(v),
+              format: (v) => formatNumber(v as number),
             },
           ]}
-          rows={data.qualityStats}
+          rows={data.qualityStats ?? []}
         />
       </div>
     </>
