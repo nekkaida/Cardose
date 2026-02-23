@@ -9,8 +9,10 @@ import {
   Modal,
   Image,
 } from 'react-native';
-import { Camera, CameraType } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Icon } from 'react-native-paper';
 import { theme } from '../theme/theme';
 
 interface CameraCaptureProps {
@@ -26,22 +28,21 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   onCapture,
   allowGallery = true,
 }) => {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [type, setType] = useState<CameraType>(CameraType.back);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState<'front' | 'back'>('back');
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<CameraView>(null);
+  const insets = useSafeAreaInsets();
 
   React.useEffect(() => {
-    if (visible) {
-      requestPermissions();
+    // Wait for the initial permission check to complete (permission !== null)
+    // before deciding whether to request. Also skip if canAskAgain is false
+    // (user selected "Don't ask again") to avoid an infinite no-op loop.
+    if (visible && permission !== null && !permission.granted && permission.canAskAgain) {
+      requestPermission();
     }
-  }, [visible]);
-
-  const requestPermissions = async () => {
-    const { status } = await Camera.requestCameraPermissionsAsync();
-    setHasPermission(status === 'granted');
-  };
+  }, [visible, permission, requestPermission]);
 
   const takePicture = async () => {
     if (!cameraRef.current) return;
@@ -50,12 +51,13 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
       setIsLoading(true);
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
-        base64: false,
       });
-      setPreviewUri(photo.uri);
+      if (photo) {
+        setPreviewUri(photo.uri);
+      }
     } catch (error) {
       console.error('Error taking picture:', error);
-      Alert.alert('Error', 'Failed to take picture');
+      Alert.alert('Kesalahan', 'Gagal mengambil foto.');
     } finally {
       setIsLoading(false);
     }
@@ -63,10 +65,14 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 
   const pickFromGallery = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'We need gallery access to select photos');
+        Alert.alert(
+          'Izin Ditolak',
+          'Kami membutuhkan akses galeri untuk memilih foto.',
+        );
         return;
       }
 
@@ -82,7 +88,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image from gallery');
+      Alert.alert('Kesalahan', 'Gagal memilih foto dari galeri.');
     }
   };
 
@@ -105,24 +111,30 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
 
   if (!visible) return null;
 
-  if (hasPermission === null) {
+  // Still requesting permissions
+  if (!permission) {
     return (
       <Modal visible={visible} animationType="slide">
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Requesting permissions...</Text>
+          <Text style={styles.loadingText}>Meminta izin kamera...</Text>
         </View>
       </Modal>
     );
   }
 
-  if (hasPermission === false) {
+  // Permission denied
+  if (!permission.granted) {
     return (
       <Modal visible={visible} animationType="slide">
         <View style={styles.centerContainer}>
-          <Text style={styles.permissionText}>No access to camera</Text>
+          <Icon source="camera-off" size={48} color="#fff" />
+          <Text style={styles.permissionText}>Tidak ada akses kamera</Text>
+          <Text style={styles.permissionHint}>
+            Aktifkan izin kamera di pengaturan perangkat Anda.
+          </Text>
           <TouchableOpacity style={styles.button} onPress={onClose}>
-            <Text style={styles.buttonText}>Close</Text>
+            <Text style={styles.buttonText}>Tutup</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -136,16 +148,28 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
           // Preview mode
           <View style={styles.previewContainer}>
             <Image source={{ uri: previewUri }} style={styles.previewImage} />
-            <View style={styles.previewActions}>
-              <TouchableOpacity style={styles.actionButton} onPress={handleRetake}>
-                <Text style={styles.actionButtonText}>Retake</Text>
+            <View
+              style={[
+                styles.previewActions,
+                { paddingBottom: Math.max(insets.bottom, 20) },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleRetake}
+              >
+                <Icon source="camera-retake" size={20} color="#fff" />
+                <Text style={styles.actionButtonText}>Ulangi</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionButton, styles.confirmButton]}
                 onPress={handleConfirm}
               >
-                <Text style={[styles.actionButtonText, styles.confirmButtonText]}>
-                  Use Photo
+                <Icon source="check" size={20} color="#fff" />
+                <Text
+                  style={[styles.actionButtonText, styles.confirmButtonText]}
+                >
+                  Gunakan Foto
                 </Text>
               </TouchableOpacity>
             </View>
@@ -153,43 +177,67 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
         ) : (
           // Camera mode
           <>
-            <Camera style={styles.camera} type={type} ref={cameraRef}>
-              <View style={styles.cameraControls}>
+            <CameraView
+              style={styles.camera}
+              facing={facing}
+              ref={cameraRef}
+            >
+              <View
+                style={[
+                  styles.cameraTopBar,
+                  { paddingTop: Math.max(insets.top, 16) },
+                ]}
+              >
                 <TouchableOpacity
                   style={styles.flipButton}
-                  onPress={() => {
-                    setType(type === CameraType.back ? CameraType.front : CameraType.back);
-                  }}
+                  onPress={() =>
+                    setFacing((f) => (f === 'back' ? 'front' : 'back'))
+                  }
+                  accessibilityLabel="Putar kamera"
                 >
-                  <Text style={styles.flipText}>🔄</Text>
+                  <Icon source="camera-flip" size={24} color="#fff" />
                 </TouchableOpacity>
               </View>
-            </Camera>
+            </CameraView>
 
-            <View style={styles.bottomControls}>
-              {allowGallery && (
+            <View
+              style={[
+                styles.bottomControls,
+                { paddingBottom: Math.max(insets.bottom, 20) },
+              ]}
+            >
+              {allowGallery ? (
                 <TouchableOpacity
                   style={styles.galleryButton}
                   onPress={pickFromGallery}
+                  accessibilityLabel="Pilih dari galeri"
                 >
-                  <Text style={styles.galleryButtonText}>📷 Gallery</Text>
+                  <Icon source="image-multiple" size={20} color="#fff" />
+                  <Text style={styles.galleryButtonText}>Galeri</Text>
                 </TouchableOpacity>
+              ) : (
+                <View style={styles.placeholder} />
               )}
 
               <TouchableOpacity
                 style={styles.captureButton}
                 onPress={takePicture}
                 disabled={isLoading}
+                accessibilityLabel="Ambil foto"
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={theme.colors.primary} />
                 ) : (
                   <View style={styles.captureButtonInner} />
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancel}
+                accessibilityLabel="Batal"
+              >
+                <Text style={styles.cancelButtonText}>Batal</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -209,41 +257,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
+    gap: 12,
+    padding: 32,
   },
   loadingText: {
     color: '#fff',
-    marginTop: 16,
     fontSize: 16,
   },
   permissionText: {
     color: '#fff',
     fontSize: 18,
-    marginBottom: 24,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  permissionHint: {
+    color: '#aaa',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 12,
   },
   camera: {
     flex: 1,
   },
-  cameraControls: {
-    flex: 1,
-    backgroundColor: 'transparent',
+  cameraTopBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    padding: 20,
+    padding: 16,
   },
   flipButton: {
-    alignSelf: 'flex-start',
     backgroundColor: 'rgba(0,0,0,0.5)',
     padding: 12,
     borderRadius: 50,
-  },
-  flipText: {
-    fontSize: 24,
   },
   bottomControls: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 24,
     paddingHorizontal: 20,
     backgroundColor: '#000',
   },
@@ -258,29 +308,35 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
   },
   captureButtonInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#fff',
   },
   galleryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 8,
   },
   galleryButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
+  },
+  placeholder: {
+    width: 80,
   },
   cancelButton: {
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   cancelButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
   },
   button: {
@@ -307,14 +363,17 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     paddingHorizontal: 20,
     backgroundColor: '#000',
+    gap: 12,
   },
   actionButton: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
     paddingVertical: 16,
-    marginHorizontal: 8,
     backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 8,
-    alignItems: 'center',
   },
   confirmButton: {
     backgroundColor: theme.colors.primary,
