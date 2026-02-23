@@ -64,8 +64,12 @@ export interface RevenueChartProps {
 // ---------------------------------------------------------------------------
 
 const RevenueChart: React.FC<RevenueChartProps> = ({ loading, error, revenueTrend, onRetry }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const retryLabel = t('dashboard.retry');
+  const formatYAxis = React.useCallback(
+    (v: number) => formatShortCurrency(v, language),
+    [language]
+  );
 
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2">
@@ -73,14 +77,18 @@ const RevenueChart: React.FC<RevenueChartProps> = ({ loading, error, revenueTren
       {loading ? (
         <ChartSkeleton />
       ) : error ? (
-        <SectionError message={error} onRetry={onRetry} retryLabel={retryLabel} />
+        <SectionError
+          message={t('dashboard.loadErrorRevenue')}
+          onRetry={onRetry}
+          retryLabel={retryLabel}
+        />
       ) : revenueTrend.length > 0 ? (
         <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={revenueTrend}>
+          <AreaChart data={revenueTrend} role="img" aria-label={t('dashboard.revenueTrend')}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} />
             <YAxis
-              tickFormatter={formatShortCurrency}
+              tickFormatter={formatYAxis}
               tick={{ fontSize: 11 }}
               tickLine={false}
               axisLine={false}
@@ -118,4 +126,4 @@ const RevenueChart: React.FC<RevenueChartProps> = ({ loading, error, revenueTren
   );
 };
 
-export default RevenueChart;
+export default React.memo(RevenueChart);
