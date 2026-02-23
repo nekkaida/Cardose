@@ -1,7 +1,15 @@
-import { Alert } from 'react-native';
+/**
+ * Auth Form Validation
+ *
+ * Returns per-field error maps instead of firing Alerts.
+ * Uses the shared validators from utils/validators.ts as the single source of truth.
+ */
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LENGTH = 8;
+import { isValidEmail, isValidPhoneNumber, isStrongPassword } from '../../../utils/validators';
+
+export interface FieldErrors {
+  [field: string]: string;
+}
 
 export interface LoginFields {
   username: string;
@@ -14,47 +22,89 @@ export interface RegisterFields extends LoginFields {
   phone: string;
 }
 
-/**
- * Validates that username and password are non-empty.
- * Shows an alert and returns false when validation fails.
- */
-export function validateLoginFields({ username, password }: LoginFields): boolean {
-  if (!username || !password) {
-    Alert.alert('Error', 'Please enter username and password');
-    return false;
-  }
-  return true;
+export interface ForgotPasswordFields {
+  email: string;
 }
 
 /**
- * Validates all registration fields including email format and password strength.
- * Shows an alert and returns false when validation fails.
+ * Validate login fields and return per-field errors.
+ * Returns an empty object when everything is valid.
+ */
+export function validateLoginFields({ username, password }: LoginFields): FieldErrors {
+  const errors: FieldErrors = {};
+
+  if (!username.trim()) {
+    errors.username = 'Username is required';
+  }
+  if (!password) {
+    errors.password = 'Password is required';
+  }
+
+  return errors;
+}
+
+/**
+ * Validate registration fields and return per-field errors.
  */
 export function validateRegisterFields({
   username,
   password,
   email,
   fullName,
-}: RegisterFields): boolean {
-  if (!username || !password || !email || !fullName) {
-    Alert.alert('Error', 'Please fill in all required fields');
-    return false;
+  phone,
+}: RegisterFields): FieldErrors {
+  const errors: FieldErrors = {};
+
+  if (!username.trim()) {
+    errors.username = 'Username is required';
+  } else if (username.trim().length < 3) {
+    errors.username = 'Username must be at least 3 characters';
+  } else if (!/^[a-zA-Z0-9_-]+$/.test(username.trim())) {
+    errors.username = 'Username can only contain letters, numbers, _ and -';
   }
 
-  if (!EMAIL_REGEX.test(email)) {
-    Alert.alert('Error', 'Please enter a valid email address');
-    return false;
+  if (!fullName.trim()) {
+    errors.fullName = 'Full name is required';
   }
 
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    Alert.alert('Error', 'Password must be at least 8 characters long');
-    return false;
+  if (!email.trim()) {
+    errors.email = 'Email is required';
+  } else if (!isValidEmail(email.trim())) {
+    errors.email = 'Please enter a valid email address';
   }
 
-  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-    Alert.alert('Error', 'Password must contain uppercase, lowercase, and a number');
-    return false;
+  // Phone is optional, but validate format when provided
+  if (phone.trim() && !isValidPhoneNumber(phone.trim())) {
+    errors.phone = 'Enter a valid phone number (e.g. 08xx or +62xx)';
   }
 
-  return true;
+  if (!password) {
+    errors.password = 'Password is required';
+  } else if (!isStrongPassword(password)) {
+    errors.password = 'Min 8 chars with uppercase, lowercase, and a number';
+  }
+
+  return errors;
+}
+
+/**
+ * Validate forgot-password fields.
+ */
+export function validateForgotPasswordFields({ email }: ForgotPasswordFields): FieldErrors {
+  const errors: FieldErrors = {};
+
+  if (!email.trim()) {
+    errors.email = 'Email is required';
+  } else if (!isValidEmail(email.trim())) {
+    errors.email = 'Please enter a valid email address';
+  }
+
+  return errors;
+}
+
+/**
+ * Returns true when the error map has zero entries.
+ */
+export function isValid(errors: FieldErrors): boolean {
+  return Object.keys(errors).length === 0;
 }
