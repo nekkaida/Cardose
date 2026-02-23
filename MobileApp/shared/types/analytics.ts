@@ -31,6 +31,7 @@ export interface DashboardInventory {
 
 export interface DashboardProduction {
   designing: number;
+  approved: number;
   in_production: number;
   quality_control: number;
   urgent_orders: number;
@@ -65,7 +66,7 @@ export interface TopCustomer {
   order_count: number;
   total_revenue: number;
   average_order_value: number;
-  last_order_date: string;
+  last_order_date: string | null;
 }
 
 export interface BusinessTypeSegment {
