@@ -1,45 +1,83 @@
-import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import { Text, Button, Portal, Modal } from 'react-native-paper';
+import React, { memo } from 'react';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { Text, Button, Portal, Modal, ActivityIndicator } from 'react-native-paper';
 import { theme } from '../../../theme/theme';
-import { QualityCheck } from './qualityControlHelpers';
+import type { QualityCheck } from '../types';
 import { QualityHistoryCard } from './QualityHistoryCard';
 
 interface QualityHistoryModalProps {
   visible: boolean;
   onDismiss: () => void;
   history: QualityCheck[];
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
 }
 
-export const QualityHistoryModal: React.FC<QualityHistoryModalProps> = ({
-  visible,
-  onDismiss,
-  history,
-}) => {
-  return (
-    <Portal>
-      <Modal
-        visible={visible}
-        onDismiss={onDismiss}
-        contentContainerStyle={styles.modal}
-      >
-        <Text style={styles.modalTitle}>Quality Check History</Text>
-        <ScrollView>
-          {history.length === 0 ? (
-            <Text style={styles.emptyText}>No quality checks recorded yet</Text>
-          ) : (
-            history.map((check) => (
-              <QualityHistoryCard key={check.id} check={check} />
-            ))
-          )}
-        </ScrollView>
-        <Button mode="outlined" onPress={onDismiss}>
-          Close
-        </Button>
-      </Modal>
-    </Portal>
-  );
-};
+const keyExtractor = (item: QualityCheck) => item.id;
+
+const renderItem = ({ item }: { item: QualityCheck }) => (
+  <QualityHistoryCard check={item} />
+);
+
+export const QualityHistoryModal = memo<QualityHistoryModalProps>(
+  function QualityHistoryModal({ visible, onDismiss, history, loading, error, onRetry }) {
+    const renderContent = () => {
+      if (loading) {
+        return (
+          <View style={styles.centeredState}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={styles.stateText}>Loading history...</Text>
+          </View>
+        );
+      }
+
+      if (error) {
+        return (
+          <View style={styles.centeredState}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Button mode="outlined" onPress={onRetry} style={styles.retryButton}>
+              Retry
+            </Button>
+          </View>
+        );
+      }
+
+      if (history.length === 0) {
+        return (
+          <View style={styles.centeredState}>
+            <Text style={styles.stateText}>No quality checks recorded yet</Text>
+          </View>
+        );
+      }
+
+      return (
+        <FlatList
+          data={history}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          style={styles.list}
+        />
+      );
+    };
+
+    return (
+      <Portal>
+        <Modal
+          visible={visible}
+          onDismiss={onDismiss}
+          contentContainerStyle={styles.modal}
+        >
+          <Text style={styles.modalTitle}>Quality Check History</Text>
+          {renderContent()}
+          <Button mode="outlined" onPress={onDismiss} style={styles.closeButton}>
+            Close
+          </Button>
+        </Modal>
+      </Portal>
+    );
+  }
+);
 
 const styles = StyleSheet.create({
   modal: {
@@ -55,10 +93,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: theme.colors.text,
   },
-  emptyText: {
-    textAlign: 'center',
+  list: {
+    flexGrow: 0,
+  },
+  centeredState: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  stateText: {
     fontSize: 14,
     color: theme.colors.textSecondary,
-    paddingVertical: 20,
+    marginTop: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: theme.colors.error,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  retryButton: {
+    marginTop: 8,
+  },
+  closeButton: {
+    marginTop: 12,
   },
 });
