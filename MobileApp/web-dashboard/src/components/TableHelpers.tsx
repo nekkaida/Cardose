@@ -28,6 +28,8 @@ export const Pagination: React.FC<{
   onNext: () => void;
   prevText?: string;
   nextText?: string;
+  /** Pre-formatted page info string (overrides hardcoded English template). */
+  pageInfoText?: string;
 }> = ({
   page,
   totalPages,
@@ -37,10 +39,11 @@ export const Pagination: React.FC<{
   onNext,
   prevText = 'Previous',
   nextText = 'Next',
+  pageInfoText,
 }) => (
   <div className="flex items-center justify-between border-t bg-gray-50 px-6 py-3">
     <span className="text-sm text-gray-600">
-      Page {page} of {totalPages} ({total} {label})
+      {pageInfoText || `Page ${page} of ${totalPages} (${total} ${label})`}
     </span>
     <div className="space-x-2">
       <button
