@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useApi } from '../contexts/ApiContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -10,26 +11,24 @@ import type {
   CustomerUpdatePayload,
 } from '@shared/types/customers';
 import Toast from '../components/Toast';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate, exportToCSV } from '../utils/formatters';
 import { SkeletonRow, SortIcon } from '../components/TableHelpers';
 import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog';
 import CustomerFormModal from '../components/customers/CustomerFormModal';
+import { getLoyaltyColor, getBusinessColor } from '../utils/customerStyles';
+import {
+  BUSINESS_TYPES,
+  LOYALTY_STATUSES,
+  BUSINESS_TYPE_I18N,
+  LOYALTY_I18N,
+} from '@shared/types/customerConstants';
 
-const BUSINESS_TYPES: BusinessType[] = ['corporate', 'individual', 'wedding', 'trading', 'event'];
-const LOYALTY_STATUSES = ['new', 'regular', 'vip'] as const;
-
-const BUSINESS_TYPE_I18N: Record<BusinessType, string> = {
-  corporate: 'customers.corporate',
-  individual: 'customers.individual',
-  wedding: 'customers.wedding',
-  trading: 'customers.trading',
-  event: 'customers.event',
-};
-
-const LOYALTY_I18N: Record<string, string> = {
-  new: 'customers.loyaltyNew',
-  regular: 'customers.loyaltyRegular',
-  vip: 'customers.loyaltyVip',
+const STAT_COLORS: Record<BusinessType, string> = {
+  corporate: 'text-blue-600',
+  individual: 'text-gray-600',
+  wedding: 'text-pink-600',
+  trading: 'text-amber-600',
+  event: 'text-purple-600',
 };
 
 const CustomersPage: React.FC = () => {
@@ -54,6 +53,7 @@ const CustomersPage: React.FC = () => {
     loyalty_regular: 0,
     loyalty_vip: 0,
   });
+  const [exporting, setExporting] = useState(false);
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const pageSize = 25;
@@ -73,8 +73,23 @@ const CustomersPage: React.FC = () => {
   const { getCustomers, createCustomer, updateCustomer, deleteCustomer } = useApi();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
 
   const canDelete = user?.role === 'owner' || user?.role === 'manager';
+  const location = useLocation();
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Show toast from navigation state (e.g. after delete on detail page)
+  useEffect(() => {
+    const state = location.state as {
+      toast?: { message: string; type: 'success' | 'error' };
+    } | null;
+    if (state?.toast) {
+      setToast(state.toast);
+      // Clear the state so it doesn't re-show on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Debounce search
   useEffect(() => {
@@ -86,6 +101,10 @@ const CustomersPage: React.FC = () => {
   }, [searchTerm]);
 
   const loadCustomers = useCallback(async () => {
+    // Cancel any in-flight request
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     try {
       setLoading(true);
       setError(null);
@@ -108,7 +127,7 @@ const CustomersPage: React.FC = () => {
         setStats(data.stats);
       }
     } catch (err) {
-      console.error('Error loading customers:', err);
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       setError(t('customers.loadError'));
     } finally {
       setLoading(false);
@@ -119,19 +138,11 @@ const CustomersPage: React.FC = () => {
     loadCustomers();
   }, [loadCustomers]);
 
-  // ESC key handler for delete dialog
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (deleting) return;
-        if (deleteId) {
-          setDeleteId(null);
-        }
-      }
+    return () => {
+      abortControllerRef.current?.abort();
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [deleteId, deleting]);
+  }, []);
 
   const openCreate = () => {
     setEditingCustomer(null);
@@ -154,12 +165,11 @@ const CustomersPage: React.FC = () => {
         setToast({ message: t('customers.createSuccess'), type: 'success' });
       }
       setShowModal(false);
+      setSaving(false);
       loadCustomers();
     } catch (err) {
       setSaving(false);
       throw err;
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -189,34 +199,45 @@ const CustomersPage: React.FC = () => {
     setPage(1);
   };
 
-  const getLoyaltyColor = (status: string) => {
-    switch (status) {
-      case 'vip':
-        return 'bg-accent-100 text-accent-800';
-      case 'regular':
-        return 'bg-blue-100 text-blue-800';
-      case 'new':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const handleExportCSV = async () => {
+    try {
+      setExporting(true);
+      const data = await getCustomers({
+        page: 1,
+        limit: 10000,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        ...(typeFilter !== 'all' ? { business_type: typeFilter } : {}),
+        ...(loyaltyFilter !== 'all' ? { loyalty_status: loyaltyFilter } : {}),
+      });
+      const rows = (data.customers || []).map((c: Customer) => ({
+        name: c.name,
+        email: c.email || '',
+        phone: c.phone || '',
+        business_type: c.business_type,
+        loyalty_status: c.loyalty_status,
+        total_orders: c.total_orders,
+        total_spent: c.total_spent,
+        address: c.address || '',
+        notes: c.notes || '',
+        created_at: c.created_at,
+      }));
+      exportToCSV(rows, `customers-${new Date().toISOString().slice(0, 10)}.csv`);
+      setToast({ message: t('customers.exportSuccess'), type: 'success' });
+    } catch {
+      setToast({ message: t('customers.exportError'), type: 'error' });
+    } finally {
+      setExporting(false);
     }
   };
 
-  const getBusinessColor = (type: string) => {
-    switch (type) {
-      case 'corporate':
-        return 'bg-blue-50 text-blue-700';
-      case 'wedding':
-        return 'bg-pink-50 text-pink-700';
-      case 'event':
-        return 'bg-purple-50 text-purple-700';
-      case 'trading':
-        return 'bg-amber-50 text-amber-700';
-      case 'individual':
-        return 'bg-gray-50 text-gray-700';
-      default:
-        return 'bg-gray-50 text-gray-700';
-    }
+  const clearFilters = () => {
+    setSearchTerm('');
+    setDebouncedSearch('');
+    setTypeFilter('all');
+    setLoyaltyFilter('all');
+    setPage(1);
   };
 
   const hasFilters = !!debouncedSearch || typeFilter !== 'all' || loyaltyFilter !== 'all';
@@ -268,28 +289,42 @@ const CustomersPage: React.FC = () => {
             {t('customers.totalCustomersCount').replace('{n}', String(totalCustomers))}
           </p>
         </div>
-        <button
-          onClick={openCreate}
-          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
-        >
-          + {t('customers.new')}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExportCSV}
+            disabled={exporting || loading || totalCustomers === 0}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40"
+          >
+            {exporting ? t('customers.exporting') : t('customers.exportCsv')}
+          </button>
+          <button
+            onClick={openCreate}
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+          >
+            + {t('customers.new')}
+          </button>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* Stats - All business types + VIP + Revenue */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
           <p className="text-xs font-medium uppercase text-gray-500">{t('customers.total')}</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{totalCustomers}</p>
+          <p className="mt-0.5 text-xs text-gray-400">
+            {t('customers.loyaltyVip')}: {stats.loyalty_vip}
+          </p>
         </div>
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase text-gray-500">{t('customers.corporate')}</p>
-          <p className="mt-1 text-2xl font-bold text-blue-600">{stats.corporate}</p>
-        </div>
-        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium uppercase text-gray-500">{t('customers.vip')}</p>
-          <p className="mt-1 text-2xl font-bold text-accent-600">{stats.loyalty_vip}</p>
-        </div>
+        {BUSINESS_TYPES.map((bt) => (
+          <div key={bt} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase text-gray-500">
+              {t(BUSINESS_TYPE_I18N[bt])}
+            </p>
+            <p className={`mt-1 text-2xl font-bold ${STAT_COLORS[bt]}`}>
+              {stats[bt as keyof CustomerStatsResponse] as number}
+            </p>
+          </div>
+        ))}
         <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
           <p className="text-xs font-medium uppercase text-gray-500">
             {t('customers.totalRevenue')}
@@ -302,10 +337,11 @@ const CustomersPage: React.FC = () => {
 
       {/* Filters */}
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
           <div className="flex-1">
             <input
               type="text"
+              aria-label={t('customers.searchPlaceholder')}
               placeholder={t('customers.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -313,6 +349,7 @@ const CustomersPage: React.FC = () => {
             />
           </div>
           <select
+            aria-label={t('customers.filterByType')}
             value={typeFilter}
             onChange={(e) => {
               setTypeFilter(e.target.value);
@@ -328,6 +365,7 @@ const CustomersPage: React.FC = () => {
             ))}
           </select>
           <select
+            aria-label={t('customers.filterByLoyalty')}
             value={loyaltyFilter}
             onChange={(e) => {
               setLoyaltyFilter(e.target.value);
@@ -342,6 +380,14 @@ const CustomersPage: React.FC = () => {
               </option>
             ))}
           </select>
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              className="whitespace-nowrap rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+            >
+              {t('customers.clearFilters')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -353,6 +399,17 @@ const CustomersPage: React.FC = () => {
               <tr>
                 <th
                   onClick={() => handleSort('name')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSort('name');
+                    }
+                  }}
+                  tabIndex={0}
+                  role="columnheader"
+                  aria-sort={
+                    sortBy === 'name' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'
+                  }
                   className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
                   {t('customers.customer')}{' '}
@@ -360,6 +417,17 @@ const CustomersPage: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSort('email')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSort('email');
+                    }
+                  }}
+                  tabIndex={0}
+                  role="columnheader"
+                  aria-sort={
+                    sortBy === 'email' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'
+                  }
                   className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
                   {t('customers.contact')}{' '}
@@ -367,6 +435,21 @@ const CustomersPage: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSort('business_type')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSort('business_type');
+                    }
+                  }}
+                  tabIndex={0}
+                  role="columnheader"
+                  aria-sort={
+                    sortBy === 'business_type'
+                      ? sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                   className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
                   {t('customers.type')}{' '}
@@ -374,6 +457,21 @@ const CustomersPage: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSort('loyalty_status')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSort('loyalty_status');
+                    }
+                  }}
+                  tabIndex={0}
+                  role="columnheader"
+                  aria-sort={
+                    sortBy === 'loyalty_status'
+                      ? sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                   className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
                   {t('customers.status')}{' '}
@@ -381,6 +479,21 @@ const CustomersPage: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSort('total_orders')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSort('total_orders');
+                    }
+                  }}
+                  tabIndex={0}
+                  role="columnheader"
+                  aria-sort={
+                    sortBy === 'total_orders'
+                      ? sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                   className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
                   {t('customers.ordersCol')}{' '}
@@ -388,6 +501,21 @@ const CustomersPage: React.FC = () => {
                 </th>
                 <th
                   onClick={() => handleSort('total_spent')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSort('total_spent');
+                    }
+                  }}
+                  tabIndex={0}
+                  role="columnheader"
+                  aria-sort={
+                    sortBy === 'total_spent'
+                      ? sortOrder === 'asc'
+                        ? 'ascending'
+                        : 'descending'
+                      : 'none'
+                  }
                   className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
                 >
                   {t('customers.spent')}{' '}
@@ -422,7 +550,14 @@ const CustomersPage: React.FC = () => {
                       <p className="mb-4 text-sm text-gray-400">
                         {hasFilters ? t('customers.adjustFilters') : t('customers.createFirst')}
                       </p>
-                      {!hasFilters && (
+                      {hasFilters ? (
+                        <button
+                          onClick={clearFilters}
+                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          {t('customers.clearFilters')}
+                        </button>
+                      ) : (
                         <button
                           onClick={openCreate}
                           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
@@ -442,12 +577,13 @@ const CustomersPage: React.FC = () => {
                           {(customer.name || '?')[0].toUpperCase()}
                         </div>
                         <div className="ml-3 min-w-0">
-                          <div
-                            className="truncate text-sm font-medium text-gray-900"
+                          <button
+                            onClick={() => navigate(`/customers/${customer.id}`)}
+                            className="truncate text-sm font-medium text-primary-700 hover:text-primary-900 hover:underline"
                             title={customer.name}
                           >
                             {customer.name}
-                          </div>
+                          </button>
                           <div className="text-xs text-gray-500">
                             {formatDate(customer.created_at)}
                           </div>
@@ -518,7 +654,15 @@ const CustomersPage: React.FC = () => {
                 .replace('{totalPages}', String(totalPages))
                 .replace('{total}', String(totalCustomers))}
             </span>
-            <div className="space-x-2">
+            <div className="flex items-center gap-1">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage(1)}
+                className="rounded-lg border px-2.5 py-1.5 text-sm transition-colors hover:bg-gray-100 disabled:opacity-40"
+                title={t('customers.firstPage')}
+              >
+                &laquo;
+              </button>
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
@@ -526,12 +670,69 @@ const CustomersPage: React.FC = () => {
               >
                 {t('customers.previous')}
               </button>
+              {totalPages <= 7
+                ? Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      aria-current={p === page ? 'page' : undefined}
+                      className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                        p === page
+                          ? 'border-primary-500 bg-primary-50 font-semibold text-primary-700'
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))
+                : (() => {
+                    const pages: (number | string)[] = [];
+                    pages.push(1);
+                    if (page > 3) pages.push('...');
+                    for (
+                      let i = Math.max(2, page - 1);
+                      i <= Math.min(totalPages - 1, page + 1);
+                      i++
+                    ) {
+                      pages.push(i);
+                    }
+                    if (page < totalPages - 2) pages.push('...');
+                    pages.push(totalPages);
+                    return pages.map((p, idx) =>
+                      typeof p === 'string' ? (
+                        <span key={`ellipsis-${idx}`} className="px-1 text-sm text-gray-400">
+                          {p}
+                        </span>
+                      ) : (
+                        <button
+                          key={p}
+                          onClick={() => setPage(p)}
+                          aria-current={p === page ? 'page' : undefined}
+                          className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                            p === page
+                              ? 'border-primary-500 bg-primary-50 font-semibold text-primary-700'
+                              : 'hover:bg-gray-100'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
+                    );
+                  })()}
               <button
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:bg-gray-100 disabled:opacity-40"
               >
                 {t('customers.next')}
+              </button>
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage(totalPages)}
+                className="rounded-lg border px-2.5 py-1.5 text-sm transition-colors hover:bg-gray-100 disabled:opacity-40"
+                title={t('customers.lastPage')}
+              >
+                &raquo;
               </button>
             </div>
           </div>
