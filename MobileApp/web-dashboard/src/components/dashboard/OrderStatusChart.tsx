@@ -48,9 +48,10 @@ function renderPieLabel({
   outerRadius = 0,
 }: PieLabelProps) {
   const RADIAN = Math.PI / 180;
-  const radius = outerRadius + 22;
+  const radius = outerRadius + 18;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  const pctStr = `${Math.round((percent || 0) * 100)}%`;
   return (
     <text
       x={x}
@@ -58,9 +59,9 @@ function renderPieLabel({
       fill="#374151"
       textAnchor={x > cx ? 'start' : 'end'}
       dominantBaseline="central"
-      fontSize={11}
+      fontSize={10}
     >
-      {`${name} ${Math.round((percent || 0) * 100)}%`}
+      <tspan fontWeight={500}>{name}</tspan> <tspan fill="#6B7280">{pctStr}</tspan>
     </text>
   );
 }
@@ -102,7 +103,7 @@ const OrderStatusChart: React.FC<OrderStatusChartProps> = ({
         />
       ) : orderStatusData.length > 0 ? (
         <ResponsiveContainer width="100%" height={260}>
-          <PieChart>
+          <PieChart role="img" aria-label={t('dashboard.orderStatus')}>
             <Pie
               data={orderStatusData}
               cx="50%"
@@ -148,4 +149,4 @@ const OrderStatusChart: React.FC<OrderStatusChartProps> = ({
   );
 };
 
-export default OrderStatusChart;
+export default React.memo(OrderStatusChart);
