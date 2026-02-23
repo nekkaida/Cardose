@@ -89,10 +89,32 @@ const ProductionPipeline: React.FC<ProductionPipelineProps> = ({
           onRetry={onRetry}
           retryLabel={retryLabel}
         />
+      ) : productionData.every((d) => d.count === 0) ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <svg
+            className="mb-3 h-10 w-10 text-gray-300"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
+            />
+          </svg>
+          <p className="text-sm text-gray-400">{t('dashboard.noProductionData')}</p>
+        </div>
       ) : (
         <>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={productionData}>
+            <BarChart
+              data={productionData}
+              role="img"
+              aria-label={t('dashboard.productionPipeline')}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="stage" tick={{ fontSize: 12 }} tickLine={false} />
               <YAxis
@@ -123,4 +145,4 @@ const ProductionPipeline: React.FC<ProductionPipelineProps> = ({
   );
 };
 
-export default ProductionPipeline;
+export default React.memo(ProductionPipeline);
