@@ -33,9 +33,14 @@ async function buildApp() {
 
   const rawDb = dbService.db;
 
-  // 0a. customers: route inserts 'address' column but table may not have it
+  // 0a. customers: route inserts 'address' and 'notes' columns but table may not have them
   try {
     rawDb.exec('ALTER TABLE customers ADD COLUMN address TEXT');
+  } catch (e) {
+    /* already exists */
+  }
+  try {
+    rawDb.exec('ALTER TABLE customers ADD COLUMN notes TEXT');
   } catch (e) {
     /* already exists */
   }
@@ -485,7 +490,7 @@ async function createTestOrder(app, token, customerId, orderData = {}) {
 async function createTestInventoryItem(app, token, itemData = {}) {
   const defaultItem = {
     name: 'Test Material ' + Date.now(),
-    category: 'paper',
+    category: 'cardboard',
     current_stock: 100,
     reorder_level: 10,
     unit_cost: 5000,
