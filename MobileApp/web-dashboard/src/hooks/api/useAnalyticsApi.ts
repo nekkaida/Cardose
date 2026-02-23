@@ -1,44 +1,54 @@
 import { useCallback } from 'react';
 import { apiClient } from '../../contexts/AuthContext';
 import type { DashboardData, RevenueAnalytics, CustomerAnalytics } from '@shared/types/analytics';
-import type { InventoryStatsResponse } from '@shared/types/inventory';
-import type { ProductionStatsResponse } from '@shared/types/production';
-import { validateResponse, dashboardAnalyticsSchema } from '../../utils/apiValidation';
+import {
+  validateResponse,
+  dashboardAnalyticsSchema,
+  revenueAnalyticsSchema,
+  customerAnalyticsSchema,
+} from '../../utils/apiValidation';
 
 export const useAnalyticsApi = () => {
   const getDashboardAnalytics = useCallback(
-    async (params?: Record<string, string | number>): Promise<DashboardData> => {
-      const response = await apiClient.get(`/analytics/dashboard`, { params });
+    async (
+      params?: Record<string, string | number>,
+      signal?: AbortSignal
+    ): Promise<DashboardData> => {
+      const response = await apiClient.get('/analytics/dashboard', { params, signal });
       return validateResponse(dashboardAnalyticsSchema, response.data, 'GET /analytics/dashboard');
     },
     []
   );
 
-  const getRevenueAnalytics = useCallback(async (): Promise<RevenueAnalytics> => {
-    const response = await apiClient.get(`/analytics/revenue-trend`);
-    return response.data as RevenueAnalytics;
-  }, []);
+  const getRevenueAnalytics = useCallback(
+    async (
+      params?: Record<string, string | number>,
+      signal?: AbortSignal
+    ): Promise<RevenueAnalytics> => {
+      const response = await apiClient.get('/analytics/revenue-trend', { params, signal });
+      return validateResponse(
+        revenueAnalyticsSchema,
+        response.data,
+        'GET /analytics/revenue-trend'
+      );
+    },
+    []
+  );
 
-  const getCustomerAnalytics = useCallback(async (): Promise<CustomerAnalytics> => {
-    const response = await apiClient.get(`/analytics/customers`);
-    return response.data as CustomerAnalytics;
-  }, []);
-
-  const getInventoryAnalytics = useCallback(async (): Promise<InventoryStatsResponse> => {
-    const response = await apiClient.get(`/analytics/inventory`);
-    return response.data as InventoryStatsResponse;
-  }, []);
-
-  const getProductionAnalytics = useCallback(async (): Promise<ProductionStatsResponse> => {
-    const response = await apiClient.get(`/analytics/production`);
-    return response.data as ProductionStatsResponse;
-  }, []);
+  const getCustomerAnalytics = useCallback(
+    async (
+      params?: Record<string, string | number>,
+      signal?: AbortSignal
+    ): Promise<CustomerAnalytics> => {
+      const response = await apiClient.get('/analytics/customers', { params, signal });
+      return validateResponse(customerAnalyticsSchema, response.data, 'GET /analytics/customers');
+    },
+    []
+  );
 
   return {
     getDashboardAnalytics,
     getRevenueAnalytics,
     getCustomerAnalytics,
-    getInventoryAnalytics,
-    getProductionAnalytics,
   };
 };
