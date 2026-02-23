@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ReportsPage from '../../pages/ReportsPage';
 
@@ -80,19 +80,77 @@ vi.mock('../../contexts/LanguageContext', () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
         'reports.title': 'Reports',
+        'reports.subtitle': 'Generate and view business reports',
         'common.loading': 'Loading...',
         'common.error': 'Error',
+        'reports.loadError': 'Failed to load report. Please try again.',
+        'reports.errorNetwork': 'Network error. Please check your connection and try again.',
+        'reports.errorAuth': 'Your session has expired. Please log in again.',
+        'reports.errorBadRequest': 'Invalid request parameters. Please check your date range.',
+        'reports.errorServer': 'Server error. Our team has been notified.',
+        'reports.retry': 'Try Again',
+        'reports.refresh': 'Refresh',
+        'reports.generate': 'Generate',
+        'reports.sales': 'Sales Report',
+        'reports.inventory': 'Inventory Report',
+        'reports.production': 'Production Report',
+        'reports.customers': 'Customer Report',
+        'reports.financial': 'Financial Report',
+        'reports.exportCsv': 'Export CSV',
+        'reports.noData': 'No data available',
+        'reports.preset7d': 'Last 7 days',
+        'reports.preset30d': 'Last 30 days',
+        'reports.presetThisMonth': 'This month',
+        'reports.presetLastMonth': 'Last month',
+        'reports.presetThisQuarter': 'This quarter',
+        'reports.presetThisYear': 'This year',
+        'reports.presetCustom': 'Custom',
+        'reports.startDate': 'Start Date',
+        'reports.endDate': 'End Date',
+        'reports.errorDateRange': 'Start date must be before or equal to end date.',
+        'reports.totalInvoices': 'Total Invoices',
+        'reports.totalRevenue': 'Total Revenue',
+        'reports.totalTax': 'Total Tax',
+        'reports.averageInvoice': 'Average Invoice',
       };
       return translations[key] || key;
     },
   }),
 }));
 
-// Mock data that matches the SalesReportData interface
+// Mock recharts to avoid rendering issues in tests
+vi.mock('recharts', () => ({
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="responsive-container">{children}</div>
+  ),
+  LineChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="line-chart">{children}</div>
+  ),
+  Line: () => <div />,
+  BarChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="bar-chart">{children}</div>
+  ),
+  Bar: () => <div />,
+  PieChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="pie-chart">{children}</div>
+  ),
+  Pie: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Cell: () => <div />,
+  XAxis: () => <div />,
+  YAxis: () => <div />,
+  CartesianGrid: () => <div />,
+  Tooltip: () => <div />,
+  Legend: () => <div />,
+}));
+
+// Mock data
 const mockSalesReportData = {
   report: {
     period: { start: '2025-01-01', end: '2025-01-31' },
-    sales: [{ date: '2025-01-15', invoice_count: 5, revenue: 25000000, tax_collected: 2500000 }],
+    sales: [
+      { date: '2025-01-15', invoice_count: 5, revenue: 25000000, tax_collected: 2500000 },
+      { date: '2025-01-16', invoice_count: 3, revenue: 15000000, tax_collected: 1500000 },
+    ],
     summary: {
       totalInvoices: 50,
       totalRevenue: 150000000,
@@ -103,39 +161,104 @@ const mockSalesReportData = {
   },
 };
 
+const mockInventoryReportData = {
+  report: {
+    summary: {
+      totalItems: 200,
+      outOfStock: 2,
+      lowStock: 5,
+      totalValue: 75000000,
+    },
+    byCategory: [
+      { category: 'Raw Materials', item_count: 50, total_stock: 500, total_value: 25000000 },
+    ],
+    lowStockItems: [],
+    recentMovements: [],
+  },
+};
+
 describe('ReportsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe('Loading state', () => {
-    it('should show loading skeleton initially', () => {
+    it('should show loading skeleton with aria-busy', () => {
       mockGetSalesReport.mockImplementation(() => new Promise(() => {}));
       render(<ReportsPage />);
 
-      // ReportsPage uses ReportSkeleton with animate-pulse
-      const skeletonElement = document.querySelector('.animate-pulse');
+      const skeletonElement = document.querySelector('[aria-busy="true"]');
       expect(skeletonElement).toBeInTheDocument();
     });
   });
 
   describe('Error state', () => {
     it('should show error message when API call fails', async () => {
-      mockGetSalesReport.mockRejectedValueOnce(new Error('Network error'));
+      mockGetSalesReport.mockRejectedValueOnce(new Error('something went wrong'));
 
       render(<ReportsPage />);
 
       await waitFor(() => {
-        // Error heading uses tr('common.error', 'Error'), which returns 'Error' from our translations
         expect(screen.getByText('Error')).toBeInTheDocument();
-        // Error message: tr('reports.loadError', 'Failed to load report. Please try again.')
-        // Since 'reports.loadError' is not in translations, t returns key, tr returns fallback
         expect(screen.getByText('Failed to load report. Please try again.')).toBeInTheDocument();
       });
     });
 
+    it('should show differentiated error for 401 response', async () => {
+      const authError = Object.assign(new Error('Unauthorized'), {
+        response: { status: 401 },
+      });
+      mockGetSalesReport.mockRejectedValueOnce(authError);
+
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Your session has expired. Please log in again.')
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('should show differentiated error for 400 response', async () => {
+      const badReqError = Object.assign(new Error('Bad Request'), {
+        response: { status: 400 },
+      });
+      mockGetSalesReport.mockRejectedValueOnce(badReqError);
+
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Invalid request parameters. Please check your date range.')
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('should show differentiated error for 500 response', async () => {
+      const serverError = Object.assign(new Error('Server Error'), {
+        response: { status: 500 },
+      });
+      mockGetSalesReport.mockRejectedValueOnce(serverError);
+
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Server error. Our team has been notified.')).toBeInTheDocument();
+      });
+    });
+
+    it('should have role="alert" on error banner for accessibility', async () => {
+      mockGetSalesReport.mockRejectedValueOnce(new Error('fail'));
+
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+      });
+    });
+
     it('should show Try Again button on error', async () => {
-      mockGetSalesReport.mockRejectedValueOnce(new Error('Network error'));
+      mockGetSalesReport.mockRejectedValueOnce(new Error('fail'));
 
       render(<ReportsPage />);
 
@@ -145,7 +268,7 @@ describe('ReportsPage', () => {
     });
 
     it('should retry loading when Try Again is clicked', async () => {
-      mockGetSalesReport.mockRejectedValueOnce(new Error('Network error'));
+      mockGetSalesReport.mockRejectedValueOnce(new Error('fail'));
 
       render(<ReportsPage />);
 
@@ -154,11 +277,9 @@ describe('ReportsPage', () => {
       });
 
       mockGetSalesReport.mockResolvedValueOnce(mockSalesReportData);
-
       await userEvent.click(screen.getByText('Try Again'));
 
       await waitFor(() => {
-        // "Sales Report" appears in the tab button and h2 heading
         const salesReportElements = screen.getAllByText('Sales Report');
         expect(salesReportElements.length).toBeGreaterThanOrEqual(1);
       });
@@ -170,28 +291,19 @@ describe('ReportsPage', () => {
       mockGetSalesReport.mockResolvedValueOnce(mockSalesReportData);
     });
 
-    it('should render without crashing and display title', async () => {
+    it('should render title and subtitle', async () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Reports')).toBeInTheDocument();
-      });
-    });
-
-    it('should display subtitle', async () => {
-      render(<ReportsPage />);
-
-      await waitFor(() => {
-        // tr('reports.subtitle', 'Generate and view business reports') - falls back
         expect(screen.getByText('Generate and view business reports')).toBeInTheDocument();
       });
     });
 
-    it('should display Sales Report heading', async () => {
+    it('should display Sales Report heading in tab and content', async () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
-        // "Sales Report" appears in both the tab button and the h2 heading
         const salesReportElements = screen.getAllByText('Sales Report');
         expect(salesReportElements.length).toBeGreaterThanOrEqual(2);
       });
@@ -201,38 +313,161 @@ describe('ReportsPage', () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
-        // Sales report summary cards: Total Invoices, Total Revenue, Total Tax, Average Invoice
         expect(screen.getByText('Total Invoices')).toBeInTheDocument();
         expect(screen.getByText('Total Revenue')).toBeInTheDocument();
       });
     });
 
-    it('should display report tab buttons', async () => {
+    it('should display all 5 report tab buttons with ARIA tablist role', async () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
-        // Tab buttons (not a select): Sales Report, Inventory Report, etc.
-        // "Sales Report" appears in both the tab button and the h2 heading, so use getAllByText
-        expect(screen.getAllByText('Sales Report').length).toBeGreaterThanOrEqual(1);
-        expect(screen.getByText('Inventory Report')).toBeInTheDocument();
-        expect(screen.getByText('Production Report')).toBeInTheDocument();
-        expect(screen.getByText('Customer Report')).toBeInTheDocument();
-        expect(screen.getByText('Financial Report')).toBeInTheDocument();
+        const tablist = screen.getByRole('tablist');
+        expect(tablist).toBeInTheDocument();
+
+        const tabs = within(tablist).getAllByRole('tab');
+        expect(tabs).toHaveLength(5);
       });
     });
 
-    it('should display Generate button for sales report', async () => {
+    it('should mark active tab with aria-selected', async () => {
       render(<ReportsPage />);
 
       await waitFor(() => {
-        // "Generate" button appears in the date filter section for reports that support date filter
+        const tablist = screen.getByRole('tablist');
+        const tabs = within(tablist).getAllByRole('tab');
+        const salesTab = tabs.find((t) => t.textContent?.includes('Sales Report'));
+        expect(salesTab).toHaveAttribute('aria-selected', 'true');
+      });
+    });
+
+    it('should set tabIndex={0} on active tab and tabIndex={-1} on inactive tabs', async () => {
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        const tablist = screen.getByRole('tablist');
+        const tabs = within(tablist).getAllByRole('tab');
+        const salesTab = tabs.find((t) => t.textContent?.includes('Sales Report'));
+        const inventoryTab = tabs.find((t) => t.textContent?.includes('Inventory Report'));
+        expect(salesTab).toHaveAttribute('tabindex', '0');
+        expect(inventoryTab).toHaveAttribute('tabindex', '-1');
+      });
+    });
+
+    it('should have aria-labelledby on the tabpanel matching the active tab', async () => {
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        const tabpanel = screen.getByRole('tabpanel');
+        expect(tabpanel).toHaveAttribute('aria-labelledby', 'tab-sales');
+      });
+    });
+
+    it('should have id attributes on tab buttons', async () => {
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(document.getElementById('tab-sales')).toBeInTheDocument();
+        expect(document.getElementById('tab-inventory')).toBeInTheDocument();
+        expect(document.getElementById('tab-production')).toBeInTheDocument();
+        expect(document.getElementById('tab-customers')).toBeInTheDocument();
+        expect(document.getElementById('tab-financial')).toBeInTheDocument();
+      });
+    });
+
+    it('should display Generate button for date-filterable reports', async () => {
+      render(<ReportsPage />);
+
+      await waitFor(() => {
         expect(screen.getByText('Generate')).toBeInTheDocument();
+      });
+    });
+
+    it('should display Export CSV button when data is loaded', async () => {
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Export CSV')).toBeInTheDocument();
+      });
+    });
+
+    it('should render report content in a tabpanel', async () => {
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        const tabpanel = screen.getByRole('tabpanel');
+        expect(tabpanel).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Date presets', () => {
+    beforeEach(() => {
+      mockGetSalesReport.mockResolvedValue(mockSalesReportData);
+    });
+
+    it('should display all date preset buttons for date-filterable reports', async () => {
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Last 7 days')).toBeInTheDocument();
+        expect(screen.getByText('Last 30 days')).toBeInTheDocument();
+        expect(screen.getByText('This month')).toBeInTheDocument();
+        expect(screen.getByText('Last month')).toBeInTheDocument();
+        expect(screen.getByText('This quarter')).toBeInTheDocument();
+        expect(screen.getByText('This year')).toBeInTheDocument();
+        expect(screen.getByText('Custom')).toBeInTheDocument();
+      });
+    });
+
+    it('should have pre-populated date inputs (not empty)', async () => {
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        const startInput = screen.getByLabelText('Start Date') as HTMLInputElement;
+        const endInput = screen.getByLabelText('End Date') as HTMLInputElement;
+        expect(startInput.value).not.toBe('');
+        expect(endInput.value).not.toBe('');
+      });
+    });
+
+    it('should fetch report when a date preset is clicked', async () => {
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Total Invoices')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText('Last 7 days'));
+
+      await waitFor(() => {
+        // Initial fetch + preset click = at least 2 calls
+        expect(mockGetSalesReport).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('should disable preset buttons during loading', () => {
+      mockGetSalesReport.mockImplementation(() => new Promise(() => {}));
+      render(<ReportsPage />);
+
+      const presetButton = screen.getByText('Last 7 days');
+      expect(presetButton).toBeDisabled();
+    });
+
+    it('should have max attribute on date inputs', async () => {
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        const startInput = screen.getByLabelText('Start Date') as HTMLInputElement;
+        const endInput = screen.getByLabelText('End Date') as HTMLInputElement;
+        expect(startInput.getAttribute('max')).toBeTruthy();
+        expect(endInput.getAttribute('max')).toBeTruthy();
       });
     });
   });
 
   describe('Report type switching', () => {
-    it('should load inventory report when type is changed', async () => {
+    it('should load inventory report when tab is clicked', async () => {
       mockGetSalesReport.mockResolvedValueOnce(mockSalesReportData);
 
       render(<ReportsPage />);
@@ -242,27 +477,112 @@ describe('ReportsPage', () => {
         expect(salesReportElements.length).toBeGreaterThanOrEqual(2);
       });
 
-      const mockInventoryReportData = {
-        report: {
-          summary: {
-            totalItems: 200,
-            outOfStock: 2,
-            lowStock: 5,
-            totalValue: 75000000,
-          },
-          byCategory: [],
-          lowStockItems: [],
-          recentMovements: [],
-        },
-      };
       mockGetInventoryReport.mockResolvedValueOnce(mockInventoryReportData);
 
-      // Click the Inventory Report tab button
-      const inventoryTab = screen.getByText('Inventory Report');
-      await userEvent.click(inventoryTab);
+      await userEvent.click(screen.getByText('Inventory Report'));
 
       await waitFor(() => {
         expect(mockGetInventoryReport).toHaveBeenCalled();
+      });
+    });
+
+    it('should hide date presets for non-date-filterable reports', async () => {
+      mockGetSalesReport.mockResolvedValueOnce(mockSalesReportData);
+
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Last 7 days')).toBeInTheDocument();
+      });
+
+      mockGetInventoryReport.mockResolvedValueOnce(mockInventoryReportData);
+      await userEvent.click(screen.getByText('Inventory Report'));
+
+      await waitFor(() => {
+        expect(screen.queryByText('Last 7 days')).not.toBeInTheDocument();
+        expect(screen.queryByText('Generate')).not.toBeInTheDocument();
+      });
+    });
+
+    it('should clear error when switching tabs', async () => {
+      mockGetSalesReport.mockRejectedValueOnce(new Error('fail'));
+
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+      });
+
+      mockGetInventoryReport.mockResolvedValueOnce(mockInventoryReportData);
+      await userEvent.click(screen.getByText('Inventory Report'));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Date validation', () => {
+    it('should show error when start date is after end date', async () => {
+      mockGetSalesReport.mockResolvedValueOnce(mockSalesReportData);
+
+      render(<ReportsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Generate')).toBeInTheDocument();
+      });
+
+      const startInput = screen.getByLabelText('Start Date') as HTMLInputElement;
+      const endInput = screen.getByLabelText('End Date') as HTMLInputElement;
+
+      // Set start date after end date
+      await userEvent.clear(startInput);
+      await userEvent.type(startInput, '2025-02-01');
+      await userEvent.clear(endInput);
+      await userEvent.type(endInput, '2025-01-01');
+
+      await userEvent.click(screen.getByText('Generate'));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Start date must be before or equal to end date.')
+        ).toBeInTheDocument();
+      });
+
+      // Should NOT have called the API again
+      expect(mockGetSalesReport).toHaveBeenCalledTimes(1); // only the initial auto-fetch
+    });
+  });
+
+  describe('Request cancellation', () => {
+    it('should not update state from a superseded request when switching tabs', async () => {
+      // First request hangs (simulates slow auto-fetch for Sales)
+      let resolveFirst!: (value: unknown) => void;
+      const firstPromise = new Promise((resolve) => {
+        resolveFirst = resolve;
+      });
+      mockGetSalesReport.mockReturnValueOnce(firstPromise);
+
+      render(<ReportsPage />);
+
+      // While first request is pending, switch to Inventory tab (tabs are NOT disabled during loading)
+      mockGetInventoryReport.mockResolvedValueOnce(mockInventoryReportData);
+      await userEvent.click(screen.getByText('Inventory Report'));
+
+      // Wait for the inventory report to render
+      await waitFor(() => {
+        expect(mockGetInventoryReport).toHaveBeenCalled();
+      });
+
+      // Now resolve the first (stale) sales request — should NOT cause errors or overwrite
+      resolveFirst(mockSalesReportData);
+
+      // The page should still be on the inventory tab
+      await waitFor(() => {
+        const tablist = screen.getByRole('tablist');
+        const tabs = within(tablist).getAllByRole('tab');
+        const inventoryTab = tabs.find((t) => t.textContent?.includes('Inventory Report'));
+        expect(inventoryTab).toHaveAttribute('aria-selected', 'true');
       });
     });
   });
