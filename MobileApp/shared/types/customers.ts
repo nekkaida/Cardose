@@ -21,7 +21,8 @@ export interface CustomerCreatePayload {
   email?: string;
   phone?: string;
   address?: string;
-  business_type: BusinessType;
+  business_type?: BusinessType;
+  loyalty_status?: LoyaltyStatus;
   notes?: string;
 }
 
@@ -37,6 +38,26 @@ export interface CustomerStatsResponse {
   loyalty_new: number;
   loyalty_regular: number;
   loyalty_vip: number;
+}
+
+export interface CustomerDetailResponse {
+  success: boolean;
+  customer: Customer & {
+    recentOrders: CustomerOrder[];
+  };
+}
+
+export interface CustomerOrder {
+  id: string;
+  order_number: string;
+  status: string;
+  priority: string;
+  box_type?: string;
+  total_amount: number;
+  notes?: string;
+  due_date?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface CustomersListResponse {
