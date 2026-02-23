@@ -1,7 +1,7 @@
 export type TransactionType = 'income' | 'expense';
 export type TransactionCategory = 'sales' | 'materials' | 'labor' | 'overhead' | 'other';
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'credit_card' | 'mobile_payment';
-export type InvoiceStatus = 'unpaid' | 'paid' | 'overdue' | 'cancelled';
+export type InvoiceStatus = 'unpaid' | 'paid' | 'overdue' | 'cancelled' | 'partial';
 
 export interface Transaction {
   id: string;
