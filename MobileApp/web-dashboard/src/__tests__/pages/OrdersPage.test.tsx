@@ -24,7 +24,6 @@ vi.mock('../../contexts/AuthContext', () => ({
     loading: false,
     login: vi.fn(),
     logout: vi.fn(),
-    token: 'test-token',
   }),
 }));
 
@@ -87,6 +86,7 @@ vi.mock('../../contexts/ApiContext', () => ({
 
 // Mock LanguageContext — stable t function to avoid useCallback invalidation
 const mockTranslations: Record<string, string> = {
+  'nav.orders': 'Orders',
   'orders.title': 'Order Management',
   'orders.new': 'New Order',
   'orders.pending': 'Pending',
@@ -123,8 +123,11 @@ const mockTranslations: Record<string, string> = {
   'orders.priorityHigh': 'High',
   'orders.priorityUrgent': 'Urgent',
   'orders.colOrder': 'Order',
+  'orders.colCustomer': 'Customer',
   'orders.colStatus': 'Status',
   'orders.colPriority': 'Priority',
+  'orders.colAmount': 'Amount',
+  'orders.colDueDate': 'Due Date',
   'orders.colActions': 'Actions',
   'orders.design': 'design',
   'orders.prod': 'prod',
@@ -166,6 +169,36 @@ const mockTranslations: Record<string, string> = {
   'orders.notesPlaceholder': 'Internal notes (not visible to customer)...',
   'orders.specialRequestsPlaceholder': 'Customer specifications, design details...',
   'orders.pastDateWarning': 'This date is in the past',
+  'orders.searchPlaceholder': 'Search orders...',
+  'orders.exportCsv': 'Export CSV',
+  'orders.exportSuccess': 'Orders exported successfully',
+  'orders.selectAll': 'Select all',
+  'orders.deselectAll': 'Deselect all',
+  'orders.selected': '{n} selected',
+  'orders.bulkUpdateStatus': 'Update Status',
+  'orders.bulkDelete': 'Delete Selected',
+  'orders.bulkDeleteConfirm':
+    'Are you sure you want to delete {n} selected orders? This cannot be undone.',
+  'orders.bulkDeleteSuccess': '{n} orders deleted',
+  'orders.bulkStatusSuccess': '{n} orders updated',
+  'orders.bulkFailed': '{n} failed',
+  'orders.bulkSkipped': '{n} skipped (invalid transition)',
+  'orders.created': 'Created',
+  'orders.dateFrom': 'From',
+  'orders.dateTo': 'To',
+  'orders.amountMin': 'Min Amount',
+  'orders.amountMax': 'Max Amount',
+  'orders.advancedFilters': 'More Filters',
+  'orders.clearFilters': 'Clear Filters',
+  'orders.overdueLabel': 'Overdue',
+  'orders.noCustomersFound': 'No customers match your search.',
+  'orders.specialRequestsTooLong': 'Special requests must be 500 characters or fewer.',
+  'orders.priority': 'Priority',
+  'orders.createdAt': 'Created',
+  'orders.statusCurrently': 'Currently',
+  'orders.statusChangeTo': 'Change to',
+  'orders.statusNoTransitions': 'This order cannot change status.',
+  'orders.statusSameWarning': 'Status is unchanged.',
   'common.loading': 'Loading...',
   'common.error': 'Error',
   'common.search': 'Search',
@@ -174,6 +207,9 @@ const mockTranslations: Record<string, string> = {
   'common.deleting': 'Deleting...',
   'common.cancel': 'Cancel',
   'common.confirmDeleteGeneric': 'Are you sure you want to delete',
+  'common.dismiss': 'Dismiss',
+  'orders.selectOrder': 'Select {order}',
+  'orders.invalidTransition': 'Invalid status transition',
 };
 const mockT = (key: string) => mockTranslations[key] || key;
 const mockSetLanguage = vi.fn();
@@ -291,7 +327,7 @@ describe('OrdersPage', () => {
       await userEvent.click(screen.getByText('Try Again'));
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
       expect(mockGetOrders.mock.calls.length).toBeGreaterThan(callsBefore);
@@ -319,14 +355,15 @@ describe('OrdersPage', () => {
       });
     });
 
-    it('should display order data in table', async () => {
+    it('should display order data in table and cards', async () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
-        expect(screen.getByText('ORD-002')).toBeInTheDocument();
-        expect(screen.getByText('John Doe')).toBeInTheDocument();
-        expect(screen.getByText('Jane Smith')).toBeInTheDocument();
+        // Both desktop table and mobile cards render in jsdom
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText('ORD-002').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText('John Doe').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText('Jane Smith').length).toBeGreaterThanOrEqual(1);
       });
     });
 
@@ -334,10 +371,15 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Order')).toBeInTheDocument();
-        expect(screen.getByText('Customer')).toBeInTheDocument();
-        expect(screen.getByText('Priority')).toBeInTheDocument();
-        expect(screen.getByText('Amount')).toBeInTheDocument();
+        // Column headers in desktop table
+        const orderHeaders = screen.getAllByText('Order');
+        expect(orderHeaders.length).toBeGreaterThanOrEqual(1);
+        const customerHeaders = screen.getAllByText('Customer');
+        expect(customerHeaders.length).toBeGreaterThanOrEqual(1);
+        const priorityHeaders = screen.getAllByText('Priority');
+        expect(priorityHeaders.length).toBeGreaterThanOrEqual(1);
+        const amountHeaders = screen.getAllByText('Amount');
+        expect(amountHeaders.length).toBeGreaterThanOrEqual(1);
         expect(screen.getByText('Due Date')).toBeInTheDocument();
         expect(screen.getByText('Actions')).toBeInTheDocument();
       });
@@ -347,8 +389,8 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('Normal')).toBeInTheDocument();
-        expect(screen.getByText('Urgent')).toBeInTheDocument();
+        expect(screen.getAllByText('Normal').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText('Urgent').length).toBeGreaterThanOrEqual(1);
       });
     });
 
@@ -356,10 +398,10 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        // 'Pending' appears in stat card, status filter dropdown, and table badge
+        // 'Pending' appears in stat card, status filter dropdown, table badge, mobile card
         const pendingElements = screen.getAllByText('Pending');
         expect(pendingElements.length).toBeGreaterThanOrEqual(2);
-        // 'Completed' in stat card, filter dropdown, and table badge
+        // 'Completed' in stat card, filter dropdown, table badge, mobile card
         const completedElements = screen.getAllByText('Completed');
         expect(completedElements.length).toBeGreaterThanOrEqual(2);
       });
@@ -369,7 +411,6 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        // These appear multiple times (stat cards + filter dropdowns + table badges)
         expect(screen.getAllByText('Pending').length).toBeGreaterThanOrEqual(1);
         expect(screen.getByText('Active')).toBeInTheDocument();
         expect(screen.getAllByText('Completed').length).toBeGreaterThanOrEqual(1);
@@ -377,11 +418,12 @@ describe('OrdersPage', () => {
       });
     });
 
-    it('should display New Order button', async () => {
+    it('should display New Order and Export CSV buttons', async () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
         expect(screen.getByText(/New Order/)).toBeInTheDocument();
+        expect(screen.getByText('Export CSV')).toBeInTheDocument();
       });
     });
 
@@ -389,9 +431,10 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
+        // Desktop pagination
         expect(screen.getByText('Page 1 of 1 (2 orders)')).toBeInTheDocument();
-        expect(screen.getByText('Previous')).toBeInTheDocument();
-        expect(screen.getByText('Next')).toBeInTheDocument();
+        expect(screen.getAllByText('Previous').length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText('Next').length).toBeGreaterThanOrEqual(1);
       });
     });
 
@@ -399,11 +442,11 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
+        // Both desktop table and mobile cards render Edit/Delete
         const editButtons = screen.getAllByText('Edit');
-        expect(editButtons.length).toBe(2);
-        // owner role has canDelete permission
+        expect(editButtons.length).toBeGreaterThanOrEqual(2);
         const deleteButtons = screen.getAllByText('Delete');
-        expect(deleteButtons.length).toBe(2);
+        expect(deleteButtons.length).toBeGreaterThanOrEqual(2);
       });
     });
 
@@ -411,7 +454,7 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Search orders...')).toBeInTheDocument();
       });
     });
 
@@ -419,7 +462,6 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        // Filter selects render "All Status" and "All Priority" as their default options
         expect(screen.getByText('All Status')).toBeInTheDocument();
         expect(screen.getByText('All Priority')).toBeInTheDocument();
       });
@@ -429,7 +471,6 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        // Sortable columns have cursor-pointer class and click handlers
         const headers = document.querySelectorAll('th.cursor-pointer');
         expect(headers.length).toBeGreaterThanOrEqual(6);
       });
@@ -439,8 +480,26 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText(/standard box/i)).toBeInTheDocument();
-        expect(screen.getByText(/premium box/i)).toBeInTheDocument();
+        expect(screen.getAllByText(/standard box/i).length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText(/premium box/i).length).toBeGreaterThanOrEqual(1);
+      });
+    });
+
+    it('should have More Filters button', async () => {
+      render(<OrdersPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('More Filters')).toBeInTheDocument();
+      });
+    });
+
+    it('should have select-all checkbox in table header', async () => {
+      render(<OrdersPage />);
+
+      await waitFor(() => {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        // Select-all checkbox + one per order row (desktop) + one per card (mobile)
+        expect(checkboxes.length).toBeGreaterThanOrEqual(3);
       });
     });
   });
@@ -455,10 +514,10 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
-      await userEvent.click(screen.getByText(/New Order/));
+      await userEvent.click(screen.getByText(/\+ New Order/));
 
       await waitFor(() => {
         expect(screen.getByText('New Order', { selector: 'h2' })).toBeInTheDocument();
@@ -470,16 +529,14 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
       const editButtons = screen.getAllByText('Edit');
       await userEvent.click(editButtons[0]);
 
       await waitFor(() => {
-        // Modal header shows "Edit Order"
         expect(screen.getByText('Edit Order')).toBeInTheDocument();
-        // Customer name visible in table row
         const customerLabels = screen.getAllByText('John Doe');
         expect(customerLabels.length).toBeGreaterThanOrEqual(1);
       });
@@ -489,16 +546,15 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
-      await userEvent.click(screen.getByText(/New Order/));
+      await userEvent.click(screen.getByText(/\+ New Order/));
 
       await waitFor(() => {
         expect(screen.getByText('New Order', { selector: 'h2' })).toBeInTheDocument();
       });
 
-      // Click the Cancel button in the modal footer
       const cancelButtons = screen.getAllByText('Cancel');
       await userEvent.click(cancelButtons[cancelButtons.length - 1]);
 
@@ -511,14 +567,16 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
-      await userEvent.click(screen.getByText(/New Order/));
+      await userEvent.click(screen.getByText(/\+ New Order/));
 
       await waitFor(() => {
         expect(screen.getByText('Special Requests')).toBeInTheDocument();
-        expect(screen.getByPlaceholderText(/optional notes/i)).toBeInTheDocument();
+        expect(
+          screen.getByPlaceholderText('Customer specifications, design details...')
+        ).toBeInTheDocument();
       });
     });
 
@@ -526,15 +584,15 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
-      await userEvent.click(screen.getByText(/New Order/));
+      await userEvent.click(screen.getByText(/\+ New Order/));
 
       await waitFor(() => {
-        // Box type select should show available options
         expect(screen.getByText('Box Type')).toBeInTheDocument();
-        expect(screen.getByText('Standard')).toBeInTheDocument();
+        // Standard is the default selected option
+        expect(screen.getAllByText('Standard').length).toBeGreaterThanOrEqual(1);
       });
     });
 
@@ -542,7 +600,7 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
       const editButtons = screen.getAllByText('Edit');
@@ -550,10 +608,8 @@ describe('OrdersPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Edit Order')).toBeInTheDocument();
-        // Should NOT show customer search input in edit mode
         expect(screen.queryByPlaceholderText('Search customers...')).not.toBeInTheDocument();
-        // Customer name 'John Doe' appears in table row
-        expect(screen.getByText('John Doe')).toBeInTheDocument();
+        expect(screen.getAllByText('John Doe').length).toBeGreaterThanOrEqual(1);
       });
     });
 
@@ -561,16 +617,15 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
-      await userEvent.click(screen.getByText(/New Order/));
+      await userEvent.click(screen.getByText(/\+ New Order/));
 
       await waitFor(() => {
         expect(screen.getByText('New Order', { selector: 'h2' })).toBeInTheDocument();
       });
 
-      // Create button should be disabled when no customer is selected
       const createBtn = screen.getByText('Create');
       expect(createBtn).toBeDisabled();
     });
@@ -579,10 +634,10 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
-      // Click the Pending status badge in the table (it's a button with cursor-pointer class)
+      // Click the Pending status badge in the table (button with cursor-pointer class)
       const statusBadges = document.querySelectorAll('button.cursor-pointer');
       expect(statusBadges.length).toBeGreaterThan(0);
       await userEvent.click(statusBadges[0] as HTMLElement);
@@ -605,9 +660,11 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('No orders found')).toBeInTheDocument();
-        expect(screen.getByText('Create your first order to get started.')).toBeInTheDocument();
-        expect(screen.getByText(/Create Order/)).toBeInTheDocument();
+        expect(screen.getAllByText('No orders found').length).toBeGreaterThanOrEqual(1);
+        expect(
+          screen.getAllByText('Create your first order to get started.').length
+        ).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByText(/Create Order/).length).toBeGreaterThanOrEqual(1);
       });
     });
   });
@@ -623,7 +680,7 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
       const deleteButtons = screen.getAllByText('Delete');
@@ -639,7 +696,7 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
       const deleteButtons = screen.getAllByText('Delete');
@@ -663,7 +720,7 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
       const deleteButtons = screen.getAllByText('Delete');
@@ -687,7 +744,7 @@ describe('OrdersPage', () => {
       render(<OrdersPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('ORD-001')).toBeInTheDocument();
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
       });
 
       const deleteButtons = screen.getAllByText('Delete');
@@ -705,6 +762,53 @@ describe('OrdersPage', () => {
       await waitFor(() => {
         expect(screen.getByText('Cannot delete this order')).toBeInTheDocument();
         expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Bulk selection', () => {
+    beforeEach(() => {
+      mockGetOrders.mockResolvedValue(mockOrdersData);
+      mockGetCustomers.mockResolvedValue(mockCustomersData);
+    });
+
+    it('should show bulk action bar when orders are selected', async () => {
+      render(<OrdersPage />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
+      });
+
+      // Click the first order's checkbox (by aria-label, pick first match since desktop+mobile both render)
+      const checkboxes = screen.getAllByLabelText('Select ORD-001');
+      await userEvent.click(checkboxes[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('1 selected')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Advanced filters', () => {
+    beforeEach(() => {
+      mockGetOrders.mockResolvedValue(mockOrdersData);
+      mockGetCustomers.mockResolvedValue(mockCustomersData);
+    });
+
+    it('should toggle advanced filter panel', async () => {
+      render(<OrdersPage />);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('ORD-001').length).toBeGreaterThanOrEqual(1);
+      });
+
+      await userEvent.click(screen.getByText('More Filters'));
+
+      await waitFor(() => {
+        expect(screen.getByText('From')).toBeInTheDocument();
+        expect(screen.getByText('To')).toBeInTheDocument();
+        expect(screen.getByText('Min Amount')).toBeInTheDocument();
+        expect(screen.getByText('Max Amount')).toBeInTheDocument();
       });
     });
   });
