@@ -4,35 +4,35 @@
  * Contains all constant values used throughout the application
  */
 
-// Order Status Constants
+// Order Status Constants — aligned with backend VALID_STATUSES
 export const ORDER_STATUSES = {
   PENDING: 'pending',
-  CONFIRMED: 'confirmed',
-  IN_PRODUCTION: 'in_production',
-  QUALITY_CHECK: 'quality_check',
+  DESIGNING: 'designing',
+  APPROVED: 'approved',
+  PRODUCTION: 'production',
+  QUALITY_CONTROL: 'quality_control',
   COMPLETED: 'completed',
-  DELIVERED: 'delivered',
   CANCELLED: 'cancelled',
 } as const;
 
 export const ORDER_STATUS_LABELS = {
   pending: 'Menunggu',
-  confirmed: 'Dikonfirmasi',
-  in_production: 'Dalam Produksi',
-  quality_check: 'Quality Check',
+  designing: 'Desain',
+  approved: 'Disetujui',
+  production: 'Produksi',
+  quality_control: 'Kontrol Mutu',
   completed: 'Selesai',
-  delivered: 'Terkirim',
   cancelled: 'Dibatalkan',
 } as const;
 
 export const ORDER_STATUS_COLORS = {
   pending: '#FFA500',
-  confirmed: '#2196F3',
-  in_production: '#9C27B0',
-  quality_check: '#FF9800',
-  completed: '#4CAF50',
-  delivered: '#00BCD4',
-  cancelled: '#F44336',
+  designing: '#4169E1',
+  approved: '#9370DB',
+  production: '#FF8C00',
+  quality_control: '#FFD700',
+  completed: '#228B22',
+  cancelled: '#DC143C',
 } as const;
 
 // Customer Type Constants
@@ -114,23 +114,26 @@ export const TASK_STATUS_COLORS = {
   cancelled: '#F44336',
 } as const;
 
-// Priority Constants
+// Priority Constants — aligned with backend and shared types
 export const PRIORITIES = {
   LOW: 'low',
-  MEDIUM: 'medium',
+  NORMAL: 'normal',
   HIGH: 'high',
+  URGENT: 'urgent',
 } as const;
 
 export const PRIORITY_LABELS = {
   low: 'Rendah',
-  medium: 'Sedang',
+  normal: 'Normal',
   high: 'Tinggi',
+  urgent: 'Mendesak',
 } as const;
 
 export const PRIORITY_COLORS = {
   low: '#4CAF50',
-  medium: '#FF9800',
-  high: '#F44336',
+  normal: '#2196F3',
+  high: '#FF9800',
+  urgent: '#F44336',
 } as const;
 
 // Invoice Status Constants
@@ -321,8 +324,8 @@ export const APP_INFO = {
 
 // Storage Keys
 export const STORAGE_KEYS = {
-  AUTH_TOKEN: '@cardose:auth_token',
-  USER_DATA: '@cardose:user_data',
+  AUTH_TOKEN: '@cardose_token',
+  USER_DATA: '@cardose_user',
   THEME_MODE: '@cardose:theme_mode',
   LANGUAGE: '@cardose:language',
   LAST_SYNC: '@cardose:last_sync',
