@@ -4,6 +4,7 @@ import { useApi } from '../contexts/ApiContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import type { DashboardData } from '@shared/types/analytics';
+import type { RecentOrder } from '../hooks/api/useDashboardApi';
 
 import {
   KpiCards,
@@ -15,6 +16,7 @@ import {
   InventoryOverview,
   RevenueSummary,
   SectionError,
+  SectionErrorBoundary,
 } from '../components/dashboard';
 
 // ---------------------------------------------------------------------------
@@ -36,6 +38,11 @@ const MONTH_KEYS = [
   'dashboard.monthDec',
 ];
 
+/** How long a hidden tab must be before we auto-refresh on return (ms) */
+const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+const TIME_LOCALE: Record<string, string> = { en: 'en-US', id: 'id-ID' };
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -49,20 +56,16 @@ function parseMonthLabel(raw: string, t: (key: string) => string): string {
   return raw;
 }
 
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+function formatTime(date: Date, lang: string): string {
+  const locale = TIME_LOCALE[lang] || 'en-US';
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface RecentOrder {
-  id: string;
-  order_number?: string;
-  customer_name?: string;
-  status: string;
-  created_at: string;
+function getGreetingKey(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'dashboard.greeting.morning';
+  if (hour < 18) return 'dashboard.greeting.afternoon';
+  return 'dashboard.greeting.evening';
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +75,7 @@ interface RecentOrder {
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { getDashboardAnalytics, getRevenueAnalytics, getRecentOrders } = useApi();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   // State: data
@@ -96,82 +99,147 @@ const Dashboard: React.FC = () => {
   const [period, setPeriod] = useState<string>('month');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [greetingKey, setGreetingKey] = useState(getGreetingKey);
 
-  // Ref to avoid refreshAll depending on period
+  // Refs to keep refreshAll stable (avoid stale closures & unnecessary effect re-runs)
   const periodRef = useRef(period);
   periodRef.current = period;
 
+  // Track when the tab was hidden for stale-data detection
+  const hiddenSinceRef = useRef<number | null>(null);
+
+  // Abort controller for period-change fetches (cancels stale requests on rapid clicks)
+  const periodAbortRef = useRef<AbortController | null>(null);
+
   // -----------------------------------------------------------------------
-  // Data fetchers
+  // Data fetchers (accept AbortSignal for cleanup on unmount)
   // -----------------------------------------------------------------------
 
   const fetchAnalytics = useCallback(
-    async (p: string) => {
+    async (p: string, signal?: AbortSignal) => {
       setLoadingAnalytics(true);
       setErrorAnalytics('');
       try {
-        const result = await getDashboardAnalytics({ period: p });
-        setData(result as DashboardData);
-      } catch {
-        setErrorAnalytics(t('dashboard.loadErrorAnalytics'));
+        const result = await getDashboardAnalytics({ period: p }, signal);
+        if (!signal?.aborted) setData(result as DashboardData);
+      } catch (err: unknown) {
+        if ((err as { name?: string })?.name === 'CanceledError') return;
+        if (!signal?.aborted) setErrorAnalytics('dashboard.loadErrorAnalytics');
       } finally {
-        setLoadingAnalytics(false);
+        if (!signal?.aborted) setLoadingAnalytics(false);
       }
     },
-    [getDashboardAnalytics, t]
+    [getDashboardAnalytics]
   );
 
-  const fetchRevenue = useCallback(async () => {
-    setLoadingRevenue(true);
-    setErrorRevenue('');
-    try {
-      const result = await getRevenueAnalytics();
-      setRevenueData(result);
-    } catch {
-      setErrorRevenue(t('dashboard.loadErrorRevenue'));
-    } finally {
-      setLoadingRevenue(false);
-    }
-  }, [getRevenueAnalytics, t]);
+  const fetchRevenue = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoadingRevenue(true);
+      setErrorRevenue('');
+      try {
+        const result = await getRevenueAnalytics(undefined, signal);
+        if (!signal?.aborted) setRevenueData(result);
+      } catch (err: unknown) {
+        if ((err as { name?: string })?.name === 'CanceledError') return;
+        if (!signal?.aborted) setErrorRevenue('dashboard.loadErrorRevenue');
+      } finally {
+        if (!signal?.aborted) setLoadingRevenue(false);
+      }
+    },
+    [getRevenueAnalytics]
+  );
 
-  const fetchRecentOrdersData = useCallback(async () => {
-    setLoadingRecentOrders(true);
-    setErrorRecentOrders('');
-    try {
-      const result = await getRecentOrders(5);
-      setRecentOrders(result.orders || []);
-    } catch {
-      setErrorRecentOrders(t('dashboard.loadErrorOrders'));
-    } finally {
-      setLoadingRecentOrders(false);
-    }
-  }, [getRecentOrders, t]);
+  const fetchRecentOrdersData = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoadingRecentOrders(true);
+      setErrorRecentOrders('');
+      try {
+        const result = await getRecentOrders(5, signal);
+        if (!signal?.aborted) setRecentOrders(result.orders || []);
+      } catch (err: unknown) {
+        if ((err as { name?: string })?.name === 'CanceledError') return;
+        if (!signal?.aborted) setErrorRecentOrders('dashboard.loadErrorOrders');
+      } finally {
+        if (!signal?.aborted) setLoadingRecentOrders(false);
+      }
+    },
+    [getRecentOrders]
+  );
 
-  const refreshAll = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.allSettled([
-      fetchAnalytics(periodRef.current),
-      fetchRevenue(),
-      fetchRecentOrdersData(),
-    ]);
-    setLastUpdated(new Date());
-    setRefreshing(false);
-  }, [fetchAnalytics, fetchRevenue, fetchRecentOrdersData]);
+  const refreshAll = useCallback(
+    async (signal?: AbortSignal) => {
+      setRefreshing(true);
+      await Promise.allSettled([
+        fetchAnalytics(periodRef.current, signal),
+        fetchRevenue(signal),
+        fetchRecentOrdersData(signal),
+      ]);
+      if (!signal?.aborted) {
+        setLastUpdated(new Date());
+      }
+      setRefreshing(false);
+    },
+    [fetchAnalytics, fetchRevenue, fetchRecentOrdersData]
+  );
 
-  // Initial load
+  // Initial load + cleanup AbortController on unmount.
+  // Wrapped in setTimeout(0) so React StrictMode's immediate cleanup can cancel
+  // the timer before any HTTP requests fire (avoids doubled requests / 429s).
   useEffect(() => {
-    refreshAll();
+    const controller = new AbortController();
+    const timer = setTimeout(() => refreshAll(controller.signal), 0);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [refreshAll]);
 
-  // Period change only refreshes analytics
+  // Period change only refreshes analytics (cancels previous in-flight period fetch)
   const handlePeriodChange = useCallback(
     (newPeriod: string) => {
+      periodAbortRef.current?.abort();
+      const controller = new AbortController();
+      periodAbortRef.current = controller;
       setPeriod(newPeriod);
       periodRef.current = newPeriod;
-      fetchAnalytics(newPeriod).then(() => setLastUpdated(new Date()));
+      fetchAnalytics(newPeriod, controller.signal).then(() => {
+        if (!controller.signal.aborted) setLastUpdated(new Date());
+      });
     },
     [fetchAnalytics]
   );
+
+  // Cleanup period controller on unmount
+  useEffect(
+    () => () => {
+      periodAbortRef.current?.abort();
+    },
+    []
+  );
+
+  // -----------------------------------------------------------------------
+  // Auto-refresh: refetch when tab becomes visible after being hidden
+  // -----------------------------------------------------------------------
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        hiddenSinceRef.current = Date.now();
+      } else {
+        // Update greeting when tab becomes visible (may have crossed time boundary)
+        setGreetingKey(getGreetingKey());
+
+        // Auto-refresh if tab was hidden longer than threshold
+        if (hiddenSinceRef.current && Date.now() - hiddenSinceRef.current > STALE_THRESHOLD_MS) {
+          refreshAll();
+        }
+        hiddenSinceRef.current = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [refreshAll]);
 
   // -----------------------------------------------------------------------
   // Derived data (memoized)
@@ -218,7 +286,7 @@ const Dashboard: React.FC = () => {
   const productionData = useMemo(
     () => [
       { key: 'Designing', stage: t('dashboard.stageDesigning'), count: production?.designing || 0 },
-      { key: 'Approved', stage: t('dashboard.stageApproved'), count: 0 },
+      { key: 'Approved', stage: t('dashboard.stageApproved'), count: production?.approved || 0 },
       {
         key: 'Production',
         stage: t('dashboard.stageProduction'),
@@ -239,25 +307,28 @@ const Dashboard: React.FC = () => {
     [t]
   );
 
-  // Alerts
-  const hasOutOfStock = (inventory?.out_of_stock || 0) > 0;
-  const hasUrgentOrders = (production?.urgent_orders || 0) > 0;
-  const hasLowStock = (inventory?.low_stock || 0) > 0;
+  // Alerts - use optional chaining instead of non-null assertions
+  const outOfStockCount = inventory?.out_of_stock ?? 0;
+  const urgentOrderCount = production?.urgent_orders ?? 0;
+  const lowStockCount = inventory?.low_stock ?? 0;
+  const hasOutOfStock = outOfStockCount > 0;
+  const hasUrgentOrders = urgentOrderCount > 0;
+  const hasLowStock = lowStockCount > 0;
   const hasAlerts = hasOutOfStock || hasUrgentOrders;
 
-  // Greeting
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return t('dashboard.greeting.morning');
-    if (hour < 18) return t('dashboard.greeting.afternoon');
-    return t('dashboard.greeting.evening');
-  }, [t]);
+  // Greeting - uses state so it updates when tab becomes visible
+  const greeting = t(greetingKey);
 
   const retryLabel = t('dashboard.retry');
+  const sectionFallback = t('dashboard.sectionRenderError');
 
   // Retry callbacks for sub-components
   const retryAnalytics = useCallback(() => fetchAnalytics(period), [fetchAnalytics, period]);
   const navigateOrders = useCallback(() => navigate('/orders'), [navigate]);
+  const navigateToOrder = useCallback(
+    (orderId: string) => navigate(`/orders?highlight=${orderId}`),
+    [navigate]
+  );
   const navigateInventory = useCallback(() => navigate('/inventory'), [navigate]);
 
   // -----------------------------------------------------------------------
@@ -294,10 +365,11 @@ const Dashboard: React.FC = () => {
 
           {/* Refresh button */}
           <button
-            onClick={refreshAll}
+            onClick={() => refreshAll()}
+            disabled={refreshing}
             title={t('dashboard.refreshData')}
             aria-label={t('dashboard.refreshData')}
-            className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-primary-600"
+            className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition-colors hover:bg-gray-50 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <svg
               className={`h-4.5 w-4.5 ${refreshing ? 'animate-spin' : ''}`}
@@ -317,7 +389,7 @@ const Dashboard: React.FC = () => {
           {/* Last updated */}
           {lastUpdated && (
             <span className="hidden text-xs text-gray-400 sm:inline">
-              {t('dashboard.updated')} {formatTime(lastUpdated)}
+              {t('dashboard.updated')} {formatTime(lastUpdated, language)}
             </span>
           )}
         </div>
@@ -327,13 +399,14 @@ const Dashboard: React.FC = () => {
       {/* ALERTS BANNER                                                     */}
       {/* ================================================================= */}
       {hasAlerts && !loadingAnalytics && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3" role="alert">
           <div className="flex items-start gap-3">
             <svg
               className="mt-0.5 h-5 w-5 shrink-0 text-red-500"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -348,8 +421,8 @@ const Dashboard: React.FC = () => {
                   onClick={navigateInventory}
                   className="font-medium text-red-700 underline underline-offset-2 hover:text-red-900"
                 >
-                  {inventory!.out_of_stock}{' '}
-                  {inventory!.out_of_stock > 1 ? t('dashboard.materials') : t('dashboard.material')}{' '}
+                  {outOfStockCount}{' '}
+                  {outOfStockCount > 1 ? t('dashboard.materials') : t('dashboard.material')}{' '}
                   {t('dashboard.alertOutOfStock')}
                 </button>
               )}
@@ -358,8 +431,8 @@ const Dashboard: React.FC = () => {
                   onClick={navigateOrders}
                   className="font-medium text-red-700 underline underline-offset-2 hover:text-red-900"
                 >
-                  {production!.urgent_orders} {t('dashboard.urgent')}{' '}
-                  {production!.urgent_orders > 1
+                  {urgentOrderCount} {t('dashboard.urgent')}{' '}
+                  {urgentOrderCount > 1
                     ? t('dashboard.orders').toLowerCase()
                     : t('dashboard.order')}{' '}
                   {t('dashboard.alertNeedAttention')}
@@ -370,8 +443,8 @@ const Dashboard: React.FC = () => {
                   onClick={navigateInventory}
                   className="font-medium text-amber-700 underline underline-offset-2 hover:text-amber-900"
                 >
-                  {inventory!.low_stock}{' '}
-                  {inventory!.low_stock > 1 ? t('dashboard.materials') : t('dashboard.material')}{' '}
+                  {lowStockCount}{' '}
+                  {lowStockCount > 1 ? t('dashboard.materials') : t('dashboard.material')}{' '}
                   {t('dashboard.alertRunningLow')}
                 </button>
               )}
@@ -387,7 +460,11 @@ const Dashboard: React.FC = () => {
         <KpiSkeleton />
       ) : errorAnalytics ? (
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <SectionError message={errorAnalytics} onRetry={retryAnalytics} retryLabel={retryLabel} />
+          <SectionError
+            message={t(errorAnalytics)}
+            onRetry={retryAnalytics}
+            retryLabel={retryLabel}
+          />
         </div>
       ) : (
         <KpiCards
@@ -402,59 +479,71 @@ const Dashboard: React.FC = () => {
       {/* CHARTS ROW (2/3 + 1/3)                                            */}
       {/* ================================================================= */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <RevenueChart
-          loading={loadingRevenue}
-          error={errorRevenue}
-          revenueTrend={revenueTrend}
-          onRetry={fetchRevenue}
-        />
+        <SectionErrorBoundary fallbackMessage={sectionFallback} retryLabel={retryLabel}>
+          <RevenueChart
+            loading={loadingRevenue}
+            error={errorRevenue}
+            revenueTrend={revenueTrend}
+            onRetry={fetchRevenue}
+          />
+        </SectionErrorBoundary>
 
-        <OrderStatusChart
-          loading={loadingAnalytics}
-          error={errorAnalytics}
-          orderStatusData={orderStatusData}
-          onRetry={retryAnalytics}
-        />
+        <SectionErrorBoundary fallbackMessage={sectionFallback} retryLabel={retryLabel}>
+          <OrderStatusChart
+            loading={loadingAnalytics}
+            error={errorAnalytics}
+            orderStatusData={orderStatusData}
+            onRetry={retryAnalytics}
+          />
+        </SectionErrorBoundary>
       </div>
 
       {/* ================================================================= */}
       {/* BOTTOM ROW (3 equal columns)                                      */}
       {/* ================================================================= */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <ProductionPipeline
-          loading={loadingAnalytics}
-          error={errorAnalytics}
-          productionData={productionData}
-          urgentOrders={production?.urgent_orders || 0}
-          onRetry={retryAnalytics}
-        />
+        <SectionErrorBoundary fallbackMessage={sectionFallback} retryLabel={retryLabel}>
+          <ProductionPipeline
+            loading={loadingAnalytics}
+            error={errorAnalytics}
+            productionData={productionData}
+            urgentOrders={production?.urgent_orders || 0}
+            onRetry={retryAnalytics}
+          />
+        </SectionErrorBoundary>
 
-        <RecentActivity
-          loading={loadingRecentOrders}
-          error={errorRecentOrders}
-          recentOrders={recentOrders}
-          onRetry={fetchRecentOrdersData}
-          onViewAll={navigateOrders}
-          onOrderClick={navigateOrders}
-        />
+        <SectionErrorBoundary fallbackMessage={sectionFallback} retryLabel={retryLabel}>
+          <RecentActivity
+            loading={loadingRecentOrders}
+            error={errorRecentOrders}
+            recentOrders={recentOrders}
+            onRetry={fetchRecentOrdersData}
+            onViewAll={navigateOrders}
+            onOrderClick={navigateToOrder}
+          />
+        </SectionErrorBoundary>
 
-        <InventoryOverview
-          loading={loadingAnalytics}
-          error={errorAnalytics}
-          inventory={inventory}
-          onRetry={retryAnalytics}
-        />
+        <SectionErrorBoundary fallbackMessage={sectionFallback} retryLabel={retryLabel}>
+          <InventoryOverview
+            loading={loadingAnalytics}
+            error={errorAnalytics}
+            inventory={inventory}
+            onRetry={retryAnalytics}
+          />
+        </SectionErrorBoundary>
       </div>
 
       {/* ================================================================= */}
       {/* REVENUE SUMMARY ROW                                               */}
       {/* ================================================================= */}
-      <RevenueSummary
-        loading={loadingAnalytics}
-        error={errorAnalytics}
-        revenue={revenue}
-        onRetry={retryAnalytics}
-      />
+      <SectionErrorBoundary fallbackMessage={sectionFallback} retryLabel={retryLabel}>
+        <RevenueSummary
+          loading={loadingAnalytics}
+          error={errorAnalytics}
+          revenue={revenue}
+          onRetry={retryAnalytics}
+        />
+      </SectionErrorBoundary>
     </div>
   );
 };
