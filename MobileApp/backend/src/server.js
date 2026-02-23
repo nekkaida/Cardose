@@ -20,6 +20,7 @@ fastify.register(require('@fastify/cors'), {
   origin: env.CORS_ORIGIN
     ? env.CORS_ORIGIN.split(',')
     : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8081'],
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   credentials: true,
 });
 
