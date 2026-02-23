@@ -4,6 +4,11 @@ const { v4: uuidv4 } = require('uuid');
 class InventoryService {
   constructor(db) {
     this.db = db;
+    try {
+      this.db.db.exec('ALTER TABLE inventory_materials ADD COLUMN deleted_at TEXT DEFAULT NULL');
+    } catch (e) {
+      // Column already exists, ignore
+    }
   }
 
   /**
@@ -19,7 +24,7 @@ class InventoryService {
     page,
     offset,
   }) {
-    let query = 'SELECT * FROM inventory_materials WHERE 1=1';
+    let query = 'SELECT * FROM inventory_materials WHERE deleted_at IS NULL';
     const params = [];
 
     if (category) {
@@ -76,6 +81,7 @@ class InventoryService {
           SUM(CASE WHEN current_stock <= 0 THEN 1 ELSE 0 END) as outOfStock,
           COALESCE(SUM(current_stock * unit_cost), 0) as totalValue
         FROM inventory_materials
+        WHERE deleted_at IS NULL
       `
       )
       .get();
@@ -111,7 +117,7 @@ class InventoryService {
       .prepare(
         `
         SELECT * FROM inventory_materials
-        WHERE current_stock <= reorder_level
+        WHERE deleted_at IS NULL AND current_stock <= reorder_level
         ORDER BY
           CASE
             WHEN current_stock <= 0 THEN 1
@@ -131,18 +137,22 @@ class InventoryService {
    */
   async getInventoryStats() {
     const materialsCount = this.db.db
-      .prepare('SELECT COUNT(*) as count FROM inventory_materials')
+      .prepare('SELECT COUNT(*) as count FROM inventory_materials WHERE deleted_at IS NULL')
       .get();
     const lowStockCount = this.db.db
       .prepare(
-        'SELECT COUNT(*) as count FROM inventory_materials WHERE current_stock <= reorder_level'
+        'SELECT COUNT(*) as count FROM inventory_materials WHERE deleted_at IS NULL AND current_stock <= reorder_level'
       )
       .get();
     const outOfStockCount = this.db.db
-      .prepare('SELECT COUNT(*) as count FROM inventory_materials WHERE current_stock <= 0')
+      .prepare(
+        'SELECT COUNT(*) as count FROM inventory_materials WHERE deleted_at IS NULL AND current_stock <= 0'
+      )
       .get();
     const totalValue = this.db.db
-      .prepare('SELECT SUM(current_stock * unit_cost) as value FROM inventory_materials')
+      .prepare(
+        'SELECT SUM(current_stock * unit_cost) as value FROM inventory_materials WHERE deleted_at IS NULL'
+      )
       .get();
 
     // Get category breakdown
@@ -151,6 +161,7 @@ class InventoryService {
         `
         SELECT category, COUNT(*) as count, SUM(current_stock * unit_cost) as value
         FROM inventory_materials
+        WHERE deleted_at IS NULL
         GROUP BY category
       `
       )
@@ -169,7 +180,9 @@ class InventoryService {
    * Get a single inventory item by ID, including recent movements.
    */
   async getInventoryItemById(id) {
-    const item = this.db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(id);
+    const item = this.db.db
+      .prepare('SELECT * FROM inventory_materials WHERE id = ? AND deleted_at IS NULL')
+      .get(id);
 
     if (!item) {
       return null;
@@ -225,7 +238,9 @@ class InventoryService {
    * Update an existing inventory item. Returns null if item not found.
    */
   async updateInventoryItem(id, updates) {
-    const existing = this.db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(id);
+    const existing = this.db.db
+      .prepare('SELECT * FROM inventory_materials WHERE id = ? AND deleted_at IS NULL')
+      .get(id);
     if (!existing) {
       return null;
     }
@@ -286,13 +301,16 @@ class InventoryService {
    * Delete an inventory item and its movements. Returns null if item not found.
    */
   async deleteInventoryItem(id) {
-    const existing = this.db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(id);
+    const existing = this.db.db
+      .prepare('SELECT * FROM inventory_materials WHERE id = ? AND deleted_at IS NULL')
+      .get(id);
     if (!existing) {
       return null;
     }
 
-    this.db.db.prepare('DELETE FROM inventory_movements WHERE item_id = ?').run(id);
-    this.db.db.prepare('DELETE FROM inventory_materials WHERE id = ?').run(id);
+    this.db.db
+      .prepare('UPDATE inventory_materials SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(id);
 
     return { deleted: true };
   }
@@ -304,34 +322,36 @@ class InventoryService {
   async createInventoryMovement(data, userId) {
     const { type, item_id, quantity, unit_cost, reason, order_id, notes } = data;
 
-    const item = this.db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(item_id);
-    if (!item) {
-      return { error: 'Inventory item not found', statusCode: 404 };
-    }
-
-    // Calculate new stock level
-    let newStock = item.current_stock;
-    if (type === 'purchase') {
-      newStock += quantity;
-    } else if (type === 'usage' || type === 'sale' || type === 'waste') {
-      newStock -= quantity;
-    } else if (type === 'adjustment') {
-      newStock = quantity;
-    }
-
-    // Prevent negative stock
-    if (newStock < 0) {
-      return {
-        error: `Insufficient stock. Available: ${item.current_stock} ${item.unit || 'units'}`,
-        statusCode: 400,
-      };
-    }
-
     const id = uuidv4();
-    const totalCost = unit_cost ? unit_cost * quantity : (item.unit_cost || 0) * quantity;
 
-    // Wrap insert + update in a transaction for atomicity
+    // Wrap SELECT, validation, INSERT, and UPDATE in a transaction for atomicity (prevents TOCTOU race)
     const recordMovement = this.db.db.transaction(() => {
+      const item = this.db.db
+        .prepare('SELECT * FROM inventory_materials WHERE id = ? AND deleted_at IS NULL')
+        .get(item_id);
+      if (!item) {
+        throw new Error('ITEM_NOT_FOUND');
+      }
+
+      // Calculate new stock level
+      let newStock = item.current_stock;
+      if (type === 'purchase') {
+        newStock += quantity;
+      } else if (type === 'usage' || type === 'sale' || type === 'waste') {
+        newStock -= quantity;
+      } else if (type === 'adjustment') {
+        newStock = quantity;
+      }
+
+      // Prevent negative stock
+      if (newStock < 0) {
+        throw new Error(`INSUFFICIENT_STOCK:${item.current_stock}:${item.unit || 'units'}`);
+      }
+
+      const totalCost = Math.round(
+        unit_cost ? unit_cost * quantity : (item.unit_cost || 0) * quantity
+      );
+
       this.db.db
         .prepare(
           `
@@ -357,17 +377,33 @@ class InventoryService {
           'UPDATE inventory_materials SET current_stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
         )
         .run(newStock, item_id);
+
+      return newStock;
     });
 
-    recordMovement();
-
-    return { movementId: id, newStock };
+    try {
+      const newStock = recordMovement();
+      return { movementId: id, newStock };
+    } catch (e) {
+      if (e.message === 'ITEM_NOT_FOUND') {
+        return { error: 'Inventory item not found', statusCode: 404 };
+      }
+      if (e.message.startsWith('INSUFFICIENT_STOCK:')) {
+        const parts = e.message.split(':');
+        return {
+          error: `Insufficient stock. Available: ${parts[1]} ${parts[2]}`,
+          statusCode: 400,
+        };
+      }
+      throw e;
+    }
   }
 
   /**
    * Get inventory movements with optional filtering by item_id and type.
    */
   async getInventoryMovements({ item_id, type, limit = 100 }) {
+    const cappedLimit = Math.min(parseInt(limit) || 100, 500);
     let query = `
       SELECT im.*, m.name as item_name
       FROM inventory_movements im
@@ -387,7 +423,7 @@ class InventoryService {
     }
 
     query += ` ORDER BY im.created_at DESC LIMIT ?`;
-    params.push(parseInt(limit));
+    params.push(cappedLimit);
 
     const movements = this.db.db.prepare(query).all(...params);
 
@@ -420,7 +456,9 @@ class InventoryService {
     const { item_id, priority = 'normal', notes } = data;
 
     // Get item details
-    const item = this.db.db.prepare('SELECT * FROM inventory_materials WHERE id = ?').get(item_id);
+    const item = this.db.db
+      .prepare('SELECT * FROM inventory_materials WHERE id = ? AND deleted_at IS NULL')
+      .get(item_id);
     if (!item) {
       return { error: 'Inventory item not found', statusCode: 404 };
     }
