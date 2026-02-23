@@ -1,15 +1,27 @@
 // Dashboard routes
+const { createRateLimiter } = require('../middleware/rateLimiter');
+
+const dashboardRateLimit = createRateLimiter({ maxRequests: 30, windowSeconds: 60 });
 
 async function dashboardRoutes(fastify, options) {
   const db = fastify.db;
 
   // Get dashboard stats (requires authentication)
-  fastify.get('/stats', { preHandler: [fastify.authenticate] }, async (request, reply) => {
-    try {
-      // Orders stats
-      const orderStats = db.db
-        .prepare(
-          `
+  fastify.get(
+    '/stats',
+    {
+      preHandler: [
+        fastify.authenticate,
+        fastify.authorize(['owner', 'manager']),
+        dashboardRateLimit,
+      ],
+    },
+    async (request, reply) => {
+      try {
+        // Orders stats
+        const orderStats = db.db
+          .prepare(
+            `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
@@ -19,26 +31,26 @@ async function dashboardRoutes(fastify, options) {
           SUM(total_amount) as total_value
         FROM orders
       `
-        )
-        .get();
+          )
+          .get();
 
-      // Customers stats
-      const customerStats = db.db
-        .prepare(
-          `
+        // Customers stats
+        const customerStats = db.db
+          .prepare(
+            `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN loyalty_status = 'vip' THEN 1 ELSE 0 END) as vip,
           SUM(total_spent) as total_spent
         FROM customers
       `
-        )
-        .get();
+          )
+          .get();
 
-      // Invoices stats
-      const invoiceStats = db.db
-        .prepare(
-          `
+        // Invoices stats
+        const invoiceStats = db.db
+          .prepare(
+            `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'unpaid' THEN 1 ELSE 0 END) as unpaid,
@@ -47,13 +59,13 @@ async function dashboardRoutes(fastify, options) {
           SUM(CASE WHEN status IN ('unpaid', 'overdue') THEN total_amount ELSE 0 END) as unpaid_value
         FROM invoices
       `
-        )
-        .get();
+          )
+          .get();
 
-      // Inventory stats
-      const inventoryStats = db.db
-        .prepare(
-          `
+        // Inventory stats
+        const inventoryStats = db.db
+          .prepare(
+            `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN current_stock <= reorder_level THEN 1 ELSE 0 END) as low_stock,
@@ -61,13 +73,13 @@ async function dashboardRoutes(fastify, options) {
           SUM(current_stock * unit_cost) as total_value
         FROM inventory_materials
       `
-        )
-        .get();
+          )
+          .get();
 
-      // Production tasks stats
-      const taskStats = db.db
-        .prepare(
-          `
+        // Production tasks stats
+        const taskStats = db.db
+          .prepare(
+            `
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
@@ -75,58 +87,59 @@ async function dashboardRoutes(fastify, options) {
           SUM(CASE WHEN status = 'completed' AND DATE(completed_at) = DATE('now') THEN 1 ELSE 0 END) as completed_today
         FROM production_tasks
       `
-        )
-        .get();
+          )
+          .get();
 
-      return {
-        success: true,
-        stats: {
-          orders: {
-            total: orderStats.total || 0,
-            pending: orderStats.pending || 0,
-            designing: orderStats.designing || 0,
-            production: orderStats.production || 0,
-            completed: orderStats.completed || 0,
-            totalValue: orderStats.total_value || 0,
+        return {
+          success: true,
+          stats: {
+            orders: {
+              total: orderStats.total || 0,
+              pending: orderStats.pending || 0,
+              designing: orderStats.designing || 0,
+              production: orderStats.production || 0,
+              completed: orderStats.completed || 0,
+              totalValue: orderStats.total_value || 0,
+            },
+            customers: {
+              total: customerStats.total || 0,
+              vip: customerStats.vip || 0,
+              totalSpent: customerStats.total_spent || 0,
+            },
+            invoices: {
+              total: invoiceStats.total || 0,
+              unpaid: invoiceStats.unpaid || 0,
+              overdue: invoiceStats.overdue || 0,
+              paidValue: invoiceStats.paid_value || 0,
+              unpaidValue: invoiceStats.unpaid_value || 0,
+            },
+            inventory: {
+              total: inventoryStats.total || 0,
+              lowStock: inventoryStats.low_stock || 0,
+              outOfStock: inventoryStats.out_of_stock || 0,
+              totalValue: inventoryStats.total_value || 0,
+            },
+            tasks: {
+              total: taskStats.total || 0,
+              pending: taskStats.pending || 0,
+              inProgress: taskStats.in_progress || 0,
+              completedToday: taskStats.completed_today || 0,
+            },
           },
-          customers: {
-            total: customerStats.total || 0,
-            vip: customerStats.vip || 0,
-            totalSpent: customerStats.total_spent || 0,
-          },
-          invoices: {
-            total: invoiceStats.total || 0,
-            unpaid: invoiceStats.unpaid || 0,
-            overdue: invoiceStats.overdue || 0,
-            paidValue: invoiceStats.paid_value || 0,
-            unpaidValue: invoiceStats.unpaid_value || 0,
-          },
-          inventory: {
-            total: inventoryStats.total || 0,
-            lowStock: inventoryStats.low_stock || 0,
-            outOfStock: inventoryStats.out_of_stock || 0,
-            totalValue: inventoryStats.total_value || 0,
-          },
-          tasks: {
-            total: taskStats.total || 0,
-            pending: taskStats.pending || 0,
-            inProgress: taskStats.in_progress || 0,
-            completedToday: taskStats.completed_today || 0,
-          },
-        },
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 
   // Get recent orders (requires authentication)
   fastify.get(
     '/recent-orders',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, dashboardRateLimit],
       schema: {
         querystring: {
           type: 'object',
@@ -143,14 +156,14 @@ async function dashboardRoutes(fastify, options) {
         const orders = db.db
           .prepare(
             `
-        SELECT o.*, c.name as customer_name
+        SELECT o.id, o.order_number, o.status, o.priority, o.total_amount, o.created_at, c.name as customer_name
         FROM orders o
         LEFT JOIN customers c ON o.customer_id = c.id
         ORDER BY o.created_at DESC
         LIMIT ?
       `
           )
-          .all(parseInt(limit));
+          .all(limit);
 
         return {
           success: true,
@@ -165,135 +178,149 @@ async function dashboardRoutes(fastify, options) {
   );
 
   // Get dashboard overview (requires authentication)
-  fastify.get('/overview', { preHandler: [fastify.authenticate] }, async (request, reply) => {
-    try {
-      // Revenue this month
-      const now = new Date();
-      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-      const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
+  fastify.get(
+    '/overview',
+    {
+      preHandler: [
+        fastify.authenticate,
+        fastify.authorize(['owner', 'manager']),
+        dashboardRateLimit,
+      ],
+    },
+    async (request, reply) => {
+      try {
+        // Revenue this month
+        const now = new Date();
+        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        const monthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
 
-      const monthlyRevenue = db.db
-        .prepare(
-          `
+        const monthlyRevenue = db.db
+          .prepare(
+            `
         SELECT SUM(amount) as total
         FROM financial_transactions
         WHERE type = 'income'
         AND DATE(payment_date) >= ?
         AND DATE(payment_date) <= ?
       `
-        )
-        .get(monthStart, monthEnd);
+          )
+          .get(monthStart, monthEnd);
 
-      // Orders this month
-      const monthlyOrders = db.db
-        .prepare(
-          `
+        // Orders this month
+        const monthlyOrders = db.db
+          .prepare(
+            `
         SELECT COUNT(*) as count
         FROM orders
         WHERE DATE(created_at) >= ?
         AND DATE(created_at) <= ?
       `
-        )
-        .get(monthStart, monthEnd);
+          )
+          .get(monthStart, monthEnd);
 
-      // New customers this month
-      const newCustomers = db.db
-        .prepare(
-          `
+        // New customers this month
+        const newCustomers = db.db
+          .prepare(
+            `
         SELECT COUNT(*) as count
         FROM customers
         WHERE DATE(created_at) >= ?
         AND DATE(created_at) <= ?
       `
-        )
-        .get(monthStart, monthEnd);
+          )
+          .get(monthStart, monthEnd);
 
-      // Overdue invoices
-      const overdueInvoices = db.db
-        .prepare(
-          `
+        // Overdue invoices
+        const overdueInvoices = db.db
+          .prepare(
+            `
         SELECT COUNT(*) as count, SUM(total_amount) as total
         FROM invoices
         WHERE status = 'overdue'
         OR (status = 'unpaid' AND due_date < DATE('now'))
       `
-        )
-        .get();
+          )
+          .get();
 
-      // Urgent orders
-      const urgentOrders = db.db
-        .prepare(
-          `
+        // Urgent orders
+        const urgentOrders = db.db
+          .prepare(
+            `
         SELECT COUNT(*) as count
         FROM orders
         WHERE priority = 'urgent'
         AND status NOT IN ('completed', 'cancelled')
       `
-        )
-        .get();
+          )
+          .get();
 
-      // Low stock alerts
-      const lowStockAlerts = db.db
-        .prepare(
-          `
+        // Low stock alerts
+        const lowStockAlerts = db.db
+          .prepare(
+            `
         SELECT COUNT(*) as count
         FROM inventory_materials
         WHERE current_stock <= reorder_level
       `
-        )
-        .get();
+          )
+          .get();
 
-      // Today's activity
-      const todayOrders = db.db
-        .prepare(`SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = DATE('now')`)
-        .get();
-      const todayCompleted = db.db
-        .prepare(
-          `SELECT COUNT(*) as count FROM orders WHERE status = 'completed' AND DATE(updated_at) = DATE('now')`
-        )
-        .get();
-      const todayInvoices = db.db
-        .prepare(`SELECT COUNT(*) as count FROM invoices WHERE DATE(issue_date) = DATE('now')`)
-        .get();
+        // Today's activity
+        const todayOrders = db.db
+          .prepare(`SELECT COUNT(*) as count FROM orders WHERE DATE(created_at) = DATE('now')`)
+          .get();
+        const todayCompleted = db.db
+          .prepare(
+            `SELECT COUNT(*) as count FROM orders WHERE status = 'completed' AND DATE(updated_at) = DATE('now')`
+          )
+          .get();
+        const todayInvoices = db.db
+          .prepare(`SELECT COUNT(*) as count FROM invoices WHERE DATE(issue_date) = DATE('now')`)
+          .get();
 
-      return {
-        success: true,
-        overview: {
-          revenue: {
-            monthly: monthlyRevenue?.total || 0,
-            monthName: now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
+        return {
+          success: true,
+          overview: {
+            revenue: {
+              monthly: monthlyRevenue?.total || 0,
+              monthName: now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
+            },
+            orders: {
+              monthly: monthlyOrders?.count || 0,
+              urgent: urgentOrders?.count || 0,
+            },
+            customers: {
+              newThisMonth: newCustomers?.count || 0,
+            },
+            alerts: {
+              overdueInvoices: overdueInvoices?.count || 0,
+              overdueAmount: overdueInvoices?.total || 0,
+              lowStock: lowStockAlerts?.count || 0,
+            },
+            today: {
+              newOrders: todayOrders?.count || 0,
+              completedOrders: todayCompleted?.count || 0,
+              newInvoices: todayInvoices?.count || 0,
+            },
           },
-          orders: {
-            monthly: monthlyOrders?.count || 0,
-            urgent: urgentOrders?.count || 0,
-          },
-          customers: {
-            newThisMonth: newCustomers?.count || 0,
-          },
-          alerts: {
-            overdueInvoices: overdueInvoices?.count || 0,
-            overdueAmount: overdueInvoices?.total || 0,
-            lowStock: lowStockAlerts?.count || 0,
-          },
-          today: {
-            newOrders: todayOrders?.count || 0,
-            completedOrders: todayCompleted?.count || 0,
-            newInvoices: todayInvoices?.count || 0,
-          },
-        },
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 
-  // Get sales trend (requires authentication)
+  // Get sales trend (requires authentication + manager/owner role)
   fastify.get(
     '/sales-trend',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [
+        fastify.authenticate,
+        fastify.authorize(['owner', 'manager']),
+        dashboardRateLimit,
+      ],
       schema: {
         querystring: {
           type: 'object',
@@ -307,27 +334,37 @@ async function dashboardRoutes(fastify, options) {
       try {
         const { days = 30 } = request.query;
 
+        // Single grouped query instead of N sequential queries
+        const rows = db.db
+          .prepare(
+            `
+          SELECT
+            DATE(payment_date) as date,
+            COUNT(*) as orders,
+            COALESCE(SUM(amount), 0) as revenue
+          FROM financial_transactions
+          WHERE type = 'income'
+          AND DATE(payment_date) >= DATE('now', ?)
+          GROUP BY DATE(payment_date)
+          ORDER BY date ASC
+        `
+          )
+          .all(`-${days} days`);
+
+        // Build a lookup map for days with data
+        const dataByDate = new Map();
+        for (const row of rows) {
+          dataByDate.set(row.date, { orders: row.orders, revenue: row.revenue });
+        }
+
+        // Fill in all days (including zeros) for a complete trend line
         const trend = [];
         const now = new Date();
-
-        for (let i = parseInt(days) - 1; i >= 0; i--) {
+        for (let i = days - 1; i >= 0; i--) {
           const date = new Date(now);
           date.setDate(date.getDate() - i);
           const dateStr = date.toISOString().split('T')[0];
-
-          const dayData = db.db
-            .prepare(
-              `
-          SELECT
-            COUNT(*) as orders,
-            SUM(amount) as revenue
-          FROM financial_transactions
-          WHERE type = 'income'
-          AND DATE(payment_date) = ?
-        `
-            )
-            .get(dateStr);
-
+          const dayData = dataByDate.get(dateStr);
           trend.push({
             date: dateStr,
             orders: dayData?.orders || 0,
@@ -348,11 +385,20 @@ async function dashboardRoutes(fastify, options) {
   );
 
   // Get product mix (requires authentication)
-  fastify.get('/product-mix', { preHandler: [fastify.authenticate] }, async (request, reply) => {
-    try {
-      const productMix = db.db
-        .prepare(
-          `
+  fastify.get(
+    '/product-mix',
+    {
+      preHandler: [
+        fastify.authenticate,
+        fastify.authorize(['owner', 'manager']),
+        dashboardRateLimit,
+      ],
+    },
+    async (request, reply) => {
+      try {
+        const productMix = db.db
+          .prepare(
+            `
         SELECT
           box_type,
           COUNT(*) as count,
@@ -362,25 +408,30 @@ async function dashboardRoutes(fastify, options) {
         GROUP BY box_type
         ORDER BY count DESC
       `
-        )
-        .all();
+          )
+          .all();
 
-      return {
-        success: true,
-        productMix,
-      };
-    } catch (error) {
-      fastify.log.error(error);
-      reply.code(500);
-      return { success: false, error: 'An internal error occurred' };
+        return {
+          success: true,
+          productMix,
+        };
+      } catch (error) {
+        fastify.log.error(error);
+        reply.code(500);
+        return { success: false, error: 'An internal error occurred' };
+      }
     }
-  });
+  );
 
   // Get top customers (requires authentication)
   fastify.get(
     '/top-customers',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [
+        fastify.authenticate,
+        fastify.authorize(['owner', 'manager']),
+        dashboardRateLimit,
+      ],
       schema: {
         querystring: {
           type: 'object',
@@ -403,7 +454,7 @@ async function dashboardRoutes(fastify, options) {
         LIMIT ?
       `
           )
-          .all(parseInt(limit));
+          .all(limit);
 
         return {
           success: true,
