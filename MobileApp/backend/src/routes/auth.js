@@ -173,7 +173,8 @@ async function authRoutes(fastify, options) {
         }
 
         if (!user.is_active) {
-          return reply.status(403).send({ success: false, error: 'Account is deactivated' });
+          // Return same error as invalid credentials to prevent username enumeration
+          return reply.status(401).send({ success: false, error: 'Invalid username or password' });
         }
 
         // Verify password
