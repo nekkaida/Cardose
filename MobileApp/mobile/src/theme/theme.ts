@@ -26,6 +26,8 @@ export const theme = {
     error: '#f44336',
     errorLight: '#FEF2F2',
     errorBorder: '#EF4444',
+    warningLight: '#FEF3C7',
+    warningText: '#795548',
   },
   roundness: 8,
   fonts: {
