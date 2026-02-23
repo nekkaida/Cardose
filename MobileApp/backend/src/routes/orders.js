@@ -218,6 +218,10 @@ async function ordersRoutes(fastify, options) {
 
         return { success: true, message: 'Order status updated successfully' };
       } catch (error) {
+        if (error.statusCode === 400) {
+          reply.code(400);
+          return { success: false, error: 'Invalid status transition' };
+        }
         fastify.log.error(error);
         reply.code(500);
         return { success: false, error: 'An internal error occurred' };
