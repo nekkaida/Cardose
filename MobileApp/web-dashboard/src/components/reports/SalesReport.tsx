@@ -1,7 +1,8 @@
 import React from 'react';
-import { useLanguage } from '../../contexts/LanguageContext';
 import type { SalesReportData } from '@shared/types/reports';
-import { StatCard, SectionTitle, DataTable } from './ReportPrimitives';
+import { useReportTranslation } from '../../hooks/useReportTranslation';
+import { ReportLineChart, ReportBarChart, CHART_COLORS } from './ReportCharts';
+import { StatCard, SectionTitle, DataTable, buildPaginationLabels } from './ReportPrimitives';
 
 export interface SalesReportProps {
   data: SalesReportData;
@@ -10,13 +11,11 @@ export interface SalesReportProps {
 }
 
 const SalesReport: React.FC<SalesReportProps> = ({ data, formatCurrency, formatNumber }) => {
-  const { t } = useLanguage();
-  const tr = (key: string, fallback: string) => {
-    const val = t(key);
-    return val === key ? fallback : val;
-  };
+  const tr = useReportTranslation();
 
   const emptyMessage = tr('reports.noData', 'No data available');
+
+  const paginationLabels = buildPaginationLabels(tr);
 
   return (
     <>
@@ -48,6 +47,31 @@ const SalesReport: React.FC<SalesReportProps> = ({ data, formatCurrency, formatN
         </p>
       )}
 
+      {/* Revenue Trend line chart (need 2+ points for a meaningful line) */}
+      {data.sales.length > 1 && (
+        <div className="mb-6">
+          <SectionTitle>{tr('reports.revenueTrend', 'Revenue Trend')}</SectionTitle>
+          <ReportLineChart
+            data={data.sales}
+            xKey="date"
+            lines={[
+              {
+                key: 'revenue',
+                color: CHART_COLORS.success,
+                label: tr('reports.revenue', 'Revenue'),
+              },
+              {
+                key: 'tax_collected',
+                color: CHART_COLORS.warning,
+                label: tr('reports.taxCollected', 'Tax Collected'),
+              },
+            ]}
+            formatY={formatCurrency}
+            formatTooltip={formatCurrency}
+          />
+        </div>
+      )}
+
       {/* Daily sales table */}
       <div className="mb-6">
         <SectionTitle>{tr('reports.dailySales', 'Daily Sales')}</SectionTitle>
@@ -58,24 +82,47 @@ const SalesReport: React.FC<SalesReportProps> = ({ data, formatCurrency, formatN
             {
               key: 'invoice_count',
               label: tr('reports.invoiceCount', 'Invoices'),
-              format: (v: number) => formatNumber(v),
+              format: (v) => formatNumber(v as number),
             },
             {
               key: 'revenue',
               label: tr('reports.revenue', 'Revenue'),
-              format: (v: number) => formatCurrency(v),
+              format: (v) => formatCurrency(v as number),
             },
             {
               key: 'tax_collected',
               label: tr('reports.taxCollected', 'Tax Collected'),
-              format: (v: number) => formatCurrency(v),
+              format: (v) => formatCurrency(v as number),
             },
           ]}
           rows={data.sales}
+          paginationLabels={paginationLabels}
         />
       </div>
 
-      {/* Top customers */}
+      {/* Top Customers bar chart */}
+      {data.topCustomers.length > 0 && (
+        <div className="mb-6">
+          <SectionTitle>
+            {tr('reports.topCustomersByRevenue', 'Top Customers by Revenue')}
+          </SectionTitle>
+          <ReportBarChart
+            data={data.topCustomers}
+            xKey="name"
+            bars={[
+              {
+                key: 'revenue',
+                color: CHART_COLORS.primary,
+                label: tr('reports.revenue', 'Revenue'),
+              },
+            ]}
+            formatY={formatCurrency}
+            formatTooltip={formatCurrency}
+          />
+        </div>
+      )}
+
+      {/* Top customers table */}
       <div>
         <SectionTitle>{tr('reports.topCustomers', 'Top Customers')}</SectionTitle>
         <DataTable
@@ -85,15 +132,16 @@ const SalesReport: React.FC<SalesReportProps> = ({ data, formatCurrency, formatN
             {
               key: 'revenue',
               label: tr('reports.revenue', 'Revenue'),
-              format: (v: number) => formatCurrency(v),
+              format: (v) => formatCurrency(v as number),
             },
             {
               key: 'invoice_count',
               label: tr('reports.invoiceCount', 'Invoices'),
-              format: (v: number) => formatNumber(v),
+              format: (v) => formatNumber(v as number),
             },
           ]}
           rows={data.topCustomers}
+          paginationLabels={paginationLabels}
         />
       </div>
     </>
