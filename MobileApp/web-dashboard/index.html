@@ -10,6 +10,11 @@
       name="description"
       content="Cardose Premium Gift Box - Business Management Dashboard"
     />
+    <!-- Security headers via meta tags (supplement with server headers in production) -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <!-- X-Frame-Options must be set as an HTTP header; browsers ignore it as a meta tag -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' http://localhost:3001 https://*.sentry.io; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self';" />
     <link rel="apple-touch-icon" href="/logo192.png" />
     <link rel="manifest" href="/manifest.json" />
     <title>Cardose Dashboard</title>
