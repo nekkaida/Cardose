@@ -5,11 +5,14 @@ export { QualityHistoryModal } from './QualityHistoryModal';
 export {
   type ChecklistItem,
   type QualityCheck,
+  type QCStatus,
   DEFAULT_CHECKLIST,
   STATUS_OPTIONS,
   calculateCompletionPercentage,
   determineStatus,
   formatDate,
   getStatusColor,
+  getStatusLabel,
   isCustomItem,
+  generateItemId,
 } from './qualityControlHelpers';
