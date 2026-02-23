@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   ScrollView,
   StyleSheet,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   Text,
@@ -13,206 +15,212 @@ import {
   SegmentedButtons,
   Divider,
 } from 'react-native-paper';
-import { useAuthenticatedFetch } from '../../hooks/useAuthenticatedFetch';
 import { theme } from '../../theme/theme';
+import type { QCStatus, QualityCheckScreenProps } from './types';
 import {
-  ChecklistItem,
-  QualityCheck,
-  DEFAULT_CHECKLIST,
   STATUS_OPTIONS,
-  calculateCompletionPercentage,
-  determineStatus,
   ChecklistItemRow,
   CompletionSummary,
   QualityHistoryModal,
 } from './components';
+import {
+  useQualityChecklist,
+  useQualityHistory,
+  useQualitySubmission,
+  useOfflineQueue,
+} from './hooks';
 
-export const QualityControlScreen: React.FC = ({ navigation, route }: any) => {
-  const { orderId } = route.params || {};
+export const QualityControlScreen: React.FC<QualityCheckScreenProps> = ({
+  navigation,
+  route,
+}) => {
+  const orderId: string | undefined = route.params?.orderId;
 
-  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(DEFAULT_CHECKLIST);
-  const [overallStatus, setOverallStatus] = useState<string>('pending');
+  // --- All hooks MUST be called before any early return ---
+  const checklist = useQualityChecklist();
+  const history = useQualityHistory(orderId);
+  const submission = useQualitySubmission();
+  const offlineQueue = useOfflineQueue();
+
+  const [statusOverride, setStatusOverride] = useState<QCStatus | null>(null);
   const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
-  const [qualityHistory, setQualityHistory] = useState<QualityCheck[]>([]);
 
-  const authenticatedFetch = useAuthenticatedFetch();
+  const effectiveStatus: QCStatus = statusOverride ?? checklist.suggestedStatus;
 
-  useEffect(() => {
-    if (orderId) {
-      fetchQualityHistory();
-    }
-  }, [orderId]);
+  // Destructure stable callbacks to avoid depending on full hook return objects
+  const resetChecklist = checklist.reset;
+  const refreshHistory = history.refresh;
+  const submitQC = submission.submit;
+  const refreshQueueCount = offlineQueue.refreshCount;
+  const processQueueFn = offlineQueue.processQueue;
 
-  const fetchQualityHistory = async () => {
-    try {
-      const response = await authenticatedFetch(`/production/quality-checks/${orderId}`);
-      const data = await response.json();
+  const handleStatusChange = useCallback(
+    (value: string) => setStatusOverride(value as QCStatus),
+    []
+  );
 
-      if (response.ok) {
-        setQualityHistory(data.checks || []);
+  const handleSubmit = useCallback(async () => {
+    if (!orderId) return;
+
+    const submitAndHandleResult = async () => {
+      const result = await submitQC({
+        orderId,
+        checklistItems: checklist.items,
+        overallStatus: effectiveStatus,
+        notes,
+      });
+
+      if (result.success) {
+        const message = result.queued
+          ? 'You appear to be offline. Your quality check has been saved and will be submitted automatically when connectivity is restored.'
+          : 'Quality check submitted successfully';
+        const title = result.queued ? 'Saved Offline' : 'Success';
+
+        if (result.queued) {
+          refreshQueueCount();
+        }
+
+        Alert.alert(title, message, [
+          {
+            text: 'OK',
+            onPress: () => {
+              if (!result.queued && effectiveStatus === 'passed') {
+                navigation.goBack();
+              } else if (!result.queued) {
+                resetChecklist();
+                setStatusOverride(null);
+                setNotes('');
+                refreshHistory();
+              }
+            },
+          },
+        ]);
+      } else {
+        Alert.alert('Error', result.error || 'Failed to submit quality check');
       }
-    } catch (error) {
-      console.error('Fetch quality history error:', error);
-    }
-  };
-
-  const toggleChecklistItem = (itemId: string) => {
-    setChecklistItems(
-      checklistItems.map((item) =>
-        item.id === itemId ? { ...item, checked: !item.checked } : item
-      )
-    );
-  };
-
-  const updateItemNotes = (itemId: string, itemNotes: string) => {
-    setChecklistItems(
-      checklistItems.map((item) =>
-        item.id === itemId ? { ...item, notes: itemNotes } : item
-      )
-    );
-  };
-
-  const addCustomItem = () => {
-    const newItem: ChecklistItem = {
-      id: Date.now().toString(),
-      name: 'Custom check item',
-      checked: false,
     };
-    setChecklistItems([...checklistItems, newItem]);
-  };
 
-  const removeCustomItem = (itemId: string) => {
-    const defaultIds = DEFAULT_CHECKLIST.map((item) => item.id);
-    if (!defaultIds.includes(itemId)) {
-      setChecklistItems(checklistItems.filter((item) => item.id !== itemId));
-    }
-  };
+    const uncheckedItems = checklist.items.filter((item) => !item.checked);
 
-  const updateCustomItemName = (itemId: string, name: string) => {
-    setChecklistItems(
-      checklistItems.map((item) =>
-        item.id === itemId ? { ...item, name } : item
-      )
-    );
-  };
-
-  const submitQualityCheck = async () => {
-    if (!orderId) {
-      Alert.alert('Error', 'Order ID is required');
-      return;
-    }
-
-    const uncheckedItems = checklistItems.filter((item) => !item.checked);
-    if (uncheckedItems.length > 0 && overallStatus === 'passed') {
+    if (uncheckedItems.length > 0 && effectiveStatus === 'passed') {
       Alert.alert(
-        'Warning',
-        `${uncheckedItems.length} items are not checked. Are you sure you want to mark as passed?`,
+        'Unchecked Items',
+        `${uncheckedItems.length} item(s) are not checked. Are you sure you want to mark as passed?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Continue', onPress: () => performSubmit() },
+          { text: 'Continue', onPress: submitAndHandleResult },
         ]
       );
       return;
     }
 
-    performSubmit();
-  };
+    await submitAndHandleResult();
+  }, [orderId, checklist.items, effectiveStatus, notes, submitQC, navigation, resetChecklist, refreshHistory, refreshQueueCount]);
 
-  const performSubmit = async () => {
-    try {
-      setSubmitting(true);
-
-      const checkData = {
-        orderId,
-        checklistItems,
-        overallStatus,
-        notes: notes || undefined,
-      };
-
-      const response = await authenticatedFetch('/production/quality-check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(checkData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        Alert.alert(
-          'Success',
-          'Quality check submitted successfully',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                if (overallStatus === 'passed') {
-                  navigation.goBack();
-                } else {
-                  setChecklistItems(DEFAULT_CHECKLIST);
-                  setNotes('');
-                }
-              },
-            },
-          ]
-        );
-        fetchQualityHistory();
-      } else {
-        Alert.alert('Error', data.error || 'Failed to submit quality check');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Network error submitting quality check');
-      console.error('Submit quality check error:', error);
-    } finally {
-      setSubmitting(false);
+  const handleProcessQueue = useCallback(async () => {
+    const { succeeded, failed } = await processQueueFn();
+    if (succeeded > 0) {
+      refreshHistory();
     }
-  };
+    if (failed > 0) {
+      Alert.alert('Retry Result', `${succeeded} submitted, ${failed} still pending.`);
+    } else if (succeeded > 0) {
+      Alert.alert('Success', `${succeeded} queued submission(s) sent successfully.`);
+    }
+  }, [processQueueFn, refreshHistory]);
 
-  const completionPercentage = calculateCompletionPercentage(checklistItems);
-  const suggestedStatus = determineStatus(checklistItems);
+  // --- Guard: missing orderId (after all hooks) ---
+  if (!orderId) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>No Order Selected</Text>
+        <Text style={styles.errorDescription}>
+          Please navigate to this screen from an order on the status board.
+        </Text>
+        <Button mode="contained" onPress={() => navigation.goBack()} style={styles.errorButton}>
+          Go Back
+        </Button>
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.content}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+    >
+      <ScrollView
+        style={styles.content}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
         <Card style={styles.card}>
-          <Card.Title title={`Quality Control - ${orderId || 'New Check'}`} />
+          <Card.Title title={`Quality Control - ${orderId}`} />
           <Card.Content>
+            {/* --- Offline queue banner --- */}
+            {offlineQueue.pendingCount > 0 && (
+              <View style={styles.offlineBanner}>
+                <Text style={styles.offlineBannerText}>
+                  {offlineQueue.pendingCount} submission(s) pending upload
+                </Text>
+                <Button
+                  mode="contained-tonal"
+                  onPress={handleProcessQueue}
+                  loading={offlineQueue.processing}
+                  disabled={offlineQueue.processing}
+                  compact
+                  icon="cloud-upload"
+                >
+                  Retry
+                </Button>
+              </View>
+            )}
+
+            {/* --- Progress summary --- */}
             <CompletionSummary
-              completionPercentage={completionPercentage}
-              suggestedStatus={suggestedStatus}
+              completionPercentage={checklist.completionPercentage}
+              suggestedStatus={checklist.suggestedStatus}
+              selectedStatus={statusOverride}
             />
 
             <Divider style={styles.divider} />
 
+            {/* --- Checklist --- */}
             <View style={styles.checklistHeader}>
               <Text style={styles.sectionTitle}>Quality Checklist</Text>
-              <Button mode="text" onPress={addCustomItem} icon="plus">
+              <Button mode="text" onPress={checklist.addCustom} icon="plus">
                 Add Item
               </Button>
             </View>
 
-            {checklistItems.map((item) => (
+            {checklist.items.map((item) => (
               <ChecklistItemRow
                 key={item.id}
                 item={item}
-                onToggle={toggleChecklistItem}
-                onUpdateNotes={updateItemNotes}
-                onUpdateName={updateCustomItemName}
-                onRemove={removeCustomItem}
+                onToggle={checklist.toggle}
+                onUpdateNotes={checklist.updateNotes}
+                onUpdateName={checklist.updateName}
+                onRemove={checklist.removeCustom}
               />
             ))}
 
             <Divider style={styles.divider} />
 
+            {/* --- Overall status --- */}
             <Text style={styles.sectionTitle}>Overall Status</Text>
             <SegmentedButtons
-              value={overallStatus}
-              onValueChange={setOverallStatus}
-              buttons={[...STATUS_OPTIONS]}
+              value={effectiveStatus}
+              onValueChange={handleStatusChange}
+              buttons={STATUS_OPTIONS.map((opt) => ({
+                value: opt.value,
+                label: opt.label,
+              }))}
               style={styles.segmentedButtons}
             />
 
+            {/* --- Notes --- */}
             <TextInput
               label="General Notes"
               value={notes}
@@ -222,25 +230,29 @@ export const QualityControlScreen: React.FC = ({ navigation, route }: any) => {
               multiline
               numberOfLines={4}
               placeholder="Add any additional observations or comments..."
+              outlineColor={theme.colors.border}
+              activeOutlineColor={theme.colors.primary}
             />
 
+            {/* --- Action buttons --- */}
             <View style={styles.actionButtons}>
               <Button
                 mode="outlined"
                 onPress={() => setHistoryModalVisible(true)}
                 style={styles.actionButton}
-                disabled={!orderId}
+                icon="history"
               >
-                View History
+                History ({history.history.length})
               </Button>
               <Button
                 mode="contained"
-                onPress={submitQualityCheck}
-                loading={submitting}
-                disabled={submitting || !orderId}
+                onPress={handleSubmit}
+                loading={submission.submitting}
+                disabled={submission.submitting}
                 style={styles.actionButton}
+                icon="check-circle"
               >
-                Submit Check
+                Submit
               </Button>
             </View>
           </Card.Content>
@@ -250,9 +262,12 @@ export const QualityControlScreen: React.FC = ({ navigation, route }: any) => {
       <QualityHistoryModal
         visible={historyModalVisible}
         onDismiss={() => setHistoryModalVisible(false)}
-        history={qualityHistory}
+        history={history.history}
+        loading={history.loading}
+        error={history.error}
+        onRetry={history.refresh}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -263,6 +278,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
   },
   card: {
     margin: 16,
@@ -295,5 +313,45 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: theme.colors.background,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  errorDescription: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  errorButton: {
+    minWidth: 140,
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: theme.colors.warningLight,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.warning,
+  },
+  offlineBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.colors.warningText,
+    marginRight: 8,
   },
 });
