@@ -7,12 +7,12 @@
  * - Request/response transformation
  * - Network error handling
  * - File upload support
+ * - Global 401 auto-logout
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../config';
-
-const TOKEN_KEY = '@cardose_token';
+import * as tokenStorage from '../utils/tokenStorage';
 
 interface RequestOptions {
   params?: Record<string, any>;
@@ -27,11 +27,23 @@ interface ApiResponse<T = any> {
   message?: string;
 }
 
+/**
+ * Callback for global 401 handling (set by the app layer).
+ */
+let onUnauthorized: (() => void) | null = null;
+
 export class ApiService {
   private static readonly DEFAULT_TIMEOUT = API_CONFIG.TIMEOUT;
 
   /**
-   * Get the current API base URL (reads from mutable API_CONFIG)
+   * Register a callback to be called on 401 responses.
+   */
+  static setOnUnauthorized(callback: () => void): void {
+    onUnauthorized = callback;
+  }
+
+  /**
+   * Get the current API base URL
    */
   private static get BASE_URL(): string {
     return API_CONFIG.API_URL;
@@ -47,18 +59,18 @@ export class ApiService {
         API_CONFIG.BASE_URL = savedUrl;
       }
     } catch (error) {
-      console.error('Error loading server URL:', error);
+      if (__DEV__) console.error('Error loading server URL:', error);
     }
   }
 
   /**
-   * Get authentication token from storage
+   * Get authentication token from secure storage
    */
   private static async getToken(): Promise<string | null> {
     try {
-      return await AsyncStorage.getItem(TOKEN_KEY);
+      return await tokenStorage.getToken();
     } catch (error) {
-      console.error('Error getting token:', error);
+      if (__DEV__) console.error('Error getting token:', error);
       return null;
     }
   }
@@ -87,7 +99,6 @@ export class ApiService {
    * Build full URL with base URL and query params
    */
   private static buildUrl(endpoint: string, params?: Record<string, any>): string {
-    // Ensure endpoint starts with /
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const baseUrl = `${this.BASE_URL}${normalizedEndpoint}`;
 
@@ -144,16 +155,38 @@ export class ApiService {
   }
 
   /**
+   * Handle 401 responses globally — clears tokens and invokes the logout callback.
+   * Skips unauthenticated auth endpoints to avoid infinite loops during login.
+   */
+  private static async handle401(endpoint: string): Promise<void> {
+    const unauthenticatedEndpoints = [
+      '/auth/login',
+      '/auth/register',
+      '/auth/request-reset',
+      '/auth/reset-password',
+    ];
+    if (unauthenticatedEndpoints.includes(endpoint)) return;
+
+    await tokenStorage.clearAll();
+
+    if (onUnauthorized) {
+      onUnauthorized();
+    }
+  }
+
+  /**
    * Parse and format response
    */
-  private static async formatResponse<T>(response: Response): Promise<ApiResponse<T>> {
+  private static async formatResponse<T>(response: Response, endpoint: string): Promise<ApiResponse<T>> {
     try {
-      // Check if response is JSON
+      if (response.status === 401) {
+        await this.handle401(endpoint);
+      }
+
       const contentType = response.headers.get('content-type');
       const isJson = contentType?.includes('application/json');
 
       if (!isJson) {
-        // Non-JSON response (e.g., file download)
         const blob = await response.blob();
         return {
           success: response.ok,
@@ -164,14 +197,12 @@ export class ApiService {
       const data = await response.json();
 
       if (response.ok) {
-        // Successful response (2xx)
         return {
           success: true,
           data: data.data || data,
           message: data.message,
         };
       } else {
-        // Error response (4xx, 5xx)
         return {
           success: false,
           error: data.error || data.message || `HTTP ${response.status}: ${response.statusText}`,
@@ -179,7 +210,7 @@ export class ApiService {
         };
       }
     } catch (error: any) {
-      console.error('Response parsing error:', error);
+      if (__DEV__) console.error('Response parsing error:', error);
       return {
         success: false,
         error: 'Failed to parse server response',
@@ -191,9 +222,8 @@ export class ApiService {
    * Handle network and HTTP errors
    */
   private static handleError(error: any): ApiResponse {
-    console.error('API Error:', error);
+    if (__DEV__) console.error('API Error:', error);
 
-    // Network errors
     if (error.message === 'Network request failed' || error.message === 'Failed to fetch') {
       return {
         success: false,
@@ -201,7 +231,6 @@ export class ApiService {
       };
     }
 
-    // Timeout errors
     if (error.message === 'Request timeout') {
       return {
         success: false,
@@ -209,7 +238,6 @@ export class ApiService {
       };
     }
 
-    // Other errors
     return {
       success: false,
       error: error.message || 'An unexpected error occurred',
@@ -229,14 +257,11 @@ export class ApiService {
 
       const response = await this.fetchWithTimeout(
         url,
-        {
-          method: 'GET',
-          headers,
-        },
+        { method: 'GET', headers },
         options.timeout
       );
 
-      return await this.formatResponse<T>(response);
+      return await this.formatResponse<T>(response, endpoint);
     } catch (error: any) {
       return this.handleError(error);
     }
@@ -256,15 +281,11 @@ export class ApiService {
 
       const response = await this.fetchWithTimeout(
         url,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(data),
-        },
+        { method: 'POST', headers, body: JSON.stringify(data) },
         options.timeout
       );
 
-      return await this.formatResponse<T>(response);
+      return await this.formatResponse<T>(response, endpoint);
     } catch (error: any) {
       return this.handleError(error);
     }
@@ -284,15 +305,11 @@ export class ApiService {
 
       const response = await this.fetchWithTimeout(
         url,
-        {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify(data),
-        },
+        { method: 'PUT', headers, body: JSON.stringify(data) },
         options.timeout
       );
 
-      return await this.formatResponse<T>(response);
+      return await this.formatResponse<T>(response, endpoint);
     } catch (error: any) {
       return this.handleError(error);
     }
@@ -312,15 +329,11 @@ export class ApiService {
 
       const response = await this.fetchWithTimeout(
         url,
-        {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify(data),
-        },
+        { method: 'PATCH', headers, body: JSON.stringify(data) },
         options.timeout
       );
 
-      return await this.formatResponse<T>(response);
+      return await this.formatResponse<T>(response, endpoint);
     } catch (error: any) {
       return this.handleError(error);
     }
@@ -339,14 +352,11 @@ export class ApiService {
 
       const response = await this.fetchWithTimeout(
         url,
-        {
-          method: 'DELETE',
-          headers,
-        },
+        { method: 'DELETE', headers },
         options.timeout
       );
 
-      return await this.formatResponse<T>(response);
+      return await this.formatResponse<T>(response, endpoint);
     } catch (error: any) {
       return this.handleError(error);
     }
@@ -357,11 +367,7 @@ export class ApiService {
    */
   static async uploadFile<T = any>(
     endpoint: string,
-    file: {
-      uri: string;
-      name: string;
-      type: string;
-    },
+    file: { uri: string; name: string; type: string },
     additionalData?: Record<string, any>
   ): Promise<ApiResponse<T>> {
     try {
@@ -369,15 +375,12 @@ export class ApiService {
       const token = await this.getToken();
 
       const formData = new FormData();
-
-      // Add file
       formData.append('file', {
         uri: file.uri,
         name: file.name,
         type: file.type,
       } as any);
 
-      // Add additional data
       if (additionalData) {
         Object.entries(additionalData).forEach(([key, value]) => {
           formData.append(key, String(value));
@@ -398,7 +401,7 @@ export class ApiService {
         body: formData,
       });
 
-      return await this.formatResponse<T>(response);
+      return await this.formatResponse<T>(response, endpoint);
     } catch (error: any) {
       return this.handleError(error);
     }
@@ -417,10 +420,7 @@ export class ApiService {
 
       const response = await this.fetchWithTimeout(
         url,
-        {
-          method: 'GET',
-          headers,
-        },
+        { method: 'GET', headers },
         options.timeout
       );
 
@@ -433,10 +433,7 @@ export class ApiService {
       }
 
       const blob = await response.blob();
-      return {
-        success: true,
-        data: blob,
-      };
+      return { success: true, data: blob };
     } catch (error: any) {
       return this.handleError(error);
     }
@@ -446,7 +443,6 @@ export class ApiService {
    * Set and persist server URL (survives app restarts)
    */
   static async setBaseUrl(url: string): Promise<void> {
-    // Strip trailing slash
     const cleanUrl = url.replace(/\/+$/, '');
     API_CONFIG.BASE_URL = cleanUrl;
     await AsyncStorage.setItem(API_CONFIG.SERVER_URL_KEY, cleanUrl);
@@ -456,7 +452,7 @@ export class ApiService {
    * Clear saved server URL (revert to default)
    */
   static async clearBaseUrl(): Promise<void> {
-    API_CONFIG._runtimeBaseUrl = '';
+    API_CONFIG.BASE_URL = '';
     await AsyncStorage.removeItem(API_CONFIG.SERVER_URL_KEY);
   }
 
@@ -474,7 +470,7 @@ export class ApiService {
     try {
       const response = await this.get('/health');
       return response.success;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
