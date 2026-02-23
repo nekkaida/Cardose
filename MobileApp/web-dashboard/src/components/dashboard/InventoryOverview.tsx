@@ -92,4 +92,4 @@ const InventoryOverview: React.FC<InventoryOverviewProps> = ({
   );
 };
 
-export default InventoryOverview;
+export default React.memo(InventoryOverview);
