@@ -1,4 +1,5 @@
 import React from 'react';
+import type { DashboardInventory } from '@shared/types/analytics';
 import { formatShortCurrency } from '../../utils/formatters';
 import { SectionError } from './AnalyticsPrimitives';
 
@@ -6,17 +7,11 @@ import { SectionError } from './AnalyticsPrimitives';
 // Types
 // ---------------------------------------------------------------------------
 
-interface DashboardInventory {
-  total_materials: number;
-  out_of_stock: number;
-  low_stock: number;
-  total_value: number;
-}
-
 export interface InventoryOverviewCardsProps {
   inventory: DashboardInventory | undefined;
   error: string | null;
   onRetry: () => void;
+  retrying?: boolean;
   tr: (key: string, fallback: string) => string;
 }
 
@@ -28,17 +23,24 @@ const InventoryOverviewCards: React.FC<InventoryOverviewCardsProps> = ({
   inventory,
   error,
   onRetry,
+  retrying,
   tr,
 }) => {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+    <div
+      className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm"
+      role="figure"
+      aria-label={tr('analytics.inventoryOverview', 'Inventory Overview')}
+    >
       <h2 className="mb-4 text-base font-semibold text-gray-900">
         {tr('analytics.inventoryOverview', 'Inventory Overview')}
       </h2>
       {error ? (
         <SectionError
           message={tr('analytics.loadError', 'Failed to load this section')}
+          retryLabel={tr('analytics.refresh', 'Refresh')}
           onRetry={onRetry}
+          retrying={retrying}
         />
       ) : (
         <div className="grid grid-cols-2 gap-4">
