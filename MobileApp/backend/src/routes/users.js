@@ -19,13 +19,29 @@ async function usersRoutes(fastify, options) {
             search: { type: 'string' },
             limit: { type: 'integer', minimum: 1, maximum: 100, default: 25 },
             page: { type: 'integer', minimum: 1, default: 1 },
+            sort_by: {
+              type: 'string',
+              enum: ['full_name', 'email', 'role', 'created_at'],
+              default: 'created_at',
+            },
+            sort_order: { type: 'string', enum: ['asc', 'desc'], default: 'desc' },
           },
         },
       },
     },
     async (request, reply) => {
       try {
-        const { role, is_active, search, limit, page } = request.query;
+        const { role, is_active, search, limit, page, sort_by, sort_order } = request.query;
+
+        // Whitelist sort columns to prevent SQL injection
+        const SORT_COLUMNS = {
+          full_name: 'full_name',
+          email: 'email',
+          role: 'role',
+          created_at: 'created_at',
+        };
+        const sortCol = SORT_COLUMNS[sort_by] || 'created_at';
+        const sortDir = sort_order === 'asc' ? 'ASC' : 'DESC';
 
         let whereClause = ' WHERE 1=1';
         const params = [];
@@ -39,8 +55,10 @@ async function usersRoutes(fastify, options) {
           params.push(is_active === 'true' ? 1 : 0);
         }
         if (search) {
-          whereClause += ' AND (username LIKE ? OR email LIKE ? OR full_name LIKE ?)';
-          const searchTerm = `%${search}%`;
+          whereClause +=
+            " AND (username LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\' OR full_name LIKE ? ESCAPE '\\')";
+          const escaped = search.replace(/[\\%_]/g, '\\$&');
+          const searchTerm = `%${escaped}%`;
           params.push(searchTerm, searchTerm, searchTerm);
         }
 
@@ -55,7 +73,7 @@ async function usersRoutes(fastify, options) {
         const users = db.db
           .prepare(
             `SELECT id, username, email, full_name, phone, role, is_active, created_at, updated_at
-           FROM users${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+           FROM users${whereClause} ORDER BY ${sortCol} ${sortDir} LIMIT ? OFFSET ?`
           )
           .all(...params, limit, offset);
 
@@ -155,13 +173,20 @@ async function usersRoutes(fastify, options) {
           return { success: false, error: 'Only owners can create owner accounts' };
         }
 
-        // Check if user exists
-        const existing = db.db
-          .prepare('SELECT id FROM users WHERE username = ? OR email = ?')
-          .get(username, email);
-        if (existing) {
+        // Check username uniqueness
+        const existingUsername = db.db
+          .prepare('SELECT id FROM users WHERE username = ?')
+          .get(username);
+        if (existingUsername) {
           reply.code(409);
-          return { success: false, error: 'Username or email already exists' };
+          return { success: false, error: 'Username already exists' };
+        }
+
+        // Check email uniqueness
+        const existingEmail = db.db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+        if (existingEmail) {
+          reply.code(409);
+          return { success: false, error: 'Email already exists' };
         }
 
         const id = uuidv4();
@@ -204,11 +229,10 @@ async function usersRoutes(fastify, options) {
         body: {
           type: 'object',
           properties: {
-            email: { type: 'string' },
+            email: { type: 'string', format: 'email' },
             full_name: { type: 'string' },
             phone: { type: 'string' },
             role: { type: 'string', enum: ['owner', 'manager', 'employee'] },
-            is_active: { type: 'boolean' },
             password: { type: 'string', minLength: 6 },
           },
         },
@@ -266,10 +290,6 @@ async function usersRoutes(fastify, options) {
         if (updates.role !== undefined) {
           fields.push('role = ?');
           values.push(updates.role);
-        }
-        if (updates.is_active !== undefined) {
-          fields.push('is_active = ?');
-          values.push(updates.is_active ? 1 : 0);
         }
         if (updates.password) {
           const passwordHash = await bcrypt.hash(updates.password, 10);
