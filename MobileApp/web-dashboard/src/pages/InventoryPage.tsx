@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApi } from '../contexts/ApiContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -6,15 +6,19 @@ import type { InventoryItem } from '@shared/types/inventory';
 import Toast from '../components/Toast';
 import InventoryFormModal from '../components/inventory/InventoryFormModal';
 import StockMovementModal from '../components/inventory/StockMovementModal';
+import MovementHistoryModal from '../components/inventory/MovementHistoryModal';
 import InventoryStats from '../components/inventory/InventoryStats';
 import InventoryTableRow from '../components/inventory/InventoryTableRow';
 import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog';
 import { SkeletonRow, SortIcon, Pagination } from '../components/TableHelpers';
+import { exportToCSV } from '../utils/formatters';
 import {
   type InventoryStats as InventoryStatsType,
   EMPTY_STATS,
   CATEGORIES,
   CATEGORY_I18N,
+  PAGE_SIZE_OPTIONS,
+  DEFAULT_PAGE_SIZE,
 } from '../components/inventory/inventoryHelpers';
 
 const InventoryPage: React.FC = () => {
@@ -30,30 +34,48 @@ const InventoryPage: React.FC = () => {
   const [stats, setStats] = useState<InventoryStatsType>(EMPTY_STATS);
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const pageSize = 25;
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   // Create/Edit modal
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [saving, setSaving] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   // Stock movement modal
   const [movementItem, setMovementItem] = useState<InventoryItem | null>(null);
   const [movementSaving, setMovementSaving] = useState(false);
 
+  // Movement history modal
+  const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
+
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
+  // Reorder alerts
+  const [reorderAlertCount, setReorderAlertCount] = useState(0);
+
   // Toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Spam protection refs
+  const saveInFlight = useRef(false);
+  const movementInFlight = useRef(false);
 
   const {
     getInventory,
     createInventoryItem,
     updateInventoryItem,
     deleteInventoryItem,
+    bulkDeleteInventoryItems,
     createInventoryMovement,
+    getReorderAlerts,
   } = useApi();
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -83,24 +105,10 @@ const InventoryPage: React.FC = () => {
       if (categoryFilter !== 'all') params.category = categoryFilter;
 
       const data = await getInventory(params);
-      const items = (data.items || data.inventory || []).map((item: any) => ({
-        id: item.id,
-        name: item.name || '',
-        category: item.category || '',
-        current_stock: item.current_stock || 0,
-        reorder_level: item.reorder_level || 0,
-        unit_cost: item.unit_cost || 0,
-        unit: item.unit || 'pcs',
-        supplier: item.supplier || '',
-        notes: item.notes || '',
-        created_at: item.created_at || '',
-        updated_at: item.updated_at || '',
-      }));
-      setInventory(items);
+      setInventory(data.items || []);
       setTotalPages(data.totalPages || 1);
-      setTotalItems(data.total || items.length);
+      setTotalItems(data.total || 0);
 
-      // Use backend stats
       if (data.stats) {
         setStats({
           total: data.stats.total || 0,
@@ -121,36 +129,73 @@ const InventoryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [getInventory, page, debouncedSearch, categoryFilter, sortBy, sortOrder]);
+  }, [getInventory, page, pageSize, debouncedSearch, categoryFilter, sortBy, sortOrder]);
+
+  // Load reorder alerts count
+  const loadReorderAlerts = useCallback(async () => {
+    try {
+      const data = await getReorderAlerts({ status: 'pending' });
+      setReorderAlertCount(data.alerts?.length || 0);
+    } catch {
+      // Non-critical, silently fail
+    }
+  }, [getReorderAlerts]);
 
   useEffect(() => {
     loadInventory();
   }, [loadInventory]);
 
-  // ESC key handler for modals
+  useEffect(() => {
+    loadReorderAlerts();
+  }, [loadReorderAlerts]);
+
+  // ESC key handler - fixed priority chain (if/else prevents firing all at once)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (showModal) setShowModal(false);
-        if (movementItem) setMovementItem(null);
-        if (deleteId) setDeleteId(null);
+        if (showBulkDeleteConfirm) {
+          setShowBulkDeleteConfirm(false);
+        } else if (deleteId) {
+          setDeleteId(null);
+        } else if (movementItem) {
+          setMovementItem(null);
+        } else if (historyItem) {
+          setHistoryItem(null);
+        } else if (showModal) {
+          setShowModal(false);
+        }
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showModal, movementItem, deleteId]);
+  }, [showModal, movementItem, historyItem, deleteId, showBulkDeleteConfirm]);
+
+  const hasFilters = !!debouncedSearch || categoryFilter !== 'all';
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setDebouncedSearch('');
+    setCategoryFilter('all');
+    setPage(1);
+  };
+
+  // ── Create/Edit ────────────────────────────────────────────────
 
   const openCreate = () => {
     setEditingItem(null);
+    setFormKey((k) => k + 1); // Force remount to reset form state
     setShowModal(true);
   };
 
-  const openEdit = (item: InventoryItem) => {
+  const openEdit = useCallback((item: InventoryItem) => {
     setEditingItem(item);
+    setFormKey((k) => k + 1);
     setShowModal(true);
-  };
+  }, []);
 
   const handleSave = async (payload: Record<string, unknown>) => {
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
     try {
       setSaving(true);
       if (editingItem) {
@@ -165,19 +210,22 @@ const InventoryPage: React.FC = () => {
       setShowModal(false);
       loadInventory();
     } catch (err: unknown) {
-      // Re-throw so the modal can display the error
       throw err;
     } finally {
       setSaving(false);
+      saveInFlight.current = false;
     }
   };
 
-  const openMovement = (item: InventoryItem) => {
+  // ── Stock movement ─────────────────────────────────────────────
+
+  const openMovement = useCallback((item: InventoryItem) => {
     setMovementItem(item);
-  };
+  }, []);
 
   const handleMovement = async (data: { type: string; quantity: number; notes?: string }) => {
-    if (!movementItem) return;
+    if (!movementItem || movementInFlight.current) return;
+    movementInFlight.current = true;
     try {
       setMovementSaving(true);
       await createInventoryMovement({
@@ -190,12 +238,20 @@ const InventoryPage: React.FC = () => {
       setToast({ message: t('inventory.movementSuccess'), type: 'success' });
       loadInventory();
     } catch (err: unknown) {
-      // Re-throw so the modal can display the error
       throw err;
     } finally {
       setMovementSaving(false);
+      movementInFlight.current = false;
     }
   };
+
+  // ── Movement history ───────────────────────────────────────────
+
+  const openHistory = useCallback((item: InventoryItem) => {
+    setHistoryItem(item);
+  }, []);
+
+  // ── Delete ─────────────────────────────────────────────────────
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -203,6 +259,11 @@ const InventoryPage: React.FC = () => {
       setDeleting(true);
       await deleteInventoryItem(deleteId);
       setDeleteId(null);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteId);
+        return next;
+      });
       setToast({ message: t('inventory.deleteSuccess'), type: 'success' });
       loadInventory();
     } catch (err: unknown) {
@@ -216,6 +277,74 @@ const InventoryPage: React.FC = () => {
     }
   };
 
+  // ── Bulk operations ────────────────────────────────────────────
+
+  const handleSelectAll = useCallback(
+    (checked: boolean) => {
+      if (checked) {
+        setSelectedIds(new Set(inventory.map((i) => i.id)));
+      } else {
+        setSelectedIds(new Set());
+      }
+    },
+    [inventory]
+  );
+
+  const handleSelectItem = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    setShowBulkDeleteConfirm(true);
+  };
+
+  const handleBulkDeleteConfirmed = async () => {
+    if (selectedIds.size === 0 || bulkDeleting) return;
+    try {
+      setBulkDeleting(true);
+      const count = selectedIds.size;
+      await bulkDeleteInventoryItems(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      setShowBulkDeleteConfirm(false);
+      setToast({
+        message: t('inventory.bulkDeleteSuccess').replace('{n}', String(count)),
+        type: 'success',
+      });
+      loadInventory();
+    } catch (err: unknown) {
+      const message = (err as Error)?.message || t('inventory.bulkDeleteError');
+      setToast({ message, type: 'error' });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  // ── CSV export ─────────────────────────────────────────────────
+
+  const handleExportCSV = () => {
+    if (inventory.length === 0) return;
+    const data = inventory.map((item) => ({
+      name: item.name,
+      category: item.category,
+      unit: item.unit,
+      current_stock: item.current_stock,
+      reorder_level: item.reorder_level,
+      unit_cost: item.unit_cost,
+      supplier: item.supplier || '',
+      notes: item.notes || '',
+    }));
+    exportToCSV(data, `inventory-${new Date().toISOString().slice(0, 10)}.csv`);
+    setToast({ message: t('inventory.exportSuccess'), type: 'success' });
+  };
+
+  // ── Sort ───────────────────────────────────────────────────────
+
   const handleSort = (column: string) => {
     if (sortBy === column) {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
@@ -226,7 +355,15 @@ const InventoryPage: React.FC = () => {
     setPage(1);
   };
 
-  const hasFilters = !!debouncedSearch || categoryFilter !== 'all';
+  // ── Stable callback refs for React.memo children ───────────────
+
+  const handleRequestDelete = useCallback((id: string) => {
+    setDeleteId(id);
+  }, []);
+
+  const allSelected = inventory.length > 0 && selectedIds.size === inventory.length;
+
+  // ── Error full-page state ──────────────────────────────────────
 
   if (error && !inventory.length) {
     return (
@@ -275,20 +412,43 @@ const InventoryPage: React.FC = () => {
             {totalItems} {t('inventory.materialsTracked')}
           </p>
         </div>
-        <button
-          onClick={openCreate}
-          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
-        >
-          + {t('inventory.addMaterial')}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCSV}
+            disabled={inventory.length === 0}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40"
+            title={t('inventory.exportCsv')}
+          >
+            <svg
+              className="mr-1.5 inline-block h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            {t('inventory.exportCsv')}
+          </button>
+          <button
+            onClick={openCreate}
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+          >
+            + {t('inventory.addMaterial')}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
-      <InventoryStats stats={stats} />
+      <InventoryStats stats={stats} hasFilters={hasFilters} reorderAlertCount={reorderAlertCount} />
 
       {/* Filters */}
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
           <div className="flex-1">
             <input
               type="text"
@@ -296,6 +456,7 @@ const InventoryPage: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
+              aria-label={t('inventory.searchMaterials')}
             />
           </div>
           <select
@@ -305,6 +466,7 @@ const InventoryPage: React.FC = () => {
               setPage(1);
             }}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            aria-label={t('inventory.allCategories')}
           >
             <option value="all">{t('inventory.allCategories')}</option>
             {CATEGORIES.map((cat) => (
@@ -313,8 +475,58 @@ const InventoryPage: React.FC = () => {
               </option>
             ))}
           </select>
+          {/* Page size selector */}
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setPage(1);
+            }}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            aria-label={t('inventory.pageSize')}
+          >
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size} / {t('inventory.page')}
+              </option>
+            ))}
+          </select>
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+            >
+              {t('inventory.clearFilters')}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Bulk actions bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
+          <span className="text-sm font-medium text-primary-800">
+            {selectedIds.size} {t('inventory.itemsSelected')}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              {t('inventory.deselectAll')}
+            </button>
+            {canDelete && (
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {bulkDeleting ? t('inventory.deleting') : t('inventory.deleteSelected')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
@@ -322,40 +534,65 @@ const InventoryPage: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th
-                  onClick={() => handleSort('name')}
-                  className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  {t('inventory.material')}{' '}
-                  <SortIcon column="name" sortBy={sortBy} sortOrder={sortOrder} />
+                <th className="w-10 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    aria-label={t('inventory.selectAll')}
+                    disabled={loading || inventory.length === 0}
+                  />
                 </th>
-                <th
-                  onClick={() => handleSort('category')}
-                  className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  {t('inventory.category')}{' '}
-                  <SortIcon column="category" sortBy={sortBy} sortOrder={sortOrder} />
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('name')}
+                    className="inline-flex cursor-pointer select-none items-center gap-1 bg-transparent font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
+                  >
+                    {t('inventory.material')}
+                    <SortIcon column="name" sortBy={sortBy} sortOrder={sortOrder} />
+                  </button>
                 </th>
-                <th
-                  onClick={() => handleSort('current_stock')}
-                  className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  {t('inventory.stock')}{' '}
-                  <SortIcon column="current_stock" sortBy={sortBy} sortOrder={sortOrder} />
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('category')}
+                    className="inline-flex cursor-pointer select-none items-center gap-1 bg-transparent font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
+                  >
+                    {t('inventory.category')}
+                    <SortIcon column="category" sortBy={sortBy} sortOrder={sortOrder} />
+                  </button>
                 </th>
-                <th
-                  onClick={() => handleSort('reorder_level')}
-                  className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  {t('inventory.reorder')}{' '}
-                  <SortIcon column="reorder_level" sortBy={sortBy} sortOrder={sortOrder} />
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('current_stock')}
+                    className="inline-flex cursor-pointer select-none items-center gap-1 bg-transparent font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
+                  >
+                    {t('inventory.stock')}
+                    <SortIcon column="current_stock" sortBy={sortBy} sortOrder={sortOrder} />
+                  </button>
                 </th>
-                <th
-                  onClick={() => handleSort('unit_cost')}
-                  className="cursor-pointer select-none whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  {t('inventory.cost')}{' '}
-                  <SortIcon column="unit_cost" sortBy={sortBy} sortOrder={sortOrder} />
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('reorder_level')}
+                    className="inline-flex cursor-pointer select-none items-center gap-1 bg-transparent font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
+                  >
+                    {t('inventory.reorder')}
+                    <SortIcon column="reorder_level" sortBy={sortBy} sortOrder={sortOrder} />
+                  </button>
+                </th>
+                <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('unit_cost')}
+                    className="inline-flex cursor-pointer select-none items-center gap-1 bg-transparent font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
+                  >
+                    {t('inventory.cost')}
+                    <SortIcon column="unit_cost" sortBy={sortBy} sortOrder={sortOrder} />
+                  </button>
                 </th>
                 <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   {t('inventory.status')}
@@ -367,10 +604,10 @@ const InventoryPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {loading ? (
-                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} columns={7} />)
+                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} columns={8} />)
               ) : inventory.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
+                  <td colSpan={8} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center">
                       <svg
                         className="mb-4 h-16 w-16 text-gray-300"
@@ -387,7 +624,19 @@ const InventoryPage: React.FC = () => {
                       </svg>
                       <p className="mb-1 font-medium text-gray-500">{t('inventory.noItems')}</p>
                       <p className="mb-4 text-sm text-gray-400">
-                        {hasFilters ? t('inventory.adjustFilters') : t('inventory.createFirst')}
+                        {hasFilters ? (
+                          <>
+                            {t('inventory.adjustFilters')}{' '}
+                            <button
+                              onClick={clearFilters}
+                              className="text-primary-600 underline hover:text-primary-800"
+                            >
+                              {t('inventory.clearFilters')}
+                            </button>
+                          </>
+                        ) : (
+                          t('inventory.createFirst')
+                        )}
                       </p>
                       {!hasFilters && (
                         <button
@@ -406,9 +655,12 @@ const InventoryPage: React.FC = () => {
                     key={item.id}
                     item={item}
                     canDelete={canDelete}
+                    selected={selectedIds.has(item.id)}
+                    onSelect={handleSelectItem}
                     onEdit={openEdit}
                     onMovement={openMovement}
-                    onDelete={setDeleteId}
+                    onHistory={openHistory}
+                    onDelete={handleRequestDelete}
                   />
                 ))
               )}
@@ -420,18 +672,23 @@ const InventoryPage: React.FC = () => {
             page={page}
             totalPages={totalPages}
             total={totalItems}
-            label="items"
+            label={t('inventory.items')}
             onPrev={() => setPage((p) => p - 1)}
             onNext={() => setPage((p) => p + 1)}
             prevText={t('inventory.previous')}
             nextText={t('inventory.next')}
+            pageInfoText={t('inventory.paginationInfo')
+              .replace('{page}', String(page))
+              .replace('{totalPages}', String(totalPages))
+              .replace('{total}', String(totalItems))
+              .replace('{label}', t('inventory.items'))}
           />
         )}
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* Create/Edit Modal - formKey forces remount to reset state */}
       <InventoryFormModal
-        key={editingItem ? editingItem.id : 'create'}
+        key={formKey}
         open={showModal}
         editingItem={editingItem}
         onClose={() => setShowModal(false)}
@@ -448,6 +705,9 @@ const InventoryPage: React.FC = () => {
         saving={movementSaving}
       />
 
+      {/* Movement History Modal */}
+      <MovementHistoryModal item={historyItem} onClose={() => setHistoryItem(null)} />
+
       {/* Delete Confirmation */}
       {deleteId && (
         <ConfirmDeleteDialog
@@ -457,6 +717,18 @@ const InventoryPage: React.FC = () => {
           deleting={deleting}
           onConfirm={handleDelete}
           onCancel={() => setDeleteId(null)}
+        />
+      )}
+
+      {/* Bulk Delete Confirmation */}
+      {showBulkDeleteConfirm && (
+        <ConfirmDeleteDialog
+          itemLabel={`${selectedIds.size} ${t('inventory.items')}`}
+          titleKey="inventory.deleteSelected"
+          description={t('inventory.confirmBulkDelete').replace('{n}', String(selectedIds.size))}
+          deleting={bulkDeleting}
+          onConfirm={handleBulkDeleteConfirmed}
+          onCancel={() => setShowBulkDeleteConfirm(false)}
         />
       )}
     </div>
