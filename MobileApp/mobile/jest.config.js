@@ -7,6 +7,7 @@ module.exports = {
   transformIgnorePatterns: [
     'node_modules/(?!(react-native|@react-native|react-native-reanimated|expo|@expo|expo-modules-core|expo-sqlite|expo-camera|expo-image-picker|expo-file-system|@react-navigation|react-native-gesture-handler|react-native-screens|react-native-safe-area-context|react-native-paper|@react-native-async-storage|@reduxjs/toolkit|react-redux)/)',
   ],
+  moduleDirectories: ['node_modules', '<rootDir>/node_modules'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
