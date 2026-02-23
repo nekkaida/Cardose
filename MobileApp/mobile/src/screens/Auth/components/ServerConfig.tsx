@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { theme } from '../../../theme/theme';
 
@@ -19,6 +20,36 @@ export interface ServerConfigProps {
   onChangeUrl: (value: string) => void;
   onTestConnection: () => void;
   onReset: () => void;
+}
+
+/**
+ * Returns true if the URL is safe to use (HTTPS in production, any in dev).
+ * Shows an alert and returns false for unsafe URLs in production.
+ */
+function validateServerUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    Alert.alert('Error', 'Please enter a server URL');
+    return false;
+  }
+
+  const isDev = __DEV__;
+  const isLocalhost =
+    trimmed.includes('localhost') ||
+    trimmed.includes('127.0.0.1') ||
+    /192\.168\.\d+\.\d+/.test(trimmed) ||
+    /10\.\d+\.\d+\.\d+/.test(trimmed);
+
+  // In production, require HTTPS unless it's a local address
+  if (!isDev && !isLocalhost && !trimmed.startsWith('https://')) {
+    Alert.alert(
+      'Insecure Connection',
+      'Production servers must use HTTPS to protect your credentials. Please use an https:// URL.',
+    );
+    return false;
+  }
+
+  return true;
 }
 
 export const ServerConfig: React.FC<ServerConfigProps> = ({
@@ -37,13 +68,33 @@ export const ServerConfig: React.FC<ServerConfigProps> = ({
         ? theme.colors.error
         : theme.colors.disabled;
 
+  const handleTestConnection = () => {
+    if (validateServerUrl(serverUrl)) {
+      onTestConnection();
+    }
+  };
+
+  // Only show in development builds
+  if (!__DEV__) return null;
+
   return (
     <>
-      <TouchableOpacity style={styles.toggle} onPress={onToggleVisible}>
+      <TouchableOpacity
+        style={styles.toggle}
+        onPress={onToggleVisible}
+        accessibilityRole="button"
+        accessibilityLabel={
+          isVisible ? 'Hide server settings' : 'Show server settings'
+        }
+        accessibilityState={{ expanded: isVisible }}
+      >
         <Text style={styles.toggleText}>
           {isVisible ? 'Hide Server Settings' : 'Server Settings'}
         </Text>
-        <View style={[styles.dot, { backgroundColor: dotColor }]} />
+        <View
+          style={[styles.dot, { backgroundColor: dotColor }]}
+          accessibilityLabel={`Server status: ${serverStatus}`}
+        />
       </TouchableOpacity>
 
       {isVisible && (
@@ -58,12 +109,19 @@ export const ServerConfig: React.FC<ServerConfigProps> = ({
             autoCorrect={false}
             keyboardType="url"
             maxLength={200}
+            accessibilityLabel="Server URL input"
+            accessibilityHint="Enter the URL of your Cardose backend server"
+            testID="input-server-url"
           />
           <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.button, styles.testButton]}
-              onPress={onTestConnection}
+              onPress={handleTestConnection}
               disabled={serverStatus === 'checking'}
+              accessibilityRole="button"
+              accessibilityLabel="Test server connection"
+              accessibilityState={{ disabled: serverStatus === 'checking', busy: serverStatus === 'checking' }}
+              testID="button-test-connection"
             >
               {serverStatus === 'checking' ? (
                 <ActivityIndicator size="small" color={theme.colors.surface} />
@@ -74,6 +132,9 @@ export const ServerConfig: React.FC<ServerConfigProps> = ({
             <TouchableOpacity
               style={[styles.button, styles.resetButton]}
               onPress={onReset}
+              accessibilityRole="button"
+              accessibilityLabel="Reset server URL to default"
+              testID="button-reset-server"
             >
               <Text style={[styles.buttonText, { color: theme.colors.textSecondary }]}>
                 Reset
@@ -81,10 +142,14 @@ export const ServerConfig: React.FC<ServerConfigProps> = ({
             </TouchableOpacity>
           </View>
           {serverStatus === 'online' && (
-            <Text style={styles.online}>Connected to server</Text>
+            <Text style={styles.online} accessibilityRole="alert">
+              Connected to server
+            </Text>
           )}
           {serverStatus === 'offline' && (
-            <Text style={styles.offline}>Server unreachable</Text>
+            <Text style={styles.offline} accessibilityRole="alert">
+              Server unreachable
+            </Text>
           )}
         </View>
       )}
@@ -99,6 +164,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    minHeight: 44,
   },
   toggleText: {
     fontSize: 13,
@@ -141,6 +207,8 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
   },
   testButton: {
     backgroundColor: theme.colors.primary,
