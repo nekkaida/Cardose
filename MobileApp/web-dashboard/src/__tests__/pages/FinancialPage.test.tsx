@@ -24,7 +24,6 @@ vi.mock('../../contexts/AuthContext', () => ({
     loading: false,
     login: vi.fn(),
     logout: vi.fn(),
-    token: 'test-token',
   }),
 }));
 
@@ -106,12 +105,14 @@ vi.mock('../../contexts/LanguageContext', () => ({
         'financial.category': 'Category',
         'financial.amount': 'Amount',
         'financial.noTransactions': 'No transactions found',
+        'financial.loadError': 'Failed to load transactions',
         'financial.noInvoices': 'No invoices found',
         'financial.newTransaction': 'Transaction',
         'financial.newInvoice': 'Invoice',
         'financial.allTypes': 'All Types',
         'financial.allCategories': 'All Categories',
         'financial.allStatuses': 'All Statuses',
+        'financial.date': 'Date',
         'financial.chartTitle': 'Income vs Expenses by Category',
         'financial.income': 'Income',
         'financial.expense': 'Expense',
@@ -130,9 +131,10 @@ vi.mock('../../contexts/LanguageContext', () => ({
 
 const mockSummaryData = {
   summary: {
-    total_revenue: 200000000,
-    total_expenses: 80000000,
-    pending_invoices: 5,
+    totalRevenue: 200000000,
+    totalExpenses: 80000000,
+    netProfit: 120000000,
+    pendingInvoices: 5,
   },
 };
 
@@ -187,24 +189,20 @@ describe('FinancialPage', () => {
 
   describe('Error state', () => {
     it('should show empty state when transaction API fails', async () => {
-      mockGetFinancialSummary.mockRejectedValueOnce(new Error('Network error'));
-      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
-      // TransactionsTab calls getTransactions independently
-      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
+      mockGetFinancialSummary.mockRejectedValue(new Error('Network error'));
+      mockGetTransactions.mockRejectedValue(new Error('Network error'));
 
       render(<FinancialPage />);
 
       await waitFor(() => {
-        // TransactionsTab shows empty state when API fails
-        expect(screen.getByText('No transactions found')).toBeInTheDocument();
+        // TransactionsTab shows error state when API fails
+        expect(screen.getByText('Failed to load transactions')).toBeInTheDocument();
       });
     });
 
     it('should still render page structure when APIs fail', async () => {
-      mockGetFinancialSummary.mockRejectedValueOnce(new Error('Network error'));
-      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
-      // TransactionsTab calls getTransactions independently
-      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
+      mockGetFinancialSummary.mockRejectedValue(new Error('Network error'));
+      mockGetTransactions.mockRejectedValue(new Error('Network error'));
 
       render(<FinancialPage />);
 
@@ -217,16 +215,14 @@ describe('FinancialPage', () => {
     });
 
     it('should display summary even if transactions fail', async () => {
-      mockGetFinancialSummary.mockResolvedValueOnce(mockSummaryData);
-      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
-      // TransactionsTab calls getTransactions independently
-      mockGetTransactions.mockRejectedValueOnce(new Error('Network error'));
+      mockGetFinancialSummary.mockResolvedValue(mockSummaryData);
+      mockGetTransactions.mockRejectedValue(new Error('Network error'));
 
       render(<FinancialPage />);
 
       await waitFor(() => {
         expect(screen.getByText('Total Revenue')).toBeInTheDocument();
-        expect(screen.getByText('No transactions found')).toBeInTheDocument();
+        expect(screen.getByText('Failed to load transactions')).toBeInTheDocument();
       });
     });
   });
@@ -326,8 +322,8 @@ describe('FinancialPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Total Revenue')).toBeInTheDocument();
-        // When transactions list is empty, it shows "No transactions found"
-        expect(screen.getByText('No transactions found')).toBeInTheDocument();
+        // TransactionsTab shows error state when API fails
+        expect(screen.getByText('Failed to load transactions')).toBeInTheDocument();
       });
     });
   });
