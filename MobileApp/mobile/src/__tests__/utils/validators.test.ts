@@ -357,13 +357,13 @@ describe('Validators', () => {
 
   describe('getValidationError', () => {
     it('should return correct error messages', () => {
-      expect(getValidationError('Email', 'required')).toBe('Email wajib diisi');
-      expect(getValidationError('Email', 'email')).toBe('Email harus berupa email yang valid');
-      expect(getValidationError('Password', 'password')).toContain('minimal 8 karakter');
+      expect(getValidationError('Email', 'required')).toBe('Email is required');
+      expect(getValidationError('Email', 'email')).toBe('Email must be a valid email address');
+      expect(getValidationError('Password', 'password')).toContain('at least 8 characters');
     });
 
     it('should return generic message for unknown type', () => {
-      expect(getValidationError('Field', 'unknown')).toBe('Field tidak valid');
+      expect(getValidationError('Field', 'unknown')).toBe('Field is invalid');
     });
   });
 
