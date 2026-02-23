@@ -99,7 +99,6 @@ vi.mock('../../contexts/AuthContext', () => ({
     loading: false,
     login: vi.fn(),
     logout: vi.fn(),
-    token: 'test-token',
   }),
 }));
 
@@ -397,7 +396,10 @@ describe('Dashboard', () => {
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(mockGetDashboardAnalytics).toHaveBeenCalledWith({ period: 'month' });
+        expect(mockGetDashboardAnalytics).toHaveBeenCalledWith(
+          { period: 'month' },
+          expect.any(AbortSignal)
+        );
       });
     });
 
@@ -405,7 +407,7 @@ describe('Dashboard', () => {
       render(<Dashboard />);
 
       await waitFor(() => {
-        expect(mockGetRecentOrders).toHaveBeenCalledWith(5);
+        expect(mockGetRecentOrders).toHaveBeenCalledWith(5, expect.any(AbortSignal));
       });
     });
   });
@@ -472,7 +474,10 @@ describe('Dashboard', () => {
       await userEvent.selectOptions(select, 'week');
 
       await waitFor(() => {
-        expect(mockGetDashboardAnalytics).toHaveBeenCalledWith({ period: 'week' });
+        expect(mockGetDashboardAnalytics).toHaveBeenCalledWith(
+          { period: 'week' },
+          expect.any(AbortSignal)
+        );
       });
     });
   });
