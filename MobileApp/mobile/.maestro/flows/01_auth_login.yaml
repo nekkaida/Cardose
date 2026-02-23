@@ -26,15 +26,15 @@ name: Authentication - Login Flow
 
 # Submit login
 - tapOn:
-    text: "Masuk"
+    text: "Login"
 
 # Wait for navigation
 - waitForAnimationToEnd
 
-# Verify successful login - should see Dashboard
+# Verify successful login - should see main tab
 - assertVisible:
-    text: "Dashboard"
+    text: "Cardose"
 
-# Should see user info in header/sidebar
+# Should see user info
 - assertVisible:
     text: "manager"
