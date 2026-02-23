@@ -38,6 +38,7 @@ function parseDateParams(startDate, endDate, reply) {
   const defaults = defaultDateRange();
   const start = startDate || defaults.start;
   const end = endDate || defaults.end;
+  // String comparison works for ISO date format (YYYY-MM-DD) - lexicographic order matches chronological
   if (start > end) {
     reply.code(400);
     return {
@@ -319,8 +320,12 @@ async function reportRoutes(fastify, options) {
           success: true,
           report: {
             period: { start, end },
+            summary: {
+              totalOrders: completionStats?.total || 0,
+              completedOrders: completionStats?.completed || 0,
+              completionRate,
+            },
             ordersByStatus,
-            completionRate,
             taskStats,
             qualityStats,
           },
