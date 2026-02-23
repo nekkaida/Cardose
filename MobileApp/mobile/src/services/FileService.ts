@@ -1,8 +1,9 @@
 import * as FileSystem from 'expo-file-system';
-import { API_CONFIG } from '../config';
+import { API_CONFIG, APP_CONFIG } from '../config';
 
 // Use a getter so the URL is always current (supports runtime URL changes)
 const getApiUrl = () => API_CONFIG.API_URL;
+const DEFAULT_TIMEOUT = API_CONFIG.TIMEOUT;
 
 export interface UploadedFile {
   id: string;
@@ -11,260 +12,379 @@ export interface UploadedFile {
   size: number;
   url: string;
   thumbnailUrl: string | null;
+  uploadedAt?: string;
+}
+
+export interface OrderFile {
+  id: string;
+  filename: string;
+  url: string;
+  thumbnailUrl?: string;
+  size: number;
+  uploadedAt: string;
+}
+
+export interface FileStats {
+  totalFiles: number;
+  totalSize: number;
+  totalSizeMB: string;
+}
+
+export type UploadProgressCallback = (progress: number) => void;
+
+export class FileServiceError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode?: number,
+    public readonly isAuthError: boolean = false,
+  ) {
+    super(message);
+    this.name = 'FileServiceError';
+  }
 }
 
 export class FileService {
   private token: string;
+  private onUnauthorized?: () => void;
 
-  constructor(token: string) {
+  constructor(token: string, onUnauthorized?: () => void) {
     this.token = token;
+    this.onUnauthorized = onUnauthorized;
+  }
+
+  private authHeaders(): Record<string, string> {
+    return { Authorization: `Bearer ${this.token}` };
   }
 
   /**
-   * Upload a single file
+   * Centralized fetch wrapper with 401 handling and timeout.
    */
-  async uploadFile(uri: string, filename: string): Promise<UploadedFile> {
+  private async fetchWithAuth(
+    url: string,
+    options: RequestInit = {},
+    timeout: number = DEFAULT_TIMEOUT,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
     try {
-      const uploadResult = await FileSystem.uploadAsync(
-        `${getApiUrl()}/files/upload`,
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          ...this.authHeaders(),
+          ...options.headers,
+        },
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.status === 401) {
+        this.onUnauthorized?.();
+        throw new FileServiceError(
+          'Sesi Anda telah berakhir. Silakan login kembali.',
+          401,
+          true,
+        );
+      }
+
+      return response;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error instanceof FileServiceError) throw error;
+      if (error.name === 'AbortError') {
+        throw new FileServiceError('Permintaan timeout. Silakan coba lagi.');
+      }
+      throw new FileServiceError(
+        error.message || 'Terjadi kesalahan jaringan.',
+      );
+    }
+  }
+
+  /**
+   * Validate file size before uploading.
+   * Returns file info or throws if file exceeds the limit.
+   */
+  async validateFileSize(uri: string): Promise<FileSystem.FileInfo> {
+    const fileInfo = await FileSystem.getInfoAsync(uri, { size: true });
+
+    if (!fileInfo.exists) {
+      throw new FileServiceError('File tidak ditemukan.');
+    }
+
+    const maxBytes = APP_CONFIG.MAX_FILE_SIZE;
+    const maxMB = maxBytes / (1024 * 1024);
+
+    if (fileInfo.size && fileInfo.size > maxBytes) {
+      const fileMB = (fileInfo.size / (1024 * 1024)).toFixed(1);
+      throw new FileServiceError(
+        `Ukuran file (${fileMB} MB) melebihi batas maksimum ${maxMB} MB.`,
+      );
+    }
+
+    return fileInfo;
+  }
+
+  /**
+   * Upload a single file with optional progress tracking.
+   * Uses API_CONFIG.UPLOAD_TIMEOUT (120s) to prevent stalled uploads.
+   */
+  async uploadFile(
+    uri: string,
+    filename: string,
+    onProgress?: UploadProgressCallback,
+  ): Promise<UploadedFile> {
+    // Validate size before uploading
+    await this.validateFileSize(uri);
+
+    const uploadUrl = `${getApiUrl()}/files/upload`;
+    const uploadTimeout = API_CONFIG.UPLOAD_TIMEOUT;
+
+    if (onProgress) {
+      // Use createUploadTask for progress tracking
+      const task = FileSystem.createUploadTask(
+        uploadUrl,
         uri,
         {
           fieldName: 'file',
           httpMethod: 'POST',
           uploadType: FileSystem.FileSystemUploadType.MULTIPART,
-          headers: {
-            Authorization: `Bearer ${this.token}`,
-          },
-        }
+          headers: this.authHeaders(),
+        },
+        (data) => {
+          if (data.totalBytesSent && data.totalBytesExpectedToSend) {
+            const pct = data.totalBytesSent / data.totalBytesExpectedToSend;
+            onProgress(Math.min(pct, 1));
+          }
+        },
       );
 
-      if (uploadResult.status !== 200) {
-        throw new Error('Upload failed');
+      // Cancel the task if it exceeds the upload timeout
+      const timeoutId = setTimeout(() => task.cancelAsync(), uploadTimeout);
+      const uploadResult = await task.uploadAsync();
+      clearTimeout(timeoutId);
+
+      if (!uploadResult) {
+        throw new FileServiceError('Upload dibatalkan atau timeout.');
       }
 
-      const response = JSON.parse(uploadResult.body);
-
-      if (!response.success) {
-        throw new Error(response.error || 'Upload failed');
-      }
-
-      return response.file;
-    } catch (error) {
-      console.error('Upload error:', error);
-      throw error;
+      return this.parseUploadResult(uploadResult);
     }
+
+    // Simple upload without progress — race against a timeout
+    const uploadPromise = FileSystem.uploadAsync(uploadUrl, uri, {
+      fieldName: 'file',
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+      headers: this.authHeaders(),
+    });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new FileServiceError('Upload timeout. Silakan coba lagi.')),
+        uploadTimeout,
+      ),
+    );
+    const uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
+
+    return this.parseUploadResult(uploadResult);
+  }
+
+  private parseUploadResult(
+    result: FileSystem.FileSystemUploadResult,
+  ): UploadedFile {
+    if (result.status === 401) {
+      this.onUnauthorized?.();
+      throw new FileServiceError(
+        'Sesi Anda telah berakhir. Silakan login kembali.',
+        401,
+        true,
+      );
+    }
+
+    if (result.status !== 200) {
+      throw new FileServiceError(`Upload gagal (status ${result.status}).`);
+    }
+
+    let response: any;
+    try {
+      response = JSON.parse(result.body);
+    } catch {
+      throw new FileServiceError('Respons server tidak valid.');
+    }
+
+    if (!response.success) {
+      throw new FileServiceError(response.error || 'Upload gagal.');
+    }
+
+    return response.file;
   }
 
   /**
-   * Upload multiple files
+   * Upload multiple files.
    */
   async uploadMultipleFiles(
-    files: { uri: string; filename: string }[]
+    files: { uri: string; filename: string }[],
   ): Promise<UploadedFile[]> {
-    try {
-      const uploadPromises = files.map((file) =>
-        this.uploadFile(file.uri, file.filename)
-      );
-      return await Promise.all(uploadPromises);
-    } catch (error) {
-      console.error('Multiple upload error:', error);
-      throw error;
-    }
+    const uploadPromises = files.map((file) =>
+      this.uploadFile(file.uri, file.filename),
+    );
+    return await Promise.all(uploadPromises);
   }
 
   /**
-   * Get file metadata
+   * Get file metadata.
    */
-  async getFileMetadata(fileId: string): Promise<any> {
-    try {
-      const response = await fetch(`${getApiUrl()}/files/${fileId}/metadata`, {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      });
+  async getFileMetadata(fileId: string): Promise<UploadedFile> {
+    const response = await this.fetchWithAuth(
+      `${getApiUrl()}/files/${fileId}/metadata`,
+    );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch file metadata');
-      }
-
-      const data = await response.json();
-      return data.file;
-    } catch (error) {
-      console.error('Get file metadata error:', error);
-      throw error;
+    if (!response.ok) {
+      throw new FileServiceError('Gagal mengambil metadata file.');
     }
+
+    const data = await response.json();
+    return data.file;
   }
 
   /**
-   * Delete a file
+   * Delete a file.
    */
   async deleteFile(fileId: string): Promise<void> {
-    try {
-      const response = await fetch(`${getApiUrl()}/files/${fileId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      });
+    const response = await this.fetchWithAuth(
+      `${getApiUrl()}/files/${fileId}`,
+      { method: 'DELETE' },
+    );
 
-      if (!response.ok) {
-        throw new Error('Failed to delete file');
-      }
+    if (!response.ok) {
+      throw new FileServiceError('Gagal menghapus file.');
+    }
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.error || 'Delete failed');
-      }
-    } catch (error) {
-      console.error('Delete file error:', error);
-      throw error;
+    if (!data.success) {
+      throw new FileServiceError(data.error || 'Gagal menghapus file.');
     }
   }
 
   /**
-   * Get user's uploaded files
+   * Get user's uploaded files.
    */
-  async getUserFiles(userId: string): Promise<any[]> {
-    try {
-      const response = await fetch(`${getApiUrl()}/files/user/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      });
+  async getUserFiles(userId: string): Promise<OrderFile[]> {
+    const response = await this.fetchWithAuth(
+      `${getApiUrl()}/files/user/${userId}`,
+    );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch user files');
-      }
-
-      const data = await response.json();
-      return data.files;
-    } catch (error) {
-      console.error('Get user files error:', error);
-      throw error;
+    if (!response.ok) {
+      throw new FileServiceError('Gagal mengambil daftar file.');
     }
+
+    const data = await response.json();
+    return data.files;
   }
 
   /**
-   * Get files attached to a specific order
+   * Get files attached to a specific order.
    */
-  async getOrderFiles(orderId: string): Promise<any[]> {
-    try {
-      const response = await fetch(`${getApiUrl()}/files/order/${orderId}`, {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      });
+  async getOrderFiles(orderId: string): Promise<OrderFile[]> {
+    const response = await this.fetchWithAuth(
+      `${getApiUrl()}/files/order/${orderId}`,
+    );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch order files');
-      }
-
-      const data = await response.json();
-      return data.files;
-    } catch (error) {
-      console.error('Get order files error:', error);
-      throw error;
+    if (!response.ok) {
+      throw new FileServiceError('Gagal mengambil foto pesanan.');
     }
+
+    const data = await response.json();
+    return data.files;
   }
 
   /**
-   * Upload a file and attach it to an order
+   * Upload a file and attach it to an order.
+   * If the attach step fails, attempts to clean up the orphaned file.
    */
-  async uploadOrderFile(uri: string, filename: string, orderId: string): Promise<UploadedFile> {
-    try {
-      // First upload the file
-      const uploadedFile = await this.uploadFile(uri, filename);
+  async uploadOrderFile(
+    uri: string,
+    filename: string,
+    orderId: string,
+    onProgress?: UploadProgressCallback,
+  ): Promise<UploadedFile> {
+    // Step 1: Upload the file
+    const uploadedFile = await this.uploadFile(uri, filename, onProgress);
 
-      // Then attach it to the order
-      const response = await fetch(
+    // Step 2: Attach to order
+    try {
+      const response = await this.fetchWithAuth(
         `${getApiUrl()}/files/order/${orderId}/attach/${uploadedFile.id}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${this.token}`,
-          },
-        }
+        { method: 'POST' },
       );
 
       if (!response.ok) {
-        throw new Error('Failed to attach file to order');
+        throw new FileServiceError('Gagal menautkan file ke pesanan.');
       }
-
-      return uploadedFile;
-    } catch (error) {
-      console.error('Upload order file error:', error);
-      throw error;
+    } catch (attachError) {
+      // Skip orphan cleanup if the attach failed due to auth — the delete
+      // call would also 401 and fire onUnauthorized a second time.
+      if (!(attachError instanceof FileServiceError && attachError.isAuthError)) {
+        try {
+          await this.deleteFile(uploadedFile.id);
+        } catch {
+          console.warn(
+            `Orphaned file ${uploadedFile.id} could not be cleaned up.`,
+          );
+        }
+      }
+      throw attachError;
     }
+
+    return uploadedFile;
   }
 
   /**
-   * Get file statistics
+   * Get file statistics.
    */
-  async getFileStats(): Promise<{ totalFiles: number; totalSize: number; totalSizeMB: string }> {
-    try {
-      const response = await fetch(`${getApiUrl()}/files/stats/summary`, {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      });
+  async getFileStats(): Promise<FileStats> {
+    const response = await this.fetchWithAuth(
+      `${getApiUrl()}/files/stats/summary`,
+    );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch file stats');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Get file stats error:', error);
-      throw error;
+    if (!response.ok) {
+      throw new FileServiceError('Gagal mengambil statistik file.');
     }
+
+    return await response.json();
   }
 
   /**
-   * Download file to local storage
+   * Download file to local storage.
    */
   async downloadFile(fileId: string, filename: string): Promise<string> {
-    try {
-      const downloadResumable = FileSystem.createDownloadResumable(
-        `${getApiUrl()}/files/${fileId}`,
-        FileSystem.documentDirectory + filename,
-        {
-          headers: {
-            Authorization: `Bearer ${this.token}`,
-          },
-        }
-      );
+    const downloadResumable = FileSystem.createDownloadResumable(
+      `${getApiUrl()}/files/${fileId}`,
+      FileSystem.documentDirectory + filename,
+      { headers: this.authHeaders() },
+    );
 
-      const result = await downloadResumable.downloadAsync();
+    const result = await downloadResumable.downloadAsync();
 
-      if (!result) {
-        throw new Error('Download failed');
-      }
-
-      return result.uri;
-    } catch (error) {
-      console.error('Download error:', error);
-      throw error;
+    if (!result) {
+      throw new FileServiceError('Download gagal.');
     }
+
+    return result.uri;
   }
 
   /**
-   * Get full file URL
+   * Get full file URL.
    */
   getFileUrl(fileId: string): string {
     return `${getApiUrl()}/files/${fileId}`;
   }
 
   /**
-   * Get thumbnail URL
+   * Get thumbnail URL.
    */
   getThumbnailUrl(fileId: string): string {
     return `${getApiUrl()}/files/${fileId}/thumbnail`;
   }
 }
-
-// Hook for using FileService with auth token
-export const useFileService = (token: string | null): FileService | null => {
-  if (!token) return null;
-  return new FileService(token);
-};
