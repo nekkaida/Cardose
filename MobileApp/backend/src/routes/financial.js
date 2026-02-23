@@ -33,20 +33,20 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Create transaction (requires authentication)
+  // Create transaction (requires owner/manager role)
   fastify.post(
     '/transactions',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
       schema: {
         body: {
           type: 'object',
           required: ['type', 'amount'],
           properties: {
             type: { type: 'string', enum: ['income', 'expense'] },
-            amount: { type: 'number', minimum: 0 },
+            amount: { type: 'number', exclusiveMinimum: 0, maximum: 99999999999 },
             category: { type: 'string' },
-            description: { type: 'string' },
+            description: { type: 'string', maxLength: 500 },
             order_id: { type: 'string' },
             payment_method: { type: 'string' },
             payment_date: { type: 'string' },
@@ -109,22 +109,22 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Create budget (requires authentication)
+  // Create budget (requires owner/manager role)
   fastify.post(
     '/budgets',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
       schema: {
         body: {
           type: 'object',
           required: ['category', 'amount', 'period'],
           properties: {
             category: { type: 'string' },
-            amount: { type: 'number', minimum: 0 },
+            amount: { type: 'number', exclusiveMinimum: 0, maximum: 99999999999 },
             period: { type: 'string' },
             start_date: { type: 'string' },
             end_date: { type: 'string' },
-            notes: { type: 'string' },
+            notes: { type: 'string', maxLength: 1000 },
           },
         },
       },
@@ -203,22 +203,22 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Create invoice (requires authentication)
+  // Create invoice (requires owner/manager role)
   fastify.post(
     '/invoices',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
       schema: {
         body: {
           type: 'object',
-          required: ['customer_id'],
+          required: ['customer_id', 'subtotal'],
           properties: {
             customer_id: { type: 'string' },
             order_id: { type: 'string' },
-            subtotal: { type: 'number' },
-            discount: { type: 'number' },
+            subtotal: { type: 'number', exclusiveMinimum: 0, maximum: 99999999999 },
+            discount: { type: 'number', minimum: 0, maximum: 99999999999 },
             due_date: { type: 'string' },
-            notes: { type: 'string' },
+            notes: { type: 'string', maxLength: 1000 },
             items: { type: 'array' },
           },
         },
@@ -241,6 +241,10 @@ async function financialRoutes(fastify, options) {
           ...result,
         };
       } catch (error) {
+        if (error.statusCode === 400) {
+          reply.code(400);
+          return { success: false, error: error.message };
+        }
         fastify.log.error(error);
         reply.code(500);
         return { success: false, error: 'An internal error occurred' };
@@ -279,11 +283,11 @@ async function financialRoutes(fastify, options) {
     }
   });
 
-  // Update invoice status (requires authentication)
+  // Update invoice status (requires owner/manager role)
   fastify.patch(
     '/invoices/:id/status',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
       schema: {
         body: {
           type: 'object',
@@ -306,7 +310,7 @@ async function financialRoutes(fastify, options) {
           return { success: false, error: 'Status is required' };
         }
 
-        const validStatuses = ['unpaid', 'paid', 'overdue', 'cancelled'];
+        const validStatuses = ['unpaid', 'paid', 'overdue', 'cancelled', 'partial'];
         if (!validStatuses.includes(status)) {
           reply.code(400);
           return { success: false, error: 'Invalid status value' };
@@ -325,6 +329,11 @@ async function financialRoutes(fastify, options) {
 
         return { success: true, message: 'Invoice status updated successfully' };
       } catch (error) {
+        // Surface status transition errors as 400 instead of 500
+        if (error.statusCode === 400) {
+          reply.code(400);
+          return { success: false, error: error.message };
+        }
         fastify.log.error(error);
         reply.code(500);
         return { success: false, error: 'An internal error occurred' };
