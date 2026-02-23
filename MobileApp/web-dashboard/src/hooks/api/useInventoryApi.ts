@@ -3,14 +3,15 @@ import { apiClient } from '../../contexts/AuthContext';
 import type { ApiResponse } from '@shared/types/api';
 import type {
   InventoryListResponse,
-  InventoryStatsResponse,
   InventoryItem,
   InventoryMovementPayload,
   InventoryMovementResponse,
+  InventoryMovementsListResponse,
+  ReorderAlertsResponse,
 } from '@shared/types/inventory';
 import {
   validateResponse,
-  listResponseSchema,
+  inventoryListResponseSchema,
   inventoryMovementResponseSchema,
 } from '../../utils/apiValidation';
 
@@ -18,16 +19,11 @@ export const useInventoryApi = () => {
   const getInventory = useCallback(
     async (params?: Record<string, string | number>): Promise<InventoryListResponse> => {
       const response = await apiClient.get(`/inventory`, { params });
-      validateResponse(listResponseSchema, response.data, 'GET /inventory');
+      validateResponse(inventoryListResponseSchema, response.data, 'GET /inventory');
       return response.data as InventoryListResponse;
     },
     []
   );
-
-  const getInventoryStats = useCallback(async (): Promise<InventoryStatsResponse> => {
-    const response = await apiClient.get(`/inventory/stats`);
-    return response.data as InventoryStatsResponse;
-  }, []);
 
   const createInventoryItem = useCallback(
     async (
@@ -50,20 +46,18 @@ export const useInventoryApi = () => {
     []
   );
 
-  const updateInventoryStock = useCallback(
-    async (
-      id: string,
-      stockData: { quantity: number; type?: string; notes?: string }
-    ): Promise<ApiResponse<InventoryItem>> => {
-      const response = await apiClient.put(`/inventory/${id}/stock`, stockData);
-      return response.data;
-    },
-    []
-  );
-
   const deleteInventoryItem = useCallback(async (id: string): Promise<ApiResponse> => {
     const response = await apiClient.delete(`/inventory/${id}`);
     return response.data;
+  }, []);
+
+  const bulkDeleteInventoryItems = useCallback(async (ids: string[]): Promise<ApiResponse> => {
+    const results = await Promise.allSettled(ids.map((id) => apiClient.delete(`/inventory/${id}`)));
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) {
+      throw new Error(`Failed to delete ${failed} of ${ids.length} items`);
+    }
+    return { success: true };
   }, []);
 
   const createInventoryMovement = useCallback(
@@ -75,13 +69,30 @@ export const useInventoryApi = () => {
     []
   );
 
+  const getInventoryMovements = useCallback(
+    async (params?: Record<string, string | number>): Promise<InventoryMovementsListResponse> => {
+      const response = await apiClient.get(`/inventory/movements`, { params });
+      return response.data as InventoryMovementsListResponse;
+    },
+    []
+  );
+
+  const getReorderAlerts = useCallback(
+    async (params?: Record<string, string>): Promise<ReorderAlertsResponse> => {
+      const response = await apiClient.get(`/inventory/reorder-alerts`, { params });
+      return response.data as ReorderAlertsResponse;
+    },
+    []
+  );
+
   return {
     getInventory,
-    getInventoryStats,
     createInventoryItem,
     updateInventoryItem,
-    updateInventoryStock,
     deleteInventoryItem,
+    bulkDeleteInventoryItems,
     createInventoryMovement,
+    getInventoryMovements,
+    getReorderAlerts,
   };
 };
