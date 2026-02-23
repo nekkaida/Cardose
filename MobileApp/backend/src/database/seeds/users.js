@@ -5,6 +5,11 @@ const { v4: uuidv4 } = require('uuid');
 const hash = (password) => bcrypt.hashSync(password, 10);
 
 module.exports = async function seedUsers(db, { log }) {
+  // Never run seeds in production — seed data has weak passwords for development only
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Seeding is disabled in production. Use proper user management instead.');
+  }
+
   log('Seeding users (15 users - all roles and edge cases)...');
 
   const users = [
