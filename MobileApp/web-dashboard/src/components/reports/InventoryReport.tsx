@@ -1,7 +1,16 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useReportTranslation } from '../../hooks/useReportTranslation';
 import type { InventoryReportData } from '@shared/types/reports';
-import { StatCard, SectionTitle, DataTable, LOCALE_MAP, formatLabel } from './ReportPrimitives';
+import {
+  StatCard,
+  SectionTitle,
+  DataTable,
+  LOCALE_MAP,
+  formatLabel,
+  buildPaginationLabels,
+} from './ReportPrimitives';
+import { ReportBarChart, ReportDonutChart, CHART_COLORS } from './ReportCharts';
 
 export interface InventoryReportProps {
   data: InventoryReportData;
@@ -14,13 +23,12 @@ const InventoryReport: React.FC<InventoryReportProps> = ({
   formatCurrency,
   formatNumber,
 }) => {
-  const { t, language } = useLanguage();
-  const tr = (key: string, fallback: string) => {
-    const val = t(key);
-    return val === key ? fallback : val;
-  };
+  const { language } = useLanguage();
+  const tr = useReportTranslation();
 
   const emptyMessage = tr('reports.noData', 'No data available');
+
+  const paginationLabels = buildPaginationLabels(tr);
 
   return (
     <>
@@ -47,31 +55,79 @@ const InventoryReport: React.FC<InventoryReportProps> = ({
         />
       </div>
 
+      {/* Stock Distribution donut chart */}
+      {data.byCategory.length > 0 && (
+        <div className="mb-6">
+          <SectionTitle>
+            {tr('reports.stockDistribution', 'Stock Distribution by Category')}
+          </SectionTitle>
+          <ReportDonutChart
+            data={data.byCategory.map((c) => ({
+              name: formatLabel(c.category || 'Uncategorized'),
+              value: c.total_value,
+            }))}
+            formatValue={formatCurrency}
+            centerLabel={tr('reports.totalValue', 'Total Value')}
+            centerValue={formatCurrency(data.summary.totalValue)}
+          />
+        </div>
+      )}
+
+      {/* Stock Levels bar chart */}
+      {data.byCategory.length > 0 && (
+        <div className="mb-6">
+          <SectionTitle>{tr('reports.stockLevels', 'Stock Levels')}</SectionTitle>
+          <ReportBarChart
+            data={data.byCategory.map((c) => ({
+              category: formatLabel(c.category || 'Uncategorized'),
+              total_stock: c.total_stock,
+              item_count: c.item_count,
+            }))}
+            xKey="category"
+            bars={[
+              {
+                key: 'total_stock',
+                color: CHART_COLORS.primary,
+                label: tr('reports.totalStock', 'Total Stock'),
+              },
+              {
+                key: 'item_count',
+                color: CHART_COLORS.success,
+                label: tr('reports.itemCount', 'Items'),
+              },
+            ]}
+            formatY={formatNumber}
+            formatTooltip={formatNumber}
+          />
+        </div>
+      )}
+
       {/* By category */}
       <div className="mb-6">
         <SectionTitle>{tr('reports.byCategory', 'By Category')}</SectionTitle>
         <DataTable
           emptyMessage={emptyMessage}
+          paginationLabels={paginationLabels}
           headers={[
             {
               key: 'category',
               label: tr('reports.category', 'Category'),
-              format: (v: string) => formatLabel(v || 'Uncategorized'),
+              format: (v) => formatLabel((v as string) || 'Uncategorized'),
             },
             {
               key: 'item_count',
               label: tr('reports.itemCount', 'Items'),
-              format: (v: number) => formatNumber(v),
+              format: (v) => formatNumber(v as number),
             },
             {
               key: 'total_stock',
               label: tr('reports.totalStock', 'Total Stock'),
-              format: (v: number) => formatNumber(v),
+              format: (v) => formatNumber(v as number),
             },
             {
               key: 'total_value',
               label: tr('reports.totalValue', 'Total Value'),
-              format: (v: number) => formatCurrency(v),
+              format: (v) => formatCurrency(v as number),
             },
           ]}
           rows={data.byCategory}
@@ -83,23 +139,24 @@ const InventoryReport: React.FC<InventoryReportProps> = ({
         <SectionTitle>{tr('reports.lowStockItems', 'Low Stock Items')}</SectionTitle>
         <DataTable
           emptyMessage={emptyMessage}
+          paginationLabels={paginationLabels}
           headers={[
             { key: 'name', label: tr('reports.itemName', 'Item') },
             { key: 'sku', label: tr('reports.sku', 'SKU') },
             {
               key: 'category',
               label: tr('reports.category', 'Category'),
-              format: (v: string) => formatLabel(v || '-'),
+              format: (v) => formatLabel((v as string) || '-'),
             },
             {
               key: 'current_stock',
               label: tr('reports.currentStock', 'Current Stock'),
-              format: (v: number) => formatNumber(v),
+              format: (v) => formatNumber(v as number),
             },
             {
               key: 'reorder_level',
               label: tr('reports.reorderLevel', 'Reorder Level'),
-              format: (v: number) => formatNumber(v),
+              format: (v) => formatNumber(v as number),
             },
             { key: 'unit', label: tr('reports.unit', 'Unit') },
           ]}
@@ -112,23 +169,24 @@ const InventoryReport: React.FC<InventoryReportProps> = ({
         <SectionTitle>{tr('reports.recentMovements', 'Recent Movements')}</SectionTitle>
         <DataTable
           emptyMessage={emptyMessage}
+          paginationLabels={paginationLabels}
           headers={[
             { key: 'item_name', label: tr('reports.itemName', 'Item') },
             {
               key: 'type',
               label: tr('reports.movementType', 'Type'),
-              format: (v: string) => formatLabel(v || '-'),
+              format: (v) => formatLabel((v as string) || '-'),
             },
             {
               key: 'quantity',
               label: tr('reports.quantity', 'Quantity'),
-              format: (v: number) => formatNumber(v),
+              format: (v) => formatNumber(v as number),
             },
             {
               key: 'created_at',
               label: tr('reports.movementDate', 'Date'),
-              format: (v: string) =>
-                v ? new Date(v).toLocaleDateString(LOCALE_MAP[language] || 'id-ID') : '-',
+              format: (v) =>
+                v ? new Date(v as string).toLocaleDateString(LOCALE_MAP[language] || 'id-ID') : '-',
             },
           ]}
           rows={data.recentMovements}
