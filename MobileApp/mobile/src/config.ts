@@ -45,10 +45,6 @@ export const API_CONFIG = {
   // Timeout settings
   TIMEOUT: 30000, // 30 seconds
   UPLOAD_TIMEOUT: 120000, // 2 minutes for file uploads
-
-  // Retry settings
-  MAX_RETRIES: 3,
-  RETRY_DELAY: 1000, // 1 second
 };
 
 // App Configuration
@@ -121,22 +117,28 @@ export const STATUS_OPTIONS = {
   ],
 };
 
-// Color Palette
+/**
+ * Color Palette
+ *
+ * Source of truth for colors is theme.ts (React Native Paper theme).
+ * These COLORS are kept in sync with the theme and are intended for
+ * non-component contexts (config objects, status options, etc.).
+ */
 export const COLORS = {
-  // Primary colors
-  primary: '#2563EB',
-  primaryDark: '#1E40AF',
-  primaryLight: '#60A5FA',
+  // Primary colors — must match theme.ts
+  primary: '#2C5530',
+  primaryDark: '#1E3D22',
+  primaryLight: '#4A7C59',
 
-  // Secondary colors
-  secondary: '#10B981',
-  secondaryDark: '#059669',
-  secondaryLight: '#34D399',
+  // Secondary colors — must match theme.ts
+  secondary: '#C4A962',
+  secondaryDark: '#A88E4A',
+  secondaryLight: '#D4C088',
 
-  // Status colors
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
+  // Status colors — must match theme.ts
+  success: '#4caf50',
+  warning: '#ff9800',
+  error: '#f44336',
   info: '#3B82F6',
 
   // Neutral colors
@@ -155,14 +157,14 @@ export const COLORS = {
     900: '#111827',
   },
 
-  // Background colors
-  background: '#F9FAFB',
-  surface: '#FFFFFF',
+  // Background colors — must match theme.ts
+  background: '#f5f5f5',
+  surface: '#ffffff',
 
   // Text colors
-  textPrimary: '#111827',
-  textSecondary: '#6B7280',
-  textDisabled: '#9CA3AF',
+  textPrimary: '#1a1a1a',
+  textSecondary: '#666666',
+  textDisabled: '#c0c0c0',
 };
 
 // Typography
