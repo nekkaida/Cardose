@@ -180,7 +180,7 @@ async function productionRoutes(fastify, options) {
           properties: {
             status: {
               type: 'string',
-              enum: ['pending', 'in_progress', 'completed', 'on_hold', 'cancelled'],
+              enum: ['pending', 'in_progress', 'completed', 'cancelled'],
             },
           },
         },
@@ -246,7 +246,7 @@ async function productionRoutes(fastify, options) {
   fastify.patch(
     '/orders/:id/stage',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager', 'staff'])],
       schema: {
         body: {
           type: 'object',
@@ -261,7 +261,6 @@ async function productionRoutes(fastify, options) {
                 'production',
                 'quality_control',
                 'completed',
-                'delivered',
                 'cancelled',
               ],
             },
@@ -299,6 +298,16 @@ async function productionRoutes(fastify, options) {
         if (!result) {
           reply.code(404);
           return { success: false, error: 'Order not found' };
+        }
+
+        if (result.invalidTransition) {
+          reply.code(422);
+          return {
+            success: false,
+            error: result.error,
+            currentStage: result.currentStage,
+            allowedStages: result.allowedStages,
+          };
         }
 
         return { success: true, message: 'Order stage updated successfully' };
