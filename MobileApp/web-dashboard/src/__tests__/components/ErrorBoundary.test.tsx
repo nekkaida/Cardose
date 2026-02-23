@@ -82,6 +82,9 @@ describe('ErrorBoundary', () => {
       );
 
       expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+      expect(
+        screen.getByText('An unexpected error occurred. Please try again.')
+      ).toBeInTheDocument();
     });
 
     it('should not render children when error is caught', () => {
