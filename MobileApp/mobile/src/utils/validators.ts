@@ -14,18 +14,18 @@ export const isValidEmail = (email: string): boolean => {
 };
 
 /**
- * Validate Indonesian phone number
+ * Validate Indonesian phone number.
+ *
+ * Accepts: +628xxx, 628xxx, 08xxx (with optional spaces/dashes for formatting).
+ * Strips formatting characters (spaces, dashes, parentheses) but preserves '+'
+ * so the +62 branch is reachable.
  */
 export const isValidPhoneNumber = (phone: string): boolean => {
   if (!phone) return false;
-  const cleaned = phone.replace(/\D/g, '');
-
-  // Indonesian phone numbers can be:
-  // - 08xx (10-13 digits)
-  // - 628xx (11-14 digits)
-  // - +628xx (11-14 digits)
-  const phoneRegex = /^(\+62|62|0)[0-9]{9,13}$/;
-  return phoneRegex.test(cleaned);
+  // Strip formatting chars but keep '+'
+  const cleaned = phone.trim().replace(/[\s()-]/g, '');
+  // Indonesian phone: +62xxx (12-15 chars), 62xxx (11-14 digits), 0xxx (10-13 digits)
+  return /^(\+62|62|0)[0-9]{9,12}$/.test(cleaned);
 };
 
 /**
@@ -35,8 +35,6 @@ export const isValidPhoneNumber = (phone: string): boolean => {
 export const isValidNPWP = (npwp: string): boolean => {
   if (!npwp) return false;
   const cleaned = npwp.replace(/[.-]/g, '');
-
-  // NPWP must be exactly 15 digits
   return /^\d{15}$/.test(cleaned);
 };
 
@@ -72,7 +70,6 @@ export const isValidDateFormat = (date: string): boolean => {
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (!dateRegex.test(date)) return false;
 
-  // Check if it's a valid date
   const dateObj = new Date(date);
   return dateObj instanceof Date && !isNaN(dateObj.getTime());
 };
@@ -233,26 +230,26 @@ export const getValidationError = (
   params?: any
 ): string => {
   const errorMessages: Record<string, string> = {
-    required: `${fieldName} wajib diisi`,
-    email: `${fieldName} harus berupa email yang valid`,
-    phone: `${fieldName} harus berupa nomor telepon yang valid`,
-    npwp: `${fieldName} harus berupa NPWP yang valid (15 digit)`,
-    positive: `${fieldName} harus berupa angka positif`,
-    integer: `${fieldName} harus berupa bilangan bulat`,
-    date: `${fieldName} harus berupa tanggal yang valid`,
-    futureDate: `${fieldName} harus berupa tanggal di masa depan`,
-    pastDate: `${fieldName} harus berupa tanggal di masa lalu`,
-    url: `${fieldName} harus berupa URL yang valid`,
-    percentage: `${fieldName} harus antara 0-100%`,
-    postalCode: `${fieldName} harus berupa kode pos 5 digit`,
-    sku: `${fieldName} harus berupa SKU yang valid (huruf, angka, dan tanda hubung)`,
-    password: `${fieldName} minimal 8 karakter dengan huruf besar, kecil, dan angka`,
-    minLength: `${fieldName} minimal ${params?.minLength} karakter`,
-    maxLength: `${fieldName} maksimal ${params?.maxLength} karakter`,
-    quantity: `${fieldName} harus berupa jumlah yang valid (bilangan bulat positif)`,
+    required: `${fieldName} is required`,
+    email: `${fieldName} must be a valid email address`,
+    phone: `${fieldName} must be a valid phone number`,
+    npwp: `${fieldName} must be a valid NPWP (15 digits)`,
+    positive: `${fieldName} must be a positive number`,
+    integer: `${fieldName} must be a whole number`,
+    date: `${fieldName} must be a valid date`,
+    futureDate: `${fieldName} must be a future date`,
+    pastDate: `${fieldName} must be a past date`,
+    url: `${fieldName} must be a valid URL`,
+    percentage: `${fieldName} must be between 0-100%`,
+    postalCode: `${fieldName} must be a 5-digit postal code`,
+    sku: `${fieldName} must be a valid SKU (letters, numbers, and hyphens)`,
+    password: `${fieldName} must be at least 8 characters with uppercase, lowercase, and a number`,
+    minLength: `${fieldName} must be at least ${params?.minLength} characters`,
+    maxLength: `${fieldName} must be at most ${params?.maxLength} characters`,
+    quantity: `${fieldName} must be a valid quantity (positive integer)`,
   };
 
-  return errorMessages[validationType] || `${fieldName} tidak valid`;
+  return errorMessages[validationType] || `${fieldName} is invalid`;
 };
 
 /**
@@ -336,7 +333,7 @@ export const validateForm = (
 
       if (!isValid) {
         errors[fieldName] = rule.message || getValidationError(fieldName, rule.type, rule.params);
-        break; // Stop at first error for this field
+        break;
       }
     }
   });
