@@ -8,15 +8,44 @@ class ProductionService {
   }
 
   /**
+   * Valid stage transitions for production workflow.
+   * Maps current stage -> array of allowed target stages.
+   */
+  static VALID_TRANSITIONS = {
+    pending: ['designing', 'cancelled'],
+    designing: ['approved', 'pending', 'cancelled'],
+    approved: ['production', 'designing', 'cancelled'],
+    production: ['quality_control', 'approved', 'cancelled'],
+    quality_control: ['completed', 'production', 'cancelled'],
+  };
+
+  /**
+   * Check if a stage transition is valid.
+   */
+  isValidTransition(fromStage, toStage) {
+    const allowed = ProductionService.VALID_TRANSITIONS[fromStage];
+    if (!allowed) return false;
+    return allowed.includes(toStage);
+  }
+
+  /**
    * Get production board (Kanban view) with orders grouped by status.
    */
   async getBoard() {
     const orders = this.db.db
       .prepare(
         `
-        SELECT o.*, c.name as customer_name
+        SELECT o.id, o.order_number, o.status, o.priority, o.due_date,
+               o.total_amount, o.updated_at, o.notes, o.special_requests,
+               c.name as customer_name,
+               os_latest.start_date as stage_entered_at
         FROM orders o
         LEFT JOIN customers c ON o.customer_id = c.id
+        LEFT JOIN (
+          SELECT order_id, stage, start_date,
+                 ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY start_date DESC) as rn
+          FROM order_stages
+        ) os_latest ON os_latest.order_id = o.id AND os_latest.rn = 1 AND os_latest.stage = o.status
         WHERE o.status IN ('pending', 'designing', 'approved', 'production', 'quality_control')
         ORDER BY
           CASE o.priority
@@ -26,6 +55,7 @@ class ProductionService {
             ELSE 4
           END,
           o.due_date ASC
+        LIMIT 500
       `
       )
       .all();
@@ -45,88 +75,47 @@ class ProductionService {
    * Get production statistics.
    */
   async getStats() {
-    // Get active orders count
-    const activeOrders = this.db.db
-      .prepare(
-        `
-        SELECT COUNT(*) as count FROM orders
-        WHERE status IN ('designing', 'approved', 'production', 'quality_control')
-      `
-      )
-      .get();
-
-    // Get completed today count
-    const completedToday = this.db.db
-      .prepare(
-        `
-        SELECT COUNT(*) as count FROM orders
-        WHERE status = 'completed'
-        AND DATE(updated_at) = DATE('now')
-      `
-      )
-      .get();
-
-    // Get pending approval count
-    const pendingApproval = this.db.db
-      .prepare(
-        `
-        SELECT COUNT(*) as count FROM orders
-        WHERE status = 'designing'
-      `
-      )
-      .get();
-
-    // Get quality issues count (orders in quality_control for more than 2 days)
-    const qualityIssues = this.db.db
-      .prepare(
-        `
-        SELECT COUNT(*) as count FROM orders
-        WHERE status = 'quality_control'
-        AND julianday('now') - julianday(updated_at) > 2
-      `
-      )
-      .get();
-
-    // Get stage distribution
-    const stageDistribution = this.db.db
+    const row = this.db.db
       .prepare(
         `
         SELECT
-          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-          SUM(CASE WHEN status = 'designing' THEN 1 ELSE 0 END) as designing,
-          SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-          SUM(CASE WHEN status = 'production' THEN 1 ELSE 0 END) as production,
-          SUM(CASE WHEN status = 'quality_control' THEN 1 ELSE 0 END) as quality_control,
-          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
-        FROM orders
-      `
-      )
-      .get();
-
-    // Get overdue orders
-    const overdueOrders = this.db.db
-      .prepare(
-        `
-        SELECT COUNT(*) as count FROM orders
-        WHERE due_date < DATE('now')
-        AND status NOT IN ('completed', 'cancelled')
+          SUM(CASE WHEN o.status IN ('designing','approved','production','quality_control') THEN 1 ELSE 0 END) as active_orders,
+          SUM(CASE WHEN o.status = 'completed' AND DATE(o.updated_at) = DATE('now') THEN 1 ELSE 0 END) as completed_today,
+          SUM(CASE WHEN o.status = 'designing' THEN 1 ELSE 0 END) as pending_approval,
+          SUM(CASE WHEN o.status = 'quality_control'
+                    AND julianday('now') - julianday(COALESCE(qc_stage.start_date, o.updated_at)) > 2
+               THEN 1 ELSE 0 END) as quality_issues,
+          SUM(CASE WHEN o.due_date < DATE('now') AND o.status NOT IN ('completed','cancelled') THEN 1 ELSE 0 END) as overdue_orders,
+          SUM(CASE WHEN o.status = 'pending' THEN 1 ELSE 0 END) as stage_pending,
+          SUM(CASE WHEN o.status = 'designing' THEN 1 ELSE 0 END) as stage_designing,
+          SUM(CASE WHEN o.status = 'approved' THEN 1 ELSE 0 END) as stage_approved,
+          SUM(CASE WHEN o.status = 'production' THEN 1 ELSE 0 END) as stage_production,
+          SUM(CASE WHEN o.status = 'quality_control' THEN 1 ELSE 0 END) as stage_quality_control,
+          SUM(CASE WHEN o.status = 'completed' THEN 1 ELSE 0 END) as stage_completed
+        FROM orders o
+        LEFT JOIN (
+          SELECT order_id, start_date,
+                 ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY start_date DESC) as rn
+          FROM order_stages
+          WHERE stage = 'quality_control'
+        ) qc_stage ON qc_stage.order_id = o.id AND qc_stage.rn = 1
       `
       )
       .get();
 
     return {
-      active_orders: activeOrders.count,
-      completed_today: completedToday.count,
-      pending_approval: pendingApproval.count,
-      quality_issues: qualityIssues.count,
-      overdue_orders: overdueOrders.count,
+      active_orders: row.active_orders || 0,
+      completed_today: row.completed_today || 0,
+      pending_approval: row.pending_approval || 0,
+      quality_issues: row.quality_issues || 0,
+      overdue_orders: row.overdue_orders || 0,
       stage_distribution: {
-        pending: stageDistribution.pending || 0,
-        designing: stageDistribution.designing || 0,
-        approved: stageDistribution.approved || 0,
-        production: stageDistribution.production || 0,
-        quality_control: stageDistribution.quality_control || 0,
-        completed: stageDistribution.completed || 0,
+        pending: row.stage_pending || 0,
+        designing: row.stage_designing || 0,
+        approved: row.stage_approved || 0,
+        production: row.stage_production || 0,
+        quality_control: row.stage_quality_control || 0,
+        completed: row.stage_completed || 0,
       },
     };
   }
@@ -369,6 +358,16 @@ class ProductionService {
       return null;
     }
 
+    // Validate transition
+    if (!this.isValidTransition(existing.status, stage)) {
+      return {
+        error: `Cannot move from '${existing.status}' to '${stage}'`,
+        invalidTransition: true,
+        currentStage: existing.status,
+        allowedStages: ProductionService.VALID_TRANSITIONS[existing.status] || [],
+      };
+    }
+
     // Update order status
     this.db.db
       .prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
@@ -378,13 +377,13 @@ class ProductionService {
     this.db.db
       .prepare(
         `
-        INSERT INTO order_stages (id, order_id, stage, notes, created_at)
+        INSERT INTO order_stages (id, order_id, stage, notes, start_date)
         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
       `
       )
       .run(uuidv4(), id, stage, notes || '');
 
-    return existing;
+    return { success: true, previousStage: existing.status };
   }
 
   /**
