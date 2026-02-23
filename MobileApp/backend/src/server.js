@@ -76,11 +76,12 @@ fastify.setErrorHandler((error, request, reply) => {
   }
 
   fastify.log.error(error);
+  const safeMessage =
+    statusCode >= 500 && env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message;
   reply.status(statusCode).send({
     statusCode,
-    error:
-      statusCode >= 500 && env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message,
-    message: error.message,
+    error: safeMessage,
+    message: safeMessage,
   });
 });
 
