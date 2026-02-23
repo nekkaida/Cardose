@@ -1,17 +1,44 @@
-import type { InventoryItem } from '@shared/types/inventory';
+import type { InventoryItem, InventoryListStats } from '@shared/types/inventory';
 
-export interface InventoryStats {
-  total: number;
-  cardboard: number;
-  fabric: number;
-  ribbon: number;
-  accessories: number;
-  packaging: number;
-  tools: number;
-  lowStock: number;
-  outOfStock: number;
-  totalValue: number;
-}
+// ── Single source of truth for categories ────────────────────────
+
+export const CATEGORIES = [
+  'cardboard',
+  'fabric',
+  'ribbon',
+  'accessories',
+  'packaging',
+  'tools',
+] as const;
+
+export type InventoryCategory = (typeof CATEGORIES)[number];
+
+export const CATEGORY_I18N: Record<InventoryCategory, string> = {
+  cardboard: 'inventory.catCardboard',
+  fabric: 'inventory.catFabric',
+  ribbon: 'inventory.catRibbon',
+  accessories: 'inventory.catAccessories',
+  packaging: 'inventory.catPackaging',
+  tools: 'inventory.catTools',
+};
+
+// ── Single source of truth for movement types ────────────────────
+
+export const MOVEMENT_TYPES = ['purchase', 'usage', 'sale', 'adjustment', 'waste'] as const;
+
+export type MovementType = (typeof MOVEMENT_TYPES)[number];
+
+export const MOVEMENT_I18N: Record<MovementType, string> = {
+  purchase: 'inventory.movePurchase',
+  usage: 'inventory.moveUsage',
+  sale: 'inventory.moveSale',
+  adjustment: 'inventory.moveAdjustment',
+  waste: 'inventory.moveWaste',
+};
+
+// ── Stats type ───────────────────────────────────────────────────
+
+export type InventoryStats = InventoryListStats;
 
 export const EMPTY_STATS: InventoryStats = {
   total: 0,
@@ -26,23 +53,16 @@ export const EMPTY_STATS: InventoryStats = {
   totalValue: 0,
 };
 
-export const CATEGORIES = [
-  'cardboard',
-  'fabric',
-  'ribbon',
-  'accessories',
-  'packaging',
-  'tools',
-] as const;
+// ── Input constraints (shared between frontend + backend) ────────
 
-export const CATEGORY_I18N: Record<string, string> = {
-  cardboard: 'inventory.catCardboard',
-  fabric: 'inventory.catFabric',
-  ribbon: 'inventory.catRibbon',
-  accessories: 'inventory.catAccessories',
-  packaging: 'inventory.catPackaging',
-  tools: 'inventory.catTools',
-};
+export const INPUT_LIMITS = {
+  NAME_MAX: 200,
+  SUPPLIER_MAX: 200,
+  UNIT_MAX: 50,
+  NOTES_MAX: 1000,
+} as const;
+
+// ── Stock status helpers ─────────────────────────────────────────
 
 export const isLowStock = (item: InventoryItem): boolean =>
   item.current_stock > 0 && item.current_stock <= item.reorder_level;
@@ -81,3 +101,17 @@ export const getCategoryColor = (category: string): string => {
       return 'bg-gray-50 text-gray-700';
   }
 };
+
+// ── Stock movement calculation ───────────────────────────────────
+
+export const getNewStock = (currentStock: number, type: string, quantity: number): number => {
+  if (type === 'purchase') return currentStock + quantity;
+  if (type === 'usage' || type === 'sale' || type === 'waste') return currentStock - quantity;
+  if (type === 'adjustment') return quantity;
+  return currentStock;
+};
+
+// ── Page size options ────────────────────────────────────────────
+
+export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
+export const DEFAULT_PAGE_SIZE = 25;
