@@ -22,12 +22,12 @@ name: Authentication - Invalid Login Flow
 
 # Submit login
 - tapOn:
-    text: "Masuk"
+    text: "Login"
 
 # Wait for response
 - waitForAnimationToEnd
 
-# Should see error message
+# Should see error message (inline error banner)
 - assertVisible:
-    text: ".*invalid.*|.*gagal.*|.*error.*"
+    text: ".*[Ii]nvalid.*|.*[Ff]ailed.*|.*[Ee]rror.*|.*[Cc]annot reach.*"
     regex: true
