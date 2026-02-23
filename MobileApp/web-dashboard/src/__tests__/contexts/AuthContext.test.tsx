@@ -57,7 +57,7 @@ Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
 // Test component that uses the auth context
 const TestComponent: React.FC = () => {
-  const { user, isAuthenticated, loading, login, logout, token } = useAuth();
+  const { user, isAuthenticated, loading, login, logout } = useAuth();
 
   const handleLogin = async () => {
     try {
@@ -72,7 +72,6 @@ const TestComponent: React.FC = () => {
       <div data-testid="loading">{loading.toString()}</div>
       <div data-testid="authenticated">{isAuthenticated.toString()}</div>
       <div data-testid="user">{user ? user.username : 'null'}</div>
-      <div data-testid="token">{token || 'null'}</div>
       <button onClick={handleLogin}>Login</button>
       <button onClick={logout}>Logout</button>
     </div>
@@ -84,6 +83,9 @@ describe('AuthContext', () => {
     vi.clearAllMocks();
     localStorageMock.clear();
     delete axios.defaults.headers.common['Authorization'];
+    // Default: any un-mocked post/get returns a resolved promise
+    // (prevents TypeError when .catch() is called on undefined)
+    mockedAxios.post.mockResolvedValue({});
   });
 
   describe('Initial State', () => {
@@ -100,7 +102,6 @@ describe('AuthContext', () => {
 
       expect(screen.getByTestId('authenticated').textContent).toBe('false');
       expect(screen.getByTestId('user').textContent).toBe('null');
-      expect(screen.getByTestId('token').textContent).toBe('null');
     });
 
     it('should restore user from localStorage', async () => {
@@ -113,8 +114,10 @@ describe('AuthContext', () => {
         return null;
       });
 
-      // Mock the token verification API call
-      mockedAxios.get.mockResolvedValueOnce({ data: { valid: true } });
+      // Mock the token verification API call (must include user data for verifyResponseSchema)
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { valid: true, user: savedUser },
+      });
 
       render(
         <AuthProvider>
@@ -128,7 +131,6 @@ describe('AuthContext', () => {
 
       expect(screen.getByTestId('authenticated').textContent).toBe('true');
       expect(screen.getByTestId('user').textContent).toBe('saveduser');
-      expect(screen.getByTestId('token').textContent).toBe('saved-token');
     });
   });
 
@@ -165,7 +167,6 @@ describe('AuthContext', () => {
       });
 
       expect(screen.getByTestId('user').textContent).toBe('testuser');
-      expect(screen.getByTestId('token').textContent).toBe('test-token');
       expect(localStorageMock.setItem).toHaveBeenCalledWith('auth_token', mockToken);
       expect(localStorageMock.setItem).toHaveBeenCalledWith('auth_user', JSON.stringify(mockUser));
     });
@@ -234,8 +235,10 @@ describe('AuthContext', () => {
         return null;
       });
 
-      // Mock the token verification API call
-      mockedAxios.get.mockResolvedValueOnce({ data: { valid: true } });
+      // Mock the token verification API call (must include user data for verifyResponseSchema)
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { valid: true, user: savedUser },
+      });
 
       render(
         <AuthProvider>
@@ -257,7 +260,6 @@ describe('AuthContext', () => {
       });
 
       expect(screen.getByTestId('user').textContent).toBe('null');
-      expect(screen.getByTestId('token').textContent).toBe('null');
       expect(localStorageMock.removeItem).toHaveBeenCalledWith('auth_token');
       expect(localStorageMock.removeItem).toHaveBeenCalledWith('auth_user');
     });
@@ -272,6 +274,134 @@ describe('AuthContext', () => {
       }).toThrow('useAuth must be used within an AuthProvider');
 
       consoleError.mockRestore();
+    });
+  });
+
+  describe('Token verification', () => {
+    it('should clear localStorage when verify returns invalid Zod data', async () => {
+      const savedToken = 'bad-token';
+      localStorageMock.getItem.mockImplementation((key: string) => {
+        if (key === 'auth_token') return savedToken;
+        if (key === 'auth_user')
+          return JSON.stringify({ id: '1', username: 'user', email: 'e', role: 'r' });
+        return null;
+      });
+
+      // Return data that fails verifyResponseSchema (missing user object)
+      mockedAxios.get.mockResolvedValueOnce({ data: { valid: true } });
+
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading').textContent).toBe('false');
+      });
+
+      expect(screen.getByTestId('authenticated').textContent).toBe('false');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('auth_token');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('auth_user');
+    });
+
+    it('should clear localStorage when verify request fails', async () => {
+      localStorageMock.getItem.mockImplementation((key: string) => {
+        if (key === 'auth_token') return 'expired-token';
+        if (key === 'auth_user')
+          return JSON.stringify({ id: '1', username: 'user', email: 'e', role: 'r' });
+        return null;
+      });
+
+      mockedAxios.get.mockRejectedValueOnce(new Error('Network error'));
+
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading').textContent).toBe('false');
+      });
+
+      expect(screen.getByTestId('authenticated').textContent).toBe('false');
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('auth_token');
+    });
+  });
+
+  describe('Login validation', () => {
+    it('should return false when login response fails Zod validation', async () => {
+      // Response has success:true but missing token/user — fails loginResponseSchema
+      mockedAxios.post.mockResolvedValueOnce({
+        data: { success: true },
+      });
+
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading').textContent).toBe('false');
+      });
+
+      const loginButton = screen.getByText('Login');
+      await act(async () => {
+        await userEvent.click(loginButton);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('authenticated').textContent).toBe('false');
+      });
+      expect(screen.getByTestId('user').textContent).toBe('null');
+    });
+  });
+
+  describe('Server-side logout', () => {
+    it('should call POST /auth/logout when logging out', async () => {
+      const savedUser = { id: '1', username: 'saveduser', email: 'saved@test.com', role: 'admin' };
+      const savedToken = 'saved-token';
+
+      localStorageMock.getItem.mockImplementation((key: string) => {
+        if (key === 'auth_token') return savedToken;
+        if (key === 'auth_user') return JSON.stringify(savedUser);
+        return null;
+      });
+
+      mockedAxios.get.mockResolvedValueOnce({
+        data: { valid: true, user: savedUser },
+      });
+      mockedAxios.post.mockResolvedValue({});
+
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('authenticated').textContent).toBe('true');
+      });
+
+      const logoutButton = screen.getByText('Logout');
+      await act(async () => {
+        await userEvent.click(logoutButton);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('authenticated').textContent).toBe('false');
+      });
+
+      // Verify the server-side revocation was called
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        '/auth/logout',
+        {},
+        expect.objectContaining({
+          headers: { Authorization: `Bearer ${savedToken}` },
+        })
+      );
     });
   });
 });
