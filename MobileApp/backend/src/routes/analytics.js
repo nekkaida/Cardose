@@ -1,5 +1,7 @@
 // Analytics and reporting routes for Premium Gift Box backend
-const { v4: uuidv4 } = require('uuid');
+const { createRateLimiter } = require('../middleware/rateLimiter');
+
+const analyticsRateLimit = createRateLimiter({ maxRequests: 30, windowSeconds: 60 });
 
 async function analyticsRoutes(fastify, options) {
   const db = fastify.db;
@@ -24,7 +26,7 @@ async function analyticsRoutes(fastify, options) {
   fastify.get(
     '/dashboard',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, analyticsRateLimit],
       schema: {
         querystring: {
           type: 'object',
@@ -97,6 +99,7 @@ async function analyticsRoutes(fastify, options) {
         const productionStats = await db.get(`
         SELECT
           SUM(CASE WHEN status = 'designing' THEN 1 ELSE 0 END) as designing,
+          SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
           SUM(CASE WHEN status = 'production' THEN 1 ELSE 0 END) as in_production,
           SUM(CASE WHEN status = 'quality_control' THEN 1 ELSE 0 END) as quality_control,
           SUM(CASE WHEN priority = 'urgent' THEN 1 ELSE 0 END) as urgent_orders
@@ -144,6 +147,7 @@ async function analyticsRoutes(fastify, options) {
           },
           production: {
             designing: productionStats.designing || 0,
+            approved: productionStats.approved || 0,
             in_production: productionStats.in_production || 0,
             quality_control: productionStats.quality_control || 0,
             urgent_orders: productionStats.urgent_orders || 0,
@@ -160,12 +164,26 @@ async function analyticsRoutes(fastify, options) {
   fastify.get(
     '/revenue-trend',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [
+        fastify.authenticate,
+        fastify.authorize(['owner', 'manager']),
+        analyticsRateLimit,
+      ],
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            period: { type: 'string', enum: ['week', 'month', 'quarter', 'year'] },
+            months: { type: 'integer', minimum: 1, maximum: 36 },
+          },
+        },
+      },
     },
     async (request, reply) => {
       try {
-        const { months = 12 } = request.query;
-        const dateOffset = `-${parseInt(months) || 12} months`;
+        const { period, months } = request.query;
+        // If period is provided, use it; otherwise fall back to months param or default 12
+        const dateOffset = period ? getDateOffset(period) : `-${parseInt(months) || 12} months`;
 
         const trend = await db.all(
           `
@@ -195,12 +213,28 @@ async function analyticsRoutes(fastify, options) {
   fastify.get(
     '/customers',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [
+        fastify.authenticate,
+        fastify.authorize(['owner', 'manager']),
+        analyticsRateLimit,
+      ],
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            period: { type: 'string', enum: ['week', 'month', 'quarter', 'year'] },
+          },
+        },
+      },
     },
     async (request, reply) => {
       try {
-        // Top customers by revenue - simplified query
-        const topCustomers = await db.all(`
+        const { period } = request.query;
+        const dateOffset = period ? getDateOffset(period) : '-365 days';
+
+        // Top customers by revenue - filtered by period
+        const topCustomers = await db.all(
+          `
         SELECT
           c.id,
           c.name,
@@ -212,23 +246,29 @@ async function analyticsRoutes(fastify, options) {
           MAX(o.created_at) as last_order_date
         FROM customers c
         LEFT JOIN orders o ON c.id = o.customer_id AND o.status != 'cancelled'
+          AND DATE(o.created_at) >= DATE('now', ?)
         GROUP BY c.id, c.name, c.business_type, c.loyalty_status
         ORDER BY total_revenue DESC
         LIMIT 10
-      `);
+      `,
+          [dateOffset]
+        );
 
-        // Customer acquisition trend
-        const acquisitionTrend = await db.all(`
+        // Customer acquisition trend - filtered by period
+        const acquisitionTrend = await db.all(
+          `
         SELECT
           strftime('%Y-%m', created_at) as month,
           COUNT(*) as new_customers
         FROM customers
-        WHERE DATE(created_at) >= DATE('now', '-12 months')
+        WHERE DATE(created_at) >= DATE('now', ?)
         GROUP BY strftime('%Y-%m', created_at)
         ORDER BY month ASC
-      `);
+      `,
+          [dateOffset]
+        );
 
-        // Customer by business type - simplified
+        // Customer by business type - all-time (structural, not time-dependent)
         const byBusinessType = await db.all(`
         SELECT
           COALESCE(business_type, 'other') as business_type,
@@ -254,7 +294,11 @@ async function analyticsRoutes(fastify, options) {
   fastify.get(
     '/products',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [
+        fastify.authenticate,
+        fastify.authorize(['owner', 'manager']),
+        analyticsRateLimit,
+      ],
     },
     async (request, reply) => {
       try {
@@ -302,7 +346,7 @@ async function analyticsRoutes(fastify, options) {
   fastify.get(
     '/production-performance',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, analyticsRateLimit],
     },
     async (request, reply) => {
       try {
@@ -418,7 +462,7 @@ async function analyticsRoutes(fastify, options) {
   fastify.get(
     '/inventory-analytics',
     {
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, analyticsRateLimit],
     },
     async (request, reply) => {
       try {
