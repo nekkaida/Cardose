@@ -3,6 +3,7 @@ import { apiClient } from '../../contexts/AuthContext';
 import type { ApiResponse } from '@shared/types/api';
 import type {
   UsersListResponse,
+  UsersListParams,
   CreateUserPayload,
   UpdateUserPayload,
   UserData,
@@ -10,14 +11,20 @@ import type {
 import { validateResponse, usersListResponseSchema } from '../../utils/apiValidation';
 
 export const useUserApi = () => {
-  const getUsers = useCallback(
-    async (params?: Record<string, string | number>): Promise<UsersListResponse> => {
-      const response = await apiClient.get(`/users`, { params });
-      validateResponse(usersListResponseSchema, response.data, 'GET /users');
-      return response.data as UsersListResponse;
-    },
-    []
-  );
+  const getUsers = useCallback(async (params?: UsersListParams): Promise<UsersListResponse> => {
+    const response = await apiClient.get(`/users`, { params });
+    // Normalize is_active from SQLite integer (0/1) to boolean
+    const raw = response.data;
+    const normalized = {
+      ...raw,
+      users: (raw.users || []).map((u: Record<string, unknown>) => ({
+        ...u,
+        is_active: Boolean(u.is_active),
+      })),
+    };
+    validateResponse(usersListResponseSchema, normalized, 'GET /users');
+    return normalized as UsersListResponse;
+  }, []);
 
   const createUser = useCallback(
     async (userData: CreateUserPayload): Promise<ApiResponse<UserData>> => {
