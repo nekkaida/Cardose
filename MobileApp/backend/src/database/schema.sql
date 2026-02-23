@@ -319,6 +319,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_order_stages_order_id ON order_stages(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_stages_order_start ON order_stages(order_id, start_date DESC);
 CREATE INDEX IF NOT EXISTS idx_inventory_movements_item_id ON inventory_movements(item_id);
 CREATE INDEX IF NOT EXISTS idx_financial_transactions_order_id ON financial_transactions(order_id);
 CREATE INDEX IF NOT EXISTS idx_communications_customer_id ON communications(customer_id);
