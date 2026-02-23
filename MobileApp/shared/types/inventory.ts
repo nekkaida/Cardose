@@ -20,29 +20,31 @@ export interface InventoryMovement {
   type: 'purchase' | 'usage' | 'sale' | 'adjustment' | 'waste';
   quantity: number;
   notes?: string;
+  created_by?: string;
   created_at: string;
+}
+
+export interface InventoryListStats {
+  total: number;
+  cardboard: number;
+  fabric: number;
+  ribbon: number;
+  accessories: number;
+  packaging: number;
+  tools: number;
+  lowStock: number;
+  outOfStock: number;
+  totalValue: number;
 }
 
 export interface InventoryListResponse {
   success: boolean;
   items: InventoryItem[];
-  inventory?: InventoryItem[];
   total: number;
   page: number;
   limit: number;
   totalPages: number;
-  stats?: {
-    total: number;
-    cardboard: number;
-    fabric: number;
-    ribbon: number;
-    accessories: number;
-    packaging: number;
-    tools: number;
-    lowStock: number;
-    outOfStock: number;
-    totalValue: number;
-  };
+  stats?: InventoryListStats;
 }
 
 export interface InventoryStatsResponse {
@@ -72,4 +74,27 @@ export interface InventoryMovementResponse {
   message: string;
   movementId: string;
   newStock: number;
+}
+
+export interface InventoryMovementsListResponse {
+  success: boolean;
+  movements: InventoryMovement[];
+  total?: number;
+}
+
+export interface ReorderAlert {
+  id: string;
+  item_id: string;
+  item_name?: string;
+  current_stock?: number;
+  reorder_level?: number;
+  unit?: string;
+  status: 'pending' | 'ordered' | 'resolved';
+  created_at: string;
+  resolved_at?: string;
+}
+
+export interface ReorderAlertsResponse {
+  success: boolean;
+  alerts: ReorderAlert[];
 }
