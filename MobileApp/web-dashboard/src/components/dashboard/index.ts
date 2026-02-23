@@ -6,3 +6,4 @@ export { default as RecentActivity } from './RecentActivity';
 export { default as InventoryOverview } from './InventoryOverview';
 export { default as RevenueSummary } from './RevenueSummary';
 export { default as SectionError } from './SectionError';
+export { default as SectionErrorBoundary } from './SectionErrorBoundary';
