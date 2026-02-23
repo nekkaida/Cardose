@@ -1,9 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useApi } from '../contexts/ApiContext';
-import { useAuth } from '../contexts/AuthContext';
-import { useLanguage } from '../contexts/LanguageContext';
+import React, { useState } from 'react';
 import ConfirmDeleteDialog from '../components/ConfirmDeleteDialog';
-import Toast from '../components/Toast';
+import ToastQueue from '../components/ToastQueue';
 import OrderFormModal from '../components/orders/OrderFormModal';
 import StatusUpdateModal from '../components/orders/StatusUpdateModal';
 import OrderStats from '../components/orders/OrderStats';
@@ -11,265 +8,94 @@ import { SkeletonRow, SortIcon, Pagination } from '../components/TableHelpers';
 import {
   STATUSES,
   PRIORITIES,
-  STATUS_LABELS,
-  PRIORITY_LABELS,
+  STATUS_I18N_KEYS,
+  PRIORITY_I18N_KEYS,
   getStatusColor,
   getPriorityColor,
   isOverdue,
 } from '../components/orders/orderHelpers';
-import type { Order, OrderStatsData } from '../components/orders/orderHelpers';
+import type { OrderStatus } from '../components/orders/orderHelpers';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import type { OrderStatus, OrderCreatePayload, OrderUpdatePayload } from '@shared/types/orders';
-
-interface Customer {
-  id: string;
-  name: string;
-}
+import { useOrdersPage } from '../hooks/useOrdersPage';
 
 const OrdersPage: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalOrders, setTotalOrders] = useState(0);
-  const [stats, setStats] = useState<OrderStatsData>({
-    total: 0,
-    pending: 0,
-    designing: 0,
-    approved: 0,
-    production: 0,
-    quality_control: 0,
-    completed: 0,
-    cancelled: 0,
-    totalValue: 0,
-    overdue: 0,
-  });
-  const [sortBy, setSortBy] = useState('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const pageSize = 25;
+  const {
+    orders,
+    customers,
+    stats,
+    initialLoading,
+    refreshing,
+    error,
+    searchTerm,
+    setSearchTerm,
+    statusFilter,
+    setStatusFilter,
+    priorityFilter,
+    setPriorityFilter,
+    dateFrom,
+    setDateFrom,
+    dateTo,
+    setDateTo,
+    amountMin,
+    setAmountMin,
+    amountMax,
+    setAmountMax,
+    clearFilters,
+    hasActiveFilters,
+    page,
+    setPage,
+    totalPages,
+    totalOrders,
+    sortBy,
+    sortOrder,
+    handleSort,
+    selectedIds,
+    toggleSelection,
+    toggleSelectAll,
+    clearSelection,
+    allSelected,
+    showModal,
+    formOrder,
+    openCreate,
+    openEdit,
+    closeModal,
+    deleteId,
+    deleting,
+    deleteError,
+    setDeleteId,
+    handleDelete,
+    cancelDelete,
+    statusUpdateId,
+    statusUpdating,
+    setStatusUpdateId,
+    handleStatusUpdate,
+    statusUpdateOrder,
+    handleSave,
+    handleBulkDelete,
+    handleBulkStatusUpdate,
+    bulkDeleting,
+    bulkUpdating,
+    toasts,
+    removeToast,
+    handleExport,
+    loadOrders,
+    canDelete,
+    t,
+  } = useOrdersPage();
 
-  // Modal state
-  const [showModal, setShowModal] = useState(false);
-  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [bulkStatusValue, setBulkStatusValue] = useState<OrderStatus | ''>('');
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
-  // Delete confirm
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // ── Error state (full page) ───────────────────────────────────────────
 
-  // Status update
-  const [statusUpdateId, setStatusUpdateId] = useState<string | null>(null);
-  const [statusUpdating, setStatusUpdating] = useState(false);
-
-  // Toast
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  const { getOrders, getCustomers, createOrder, updateOrder, updateOrderStatus, deleteOrder } =
-    useApi();
-  const { user } = useAuth();
-  const { t } = useLanguage();
-
-  const canDelete = user?.role === 'owner' || user?.role === 'manager';
-
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-      setPage(1);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
-
-  const loadOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const params: Record<string, string | number> = {
-        page,
-        limit: pageSize,
-        sort_by: sortBy,
-        sort_order: sortOrder,
-      };
-      if (debouncedSearch) params.search = debouncedSearch;
-      if (statusFilter !== 'all') params.status = statusFilter;
-      if (priorityFilter !== 'all') params.priority = priorityFilter;
-
-      const data = await getOrders(params);
-      const apiOrders = (data.orders || []).map((o) => ({
-        id: o.id,
-        orderNumber: o.order_number || '',
-        customerName: o.customer_name || 'Unknown',
-        customerId: o.customer_id || '',
-        status: o.status || 'pending',
-        priority: o.priority || 'normal',
-        totalAmount: o.total_amount || 0,
-        dueDate: o.due_date || '',
-        createdAt: o.created_at || '',
-        boxType: o.box_type || '',
-        specialRequests: o.special_requests || '',
-      }));
-      setOrders(apiOrders);
-      setTotalPages(data.totalPages || 1);
-      setTotalOrders(data.total || apiOrders.length);
-
-      // Use backend stats
-      if (data.stats) {
-        setStats({
-          total: data.stats.total || 0,
-          pending: data.stats.pending || 0,
-          designing: data.stats.designing || 0,
-          approved: data.stats.approved || 0,
-          production: data.stats.production || 0,
-          quality_control: data.stats.quality_control || 0,
-          completed: data.stats.completed || 0,
-          cancelled: data.stats.cancelled || 0,
-          totalValue: data.stats.totalValue || 0,
-          overdue: data.stats.overdue || 0,
-        });
-      }
-    } catch (err) {
-      console.error('Error loading orders:', err);
-      setError('Failed to load orders. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [getOrders, page, debouncedSearch, statusFilter, priorityFilter, sortBy, sortOrder]);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
-
-  useEffect(() => {
-    getCustomers({ limit: 200 })
-      .then((data) => {
-        setCustomers((data.customers || []).map((c) => ({ id: c.id, name: c.name })));
-      })
-      .catch((err) => {
-        console.error('Failed to load customers:', err);
-        setToast({ message: 'Failed to load customer list', type: 'error' });
-      });
-  }, [getCustomers]);
-
-  // ESC key handler for modals
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (showModal) setShowModal(false);
-        if (statusUpdateId) setStatusUpdateId(null);
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showModal, statusUpdateId]);
-
-  const openCreate = () => {
-    setEditingOrder(null);
-    setShowModal(true);
-  };
-
-  const openEdit = (order: Order) => {
-    setEditingOrder(order);
-    setShowModal(true);
-  };
-
-  const handleSave = async (isEdit: boolean, data: OrderCreatePayload | OrderUpdatePayload) => {
-    if (isEdit && editingOrder) {
-      await updateOrder(editingOrder.id, data as OrderUpdatePayload);
-      setToast({ message: 'Order updated successfully', type: 'success' });
-    } else {
-      await createOrder(data as OrderCreatePayload);
-      setToast({ message: 'Order created successfully', type: 'success' });
-    }
-    setShowModal(false);
-    loadOrders();
-  };
-
-  const handleDelete = useCallback(async () => {
-    if (!deleteId) return;
-    try {
-      setDeleting(true);
-      setDeleteError(null);
-      await deleteOrder(deleteId);
-      setDeleteId(null);
-      setToast({ message: 'Order deleted successfully', type: 'success' });
-      loadOrders();
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      setDeleteError(axiosErr?.response?.data?.error || t('orders.deleteError'));
-    } finally {
-      setDeleting(false);
-    }
-  }, [deleteId, deleteOrder, loadOrders, t]);
-
-  const cancelDelete = useCallback(() => {
-    setDeleteId(null);
-    setDeleteError(null);
-  }, []);
-
-  const handleStatusUpdate = async (status: OrderStatus) => {
-    if (!statusUpdateId || !status) return;
-    const currentOrder = orders.find((o) => o.id === statusUpdateId);
-    if (currentOrder && status === currentOrder.status) return;
-    try {
-      setStatusUpdating(true);
-      await updateOrderStatus(statusUpdateId, status);
-      setStatusUpdateId(null);
-      setToast({ message: 'Status updated successfully', type: 'success' });
-      loadOrders();
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        'Failed to update status';
-      setToast({ message, type: 'error' });
-    } finally {
-      setStatusUpdating(false);
-    }
-  };
-
-  const handleSort = (column: string) => {
-    if (sortBy === column) {
-      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortBy(column);
-      setSortOrder('asc');
-    }
-    setPage(1);
-  };
-
-  // Prepare order data for the form modal
-  const formOrder = editingOrder
-    ? {
-        customerId: editingOrder.customerId,
-        boxType: editingOrder.boxType,
-        priority: editingOrder.priority,
-        totalAmount: editingOrder.totalAmount,
-        dueDate: editingOrder.dueDate,
-        specialRequests: editingOrder.specialRequests,
-      }
-    : null;
-
-  // Get current order for status update modal
-  const statusUpdateOrder = statusUpdateId ? orders.find((o) => o.id === statusUpdateId) : null;
-
-  if (error && !orders.length) {
+  if (error && !orders.length && !initialLoading) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 px-6 py-4 text-red-700">
         <p className="font-medium">{t('common.error')}</p>
         <p className="text-sm">{error}</p>
-        <button
-          onClick={() => {
-            setError(null);
-            loadOrders();
-          }}
-          className="mt-2 text-sm text-red-600 underline"
-        >
-          Try Again
+        <button onClick={() => loadOrders()} className="mt-2 text-sm text-red-600 underline">
+          {t('orders.tryAgain')}
         </button>
       </div>
     );
@@ -277,30 +103,41 @@ const OrdersPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {/* Toast Queue */}
+      <ToastQueue toasts={toasts} onRemove={removeToast} dismissLabel={t('common.dismiss')} />
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t('orders.title')}</h1>
           <p className="text-sm text-gray-500">
-            {totalOrders} total orders
+            {t('orders.totalOrders').replace('{n}', String(totalOrders))}
             {stats.overdue > 0 && (
-              <span className="ml-2 font-medium text-red-600">({stats.overdue} overdue)</span>
+              <span className="ml-2 font-medium text-red-600">
+                {t('orders.overdueCount').replace('{n}', String(stats.overdue))}
+              </span>
             )}
           </p>
         </div>
-        <button
-          onClick={openCreate}
-          className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
-        >
-          + {t('orders.new') || 'New Order'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExport}
+            disabled={orders.length === 0}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-40"
+          >
+            {t('orders.exportCsv')}
+          </button>
+          <button
+            onClick={openCreate}
+            className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+          >
+            + {t('orders.new')}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
-      <OrderStats stats={stats} t={t} />
+      <OrderStats stats={stats} loading={initialLoading} t={t} />
 
       {/* Filters */}
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
@@ -308,104 +145,254 @@ const OrdersPage: React.FC = () => {
           <div className="flex-1">
             <input
               type="text"
-              placeholder={t('common.search') + ' orders...'}
+              placeholder={t('orders.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
+              aria-label={t('orders.searchPlaceholder')}
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            aria-label={t('orders.allStatus')}
           >
-            <option value="all">All Status</option>
+            <option value="all">{t('orders.allStatus')}</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
-                {STATUS_LABELS[s]}
+                {t(STATUS_I18N_KEYS[s])}
               </option>
             ))}
           </select>
           <select
             value={priorityFilter}
-            onChange={(e) => {
-              setPriorityFilter(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => setPriorityFilter(e.target.value)}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            aria-label={t('orders.allPriority')}
           >
-            <option value="all">All Priority</option>
+            <option value="all">{t('orders.allPriority')}</option>
             {PRIORITIES.map((p) => (
               <option key={p} value={p}>
-                {PRIORITY_LABELS[p]}
+                {t(PRIORITY_I18N_KEYS[p])}
               </option>
             ))}
           </select>
+          <button
+            onClick={() => setShowAdvancedFilters((v) => !v)}
+            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+              showAdvancedFilters || hasActiveFilters
+                ? 'border-primary-300 bg-primary-50 text-primary-700'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            {t('orders.advancedFilters')}
+          </button>
         </div>
+
+        {/* Advanced filters (collapsible) */}
+        {showAdvancedFilters && (
+          <div className="mt-3 border-t border-gray-100 pt-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div>
+                <label htmlFor="filter-date-from" className="mb-1 block text-xs text-gray-500">
+                  {t('orders.dateFrom')}
+                </label>
+                <input
+                  id="filter-date-from"
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    setDateFrom(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="filter-date-to" className="mb-1 block text-xs text-gray-500">
+                  {t('orders.dateTo')}
+                </label>
+                <input
+                  id="filter-date-to"
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => {
+                    setDateTo(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="filter-amount-min" className="mb-1 block text-xs text-gray-500">
+                  {t('orders.amountMin')}
+                </label>
+                <input
+                  id="filter-amount-min"
+                  type="number"
+                  placeholder="0"
+                  value={amountMin}
+                  onChange={(e) => {
+                    setAmountMin(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  min="0"
+                />
+              </div>
+              <div>
+                <label htmlFor="filter-amount-max" className="mb-1 block text-xs text-gray-500">
+                  {t('orders.amountMax')}
+                </label>
+                <input
+                  id="filter-amount-max"
+                  type="number"
+                  placeholder="0"
+                  value={amountMax}
+                  onChange={(e) => {
+                    setAmountMax(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  min="0"
+                />
+              </div>
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="mt-2 text-xs font-medium text-primary-600 hover:text-primary-800"
+              >
+                {t('orders.clearFilters')}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="sticky bottom-4 z-30 flex items-center gap-3 rounded-xl border border-primary-200 bg-primary-50 p-3 shadow-lg">
+          <span className="text-sm font-medium text-primary-800">
+            {t('orders.selected').replace('{n}', String(selectedIds.size))}
+          </span>
+          <div className="flex flex-1 items-center gap-2">
+            <select
+              value={bulkStatusValue}
+              onChange={(e) => setBulkStatusValue(e.target.value as OrderStatus | '')}
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+              aria-label={t('orders.bulkUpdateStatus')}
+            >
+              <option value="">{t('orders.bulkUpdateStatus')}</option>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {t(STATUS_I18N_KEYS[s])}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                if (bulkStatusValue) {
+                  handleBulkStatusUpdate(bulkStatusValue as OrderStatus);
+                  setBulkStatusValue('');
+                }
+              }}
+              disabled={!bulkStatusValue || bulkUpdating}
+              className="rounded-lg bg-primary-600 px-3 py-1.5 text-sm text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              {bulkUpdating ? t('orders.updating') : t('orders.update')}
+            </button>
+          </div>
+          {canDelete && (
+            <button
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              disabled={bulkDeleting}
+              className="rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {bulkDeleting ? t('orders.deleting') : t('orders.bulkDelete')}
+            </button>
+          )}
+          <button onClick={clearSelection} className="text-sm text-gray-600 hover:text-gray-800">
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* ── Desktop Table ────────────────────────────────────────────────── */}
+      <div className="relative hidden overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm md:block">
+        {/* Loading overlay for subsequent loads */}
+        {refreshing && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th
-                  onClick={() => handleSort('order_number')}
-                  className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  Order <SortIcon column="order_number" sortBy={sortBy} sortOrder={sortOrder} />
+                {/* Checkbox column */}
+                <th className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allSelected && orders.length > 0}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    aria-label={allSelected ? t('orders.deselectAll') : t('orders.selectAll')}
+                  />
                 </th>
-                <th
-                  onClick={() => handleSort('customer_name')}
-                  className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  Customer <SortIcon column="customer_name" sortBy={sortBy} sortOrder={sortOrder} />
-                </th>
-                <th
-                  onClick={() => handleSort('status')}
-                  className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  Status <SortIcon column="status" sortBy={sortBy} sortOrder={sortOrder} />
-                </th>
-                <th
-                  onClick={() => handleSort('priority')}
-                  className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  Priority <SortIcon column="priority" sortBy={sortBy} sortOrder={sortOrder} />
-                </th>
-                <th
-                  onClick={() => handleSort('total_amount')}
-                  className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  Amount <SortIcon column="total_amount" sortBy={sortBy} sortOrder={sortOrder} />
-                </th>
-                <th
-                  onClick={() => handleSort('due_date')}
-                  className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700"
-                >
-                  Due Date <SortIcon column="due_date" sortBy={sortBy} sortOrder={sortOrder} />
-                </th>
+                {(
+                  [
+                    ['order_number', 'orders.colOrder'],
+                    ['customer_name', 'orders.colCustomer'],
+                    ['status', 'orders.colStatus'],
+                    ['priority', 'orders.colPriority'],
+                    ['total_amount', 'orders.colAmount'],
+                    ['due_date', 'orders.colDueDate'],
+                  ] as const
+                ).map(([col, key]) => (
+                  <th
+                    key={col}
+                    role="columnheader"
+                    tabIndex={0}
+                    onClick={() => handleSort(col)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSort(col);
+                      }
+                    }}
+                    className="cursor-pointer select-none px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
+                    aria-sort={
+                      sortBy === col
+                        ? sortOrder === 'asc'
+                          ? 'ascending'
+                          : 'descending'
+                        : undefined
+                    }
+                  >
+                    {t(key)} <SortIcon column={col} sortBy={sortBy} sortOrder={sortOrder} />
+                  </th>
+                ))}
                 <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Actions
+                  {t('orders.colActions')}
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} columns={7} />)
+              {initialLoading ? (
+                Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} columns={8} />)
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
+                  <td colSpan={8} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center">
                       <svg
                         className="mb-4 h-16 w-16 text-gray-300"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -414,18 +401,18 @@ const OrdersPage: React.FC = () => {
                           d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                         />
                       </svg>
-                      <p className="mb-1 font-medium text-gray-500">No orders found</p>
+                      <p className="mb-1 font-medium text-gray-500">{t('orders.noOrders')}</p>
                       <p className="mb-4 text-sm text-gray-400">
-                        {debouncedSearch || statusFilter !== 'all' || priorityFilter !== 'all'
-                          ? 'Try adjusting your filters.'
-                          : 'Create your first order to get started.'}
+                        {searchTerm || hasActiveFilters
+                          ? t('orders.adjustFilters')
+                          : t('orders.createFirst')}
                       </p>
-                      {!debouncedSearch && statusFilter === 'all' && priorityFilter === 'all' && (
+                      {!searchTerm && !hasActiveFilters && (
                         <button
                           onClick={openCreate}
                           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
                         >
-                          + Create Order
+                          + {t('orders.createOrder')}
                         </button>
                       )}
                     </div>
@@ -435,8 +422,17 @@ const OrdersPage: React.FC = () => {
                 orders.map((order) => (
                   <tr
                     key={order.id}
-                    className={`transition-colors hover:bg-gray-50 ${isOverdue(order) ? 'bg-red-50' : ''}`}
+                    className={`transition-colors hover:bg-gray-50 ${isOverdue(order) ? 'bg-red-50' : ''} ${selectedIds.has(order.id) ? 'bg-primary-50' : ''}`}
                   >
+                    <td className="w-10 px-4 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(order.id)}
+                        onChange={() => toggleSelection(order.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        aria-label={t('orders.selectOrder').replace('{order}', order.orderNumber)}
+                      />
+                    </td>
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{order.orderNumber}</div>
                       <div className="text-xs text-gray-500">{formatDate(order.createdAt)}</div>
@@ -444,24 +440,24 @@ const OrdersPage: React.FC = () => {
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="text-sm font-medium text-gray-900">{order.customerName}</div>
                       {order.boxType && (
-                        <div className="text-xs capitalize text-gray-500">{order.boxType} box</div>
+                        <div className="text-xs capitalize text-gray-500">
+                          {order.boxType} {t('orders.box')}
+                        </div>
                       )}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
                       <button
-                        onClick={() => {
-                          setStatusUpdateId(order.id);
-                        }}
+                        onClick={() => setStatusUpdateId(order.id)}
                         className={`inline-flex cursor-pointer rounded-full px-2 py-1 text-xs font-semibold hover:opacity-80 ${getStatusColor(order.status)}`}
                       >
-                        {STATUS_LABELS[order.status] || order.status}
+                        {t(STATUS_I18N_KEYS[order.status]) || order.status}
                       </button>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
                       <span
                         className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getPriorityColor(order.priority)}`}
                       >
-                        {PRIORITY_LABELS[order.priority] || order.priority}
+                        {t(PRIORITY_I18N_KEYS[order.priority]) || order.priority}
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
@@ -475,7 +471,9 @@ const OrdersPage: React.FC = () => {
                       >
                         {formatDate(order.dueDate)}
                         {isOverdue(order) && (
-                          <span className="block text-xs text-red-500">Overdue</span>
+                          <span className="block text-xs text-red-500">
+                            {t('orders.overdueLabel')}
+                          </span>
                         )}
                       </div>
                     </td>
@@ -501,33 +499,162 @@ const OrdersPage: React.FC = () => {
             </tbody>
           </table>
         </div>
-        {!loading && orders.length > 0 && (
+        {!initialLoading && orders.length > 0 && (
           <Pagination
             page={page}
             totalPages={totalPages}
             total={totalOrders}
-            label="orders"
-            onPrev={() => setPage((p) => p - 1)}
-            onNext={() => setPage((p) => p + 1)}
-            prevText={t('orders.previous') || 'Previous'}
-            nextText={t('orders.next') || 'Next'}
+            label={t('nav.orders').toLowerCase()}
+            onPrev={() => setPage(page - 1)}
+            onNext={() => setPage(page + 1)}
+            prevText={t('orders.previous')}
+            nextText={t('orders.next')}
           />
         )}
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* ── Mobile Card View ─────────────────────────────────────────────── */}
+      <div className="space-y-3 md:hidden">
+        {/* Loading overlay for subsequent loads */}
+        {refreshing && (
+          <div className="flex justify-center py-2">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+          </div>
+        )}
+
+        {initialLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="animate-pulse rounded-xl border border-gray-100 bg-white p-4 shadow-sm"
+            >
+              <div className="mb-2 h-4 w-1/3 rounded bg-gray-200" />
+              <div className="mb-1 h-3 w-2/3 rounded bg-gray-200" />
+              <div className="h-3 w-1/2 rounded bg-gray-200" />
+            </div>
+          ))
+        ) : orders.length === 0 ? (
+          <div className="rounded-xl border border-gray-100 bg-white px-6 py-12 text-center shadow-sm">
+            <p className="mb-1 font-medium text-gray-500">{t('orders.noOrders')}</p>
+            <p className="mb-4 text-sm text-gray-400">
+              {searchTerm || hasActiveFilters ? t('orders.adjustFilters') : t('orders.createFirst')}
+            </p>
+            {!searchTerm && !hasActiveFilters && (
+              <button
+                onClick={openCreate}
+                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+              >
+                + {t('orders.createOrder')}
+              </button>
+            )}
+          </div>
+        ) : (
+          orders.map((order) => (
+            <div
+              key={order.id}
+              className={`rounded-xl border bg-white p-4 shadow-sm ${isOverdue(order) ? 'border-red-200 bg-red-50' : 'border-gray-100'} ${selectedIds.has(order.id) ? 'ring-2 ring-primary-300' : ''}`}
+            >
+              <div className="mb-2 flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(order.id)}
+                    onChange={() => toggleSelection(order.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    aria-label={t('orders.selectOrder').replace('{order}', order.orderNumber)}
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{order.orderNumber}</p>
+                    <p className="text-xs text-gray-500">{order.customerName}</p>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setStatusUpdateId(order.id)}
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getStatusColor(order.status)}`}
+                  >
+                    {t(STATUS_I18N_KEYS[order.status])}
+                  </button>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${getPriorityColor(order.priority)}`}
+                  >
+                    {t(PRIORITY_I18N_KEYS[order.priority])}
+                  </span>
+                </div>
+              </div>
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span className="font-medium text-gray-900">
+                  {formatCurrency(order.totalAmount)}
+                </span>
+                <span className={isOverdue(order) ? 'font-semibold text-red-600' : 'text-gray-500'}>
+                  {formatDate(order.dueDate)}
+                  {isOverdue(order) && (
+                    <span className="ml-1 text-xs text-red-500">{t('orders.overdueLabel')}</span>
+                  )}
+                </span>
+              </div>
+              {order.boxType && (
+                <p className="mb-2 text-xs capitalize text-gray-400">
+                  {order.boxType} {t('orders.box')}
+                </p>
+              )}
+              <div className="flex gap-3 border-t border-gray-100 pt-2">
+                <button
+                  onClick={() => openEdit(order)}
+                  className="text-sm font-medium text-primary-600"
+                >
+                  {t('common.edit')}
+                </button>
+                {canDelete && (
+                  <button
+                    onClick={() => setDeleteId(order.id)}
+                    className="text-sm font-medium text-red-600"
+                  >
+                    {t('common.delete')}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+
+        {/* Mobile pagination */}
+        {!initialLoading && orders.length > 0 && (
+          <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
+              className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-40"
+            >
+              {t('orders.previous')}
+            </button>
+            <span className="text-xs text-gray-500">
+              {page} / {totalPages}
+            </span>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage(page + 1)}
+              className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-40"
+            >
+              {t('orders.next')}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Modals ───────────────────────────────────────────────────────── */}
+
       <OrderFormModal
         open={showModal}
         order={formOrder}
         customers={customers}
-        onClose={() => setShowModal(false)}
+        onClose={closeModal}
         onSave={handleSave}
       />
 
-      {/* Status Update Modal */}
       <StatusUpdateModal
         open={!!statusUpdateId}
-        currentStatus={statusUpdateOrder?.status || 'pending'}
+        currentStatus={(statusUpdateOrder?.status || 'pending') as OrderStatus}
         orderNumber={statusUpdateOrder?.orderNumber}
         customerName={statusUpdateOrder?.customerName}
         onClose={() => setStatusUpdateId(null)}
@@ -535,7 +662,7 @@ const OrdersPage: React.FC = () => {
         updating={statusUpdating}
       />
 
-      {/* Delete Confirmation */}
+      {/* Single delete confirmation */}
       {deleteId && (
         <ConfirmDeleteDialog
           itemLabel={orders.find((o) => o.id === deleteId)?.orderNumber || deleteId}
@@ -545,6 +672,21 @@ const OrdersPage: React.FC = () => {
           onConfirm={handleDelete}
           onCancel={cancelDelete}
           error={deleteError}
+        />
+      )}
+
+      {/* Bulk delete confirmation */}
+      {showBulkDeleteConfirm && (
+        <ConfirmDeleteDialog
+          itemLabel={t('orders.selected').replace('{n}', String(selectedIds.size))}
+          titleKey="orders.bulkDelete"
+          descriptionKey="orders.bulkDeleteConfirm"
+          deleting={bulkDeleting}
+          onConfirm={async () => {
+            await handleBulkDelete();
+            setShowBulkDeleteConfirm(false);
+          }}
+          onCancel={() => setShowBulkDeleteConfirm(false)}
         />
       )}
     </div>
