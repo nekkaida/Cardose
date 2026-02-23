@@ -276,6 +276,24 @@ class OrderService {
       return null;
     }
 
+    // Server-side status transition validation
+    const ALLOWED_TRANSITIONS = {
+      pending: ['designing', 'cancelled'],
+      designing: ['approved', 'pending', 'cancelled'],
+      approved: ['production', 'designing', 'cancelled'],
+      production: ['quality_control', 'approved', 'cancelled'],
+      quality_control: ['completed', 'production'],
+      completed: [],
+      cancelled: ['pending'],
+    };
+
+    const allowed = ALLOWED_TRANSITIONS[existing.status] || [];
+    if (!allowed.includes(status)) {
+      const err = new Error(`Cannot transition from '${existing.status}' to '${status}'`);
+      err.statusCode = 400;
+      throw err;
+    }
+
     this.db.db
       .prepare('UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run(status, id);
