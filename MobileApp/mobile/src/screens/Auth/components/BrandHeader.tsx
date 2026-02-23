@@ -3,9 +3,11 @@ import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '../../../theme/theme';
 
 export const BrandHeader: React.FC = () => (
-  <View style={styles.header}>
-    <Text style={styles.title}>🎁 Cardose</Text>
-    <Text style={styles.subtitle}>Premium Gift Box Management</Text>
+  <View style={styles.header} accessibilityRole="header">
+    <Text style={styles.title} accessibilityLabel="Cardose">
+      Cardose
+    </Text>
+    <Text style={styles.subtitle} testID="brand-subtitle">Premium Gift Box Management</Text>
   </View>
 );
 
