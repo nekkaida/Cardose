@@ -5,9 +5,15 @@ import type { InventoryStats as InventoryStatsType } from './inventoryHelpers';
 
 interface InventoryStatsProps {
   stats: InventoryStatsType;
+  hasFilters: boolean;
+  reorderAlertCount: number;
 }
 
-const InventoryStats: React.FC<InventoryStatsProps> = ({ stats }) => {
+const InventoryStats: React.FC<InventoryStatsProps> = ({
+  stats,
+  hasFilters,
+  reorderAlertCount,
+}) => {
   const { t } = useLanguage();
 
   return (
@@ -15,6 +21,9 @@ const InventoryStats: React.FC<InventoryStatsProps> = ({ stats }) => {
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         <p className="text-xs font-medium uppercase text-gray-500">{t('inventory.totalItems')}</p>
         <p className="mt-1 text-2xl font-bold text-gray-900">{stats.total}</p>
+        {hasFilters && (
+          <p className="mt-0.5 text-xs text-gray-400">{t('inventory.overallStats')}</p>
+        )}
       </div>
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         <p className="text-xs font-medium uppercase text-gray-500">{t('inventory.lowStock')}</p>
@@ -23,6 +32,11 @@ const InventoryStats: React.FC<InventoryStatsProps> = ({ stats }) => {
         >
           {stats.lowStock}
         </p>
+        {reorderAlertCount > 0 && (
+          <p className="mt-0.5 text-xs text-orange-500">
+            {reorderAlertCount} {t('inventory.pendingAlerts')}
+          </p>
+        )}
       </div>
       <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
         <p className="text-xs font-medium uppercase text-gray-500">{t('inventory.outOfStock')}</p>
@@ -40,4 +54,4 @@ const InventoryStats: React.FC<InventoryStatsProps> = ({ stats }) => {
   );
 };
 
-export default InventoryStats;
+export default React.memo(InventoryStats);
