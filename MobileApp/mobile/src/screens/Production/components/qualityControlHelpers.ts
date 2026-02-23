@@ -1,40 +1,48 @@
 import { theme } from '../../../theme/theme';
+import type { ChecklistItem, QCStatus } from '../types';
 
-export interface ChecklistItem {
-  id: string;
-  name: string;
-  checked: boolean;
-  notes?: string;
-}
+// Re-export types so existing imports from './components' still work
+export type { ChecklistItem, QualityCheck, QCStatus } from '../types';
 
-export interface QualityCheck {
-  id: string;
-  order_id: string;
-  checklist_items: ChecklistItem[];
-  overall_status: string;
-  notes?: string;
-  checked_by_name?: string;
-  checked_at: string;
-}
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 export const DEFAULT_CHECKLIST: ChecklistItem[] = [
-  { id: '1', name: 'Material quality inspection', checked: false },
-  { id: '2', name: 'Dimensions accuracy check', checked: false },
-  { id: '3', name: 'Color matching verification', checked: false },
-  { id: '4', name: 'Structural integrity test', checked: false },
-  { id: '5', name: 'Finishing quality review', checked: false },
-  { id: '6', name: 'Assembly completeness check', checked: false },
-  { id: '7', name: 'Branding/labeling accuracy', checked: false },
-  { id: '8', name: 'Packaging condition inspection', checked: false },
-  { id: '9', name: 'Final cleanliness check', checked: false },
-  { id: '10', name: 'Documentation completeness', checked: false },
+  { id: 'default_1', name: 'Material quality inspection', checked: false },
+  { id: 'default_2', name: 'Dimensions accuracy check', checked: false },
+  { id: 'default_3', name: 'Color matching verification', checked: false },
+  { id: 'default_4', name: 'Structural integrity test', checked: false },
+  { id: 'default_5', name: 'Finishing quality review', checked: false },
+  { id: 'default_6', name: 'Assembly completeness check', checked: false },
+  { id: 'default_7', name: 'Branding/labeling accuracy', checked: false },
+  { id: 'default_8', name: 'Packaging condition inspection', checked: false },
+  { id: 'default_9', name: 'Final cleanliness check', checked: false },
+  { id: 'default_10', name: 'Documentation completeness', checked: false },
 ];
 
-export const STATUS_OPTIONS = [
+const DEFAULT_ITEM_IDS = new Set(DEFAULT_CHECKLIST.map((item) => item.id));
+
+export const STATUS_OPTIONS: ReadonlyArray<{ value: QCStatus; label: string }> = [
   { value: 'passed', label: 'Passed' },
   { value: 'needs_review', label: 'Needs Review' },
   { value: 'failed', label: 'Failed' },
-] as const;
+];
+
+// ---------------------------------------------------------------------------
+// ID generation (collision-resistant without external deps)
+// ---------------------------------------------------------------------------
+
+let _idCounter = 0;
+
+export const generateItemId = (): string => {
+  _idCounter += 1;
+  return `custom_${Date.now()}_${_idCounter}`;
+};
+
+// ---------------------------------------------------------------------------
+// Pure helpers
+// ---------------------------------------------------------------------------
 
 export const calculateCompletionPercentage = (items: ChecklistItem[]): number => {
   if (items.length === 0) return 0;
@@ -42,16 +50,11 @@ export const calculateCompletionPercentage = (items: ChecklistItem[]): number =>
   return Math.round((checkedCount / items.length) * 100);
 };
 
-export const determineStatus = (items: ChecklistItem[]): string => {
-  const completionPercentage = calculateCompletionPercentage(items);
-
-  if (completionPercentage === 100) {
-    return 'passed';
-  } else if (completionPercentage >= 80) {
-    return 'needs_review';
-  } else {
-    return 'failed';
-  }
+export const determineStatus = (items: ChecklistItem[]): QCStatus => {
+  const pct = calculateCompletionPercentage(items);
+  if (pct === 100) return 'passed';
+  if (pct >= 80) return 'needs_review';
+  return 'failed';
 };
 
 export const formatDate = (dateString: string): string => {
@@ -65,7 +68,7 @@ export const formatDate = (dateString: string): string => {
   });
 };
 
-export const getStatusColor = (status: string): string => {
+export const getStatusColor = (status: QCStatus | string): string => {
   switch (status) {
     case 'passed':
       return theme.colors.success;
@@ -78,6 +81,11 @@ export const getStatusColor = (status: string): string => {
   }
 };
 
+export const getStatusLabel = (status: QCStatus): string => {
+  const option = STATUS_OPTIONS.find((o) => o.value === status);
+  return option?.label ?? status;
+};
+
 export const isCustomItem = (itemId: string): boolean => {
-  return !DEFAULT_CHECKLIST.find((d) => d.id === itemId);
+  return !DEFAULT_ITEM_IDS.has(itemId);
 };
