@@ -3,11 +3,16 @@ import { apiClient } from '../../contexts/AuthContext';
 import type { ApiResponse } from '@shared/types/api';
 import type {
   CustomersListResponse,
+  CustomerDetailResponse,
   CustomerCreatePayload,
   CustomerUpdatePayload,
   Customer,
 } from '@shared/types/customers';
-import { validateResponse, customersListSchema } from '../../utils/apiValidation';
+import {
+  validateResponse,
+  customersListSchema,
+  customerDetailSchema,
+} from '../../utils/apiValidation';
 
 export const useCustomerApi = () => {
   const getCustomers = useCallback(
@@ -18,6 +23,12 @@ export const useCustomerApi = () => {
     },
     []
   );
+
+  const getCustomer = useCallback(async (id: string): Promise<CustomerDetailResponse> => {
+    const response = await apiClient.get(`/customers/${id}`);
+    validateResponse(customerDetailSchema, response.data, `GET /customers/${id}`);
+    return response.data as CustomerDetailResponse;
+  }, []);
 
   const createCustomer = useCallback(
     async (customerData: CustomerCreatePayload): Promise<ApiResponse<Customer>> => {
@@ -42,6 +53,7 @@ export const useCustomerApi = () => {
 
   return {
     getCustomers,
+    getCustomer,
     createCustomer,
     updateCustomer,
     deleteCustomer,
