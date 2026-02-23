@@ -5,6 +5,8 @@ interface ConfirmDeleteDialogProps {
   itemLabel: string;
   titleKey?: string;
   descriptionKey?: string;
+  /** Pre-formatted description text (overrides descriptionKey). */
+  description?: string;
   deleting: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -15,6 +17,7 @@ const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
   itemLabel,
   titleKey,
   descriptionKey,
+  description,
   deleting,
   onConfirm,
   onCancel,
@@ -99,9 +102,11 @@ const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
             {t(titleKey || 'common.delete')}
           </h3>
           <p className="text-sm text-gray-500">
-            {descriptionKey
-              ? t(descriptionKey)
-              : `${t('common.confirmDeleteGeneric')} "${itemLabel}"?`}
+            {description
+              ? description
+              : descriptionKey
+                ? t(descriptionKey)
+                : `${t('common.confirmDeleteGeneric')} "${itemLabel}"?`}
           </p>
           {error && (
             <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
