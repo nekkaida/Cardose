@@ -85,4 +85,4 @@ const RevenueSummary: React.FC<RevenueSummaryProps> = ({ loading, error, revenue
   );
 };
 
-export default RevenueSummary;
+export default React.memo(RevenueSummary);
