@@ -1,0 +1,58 @@
+appId: com.cardose.mobile
+name: "Order Photos - View and Camera Flow"
+tags:
+  - photos
+  - order
+
+---
+
+# Pre-requisite: user must be logged in
+- runFlow: 01_auth_login.yaml
+
+# REQUIRED: Navigate to an order's photos
+- assertVisible: "Cardose"
+- scrollUntilVisible:
+    element: "Foto"
+    direction: DOWN
+    timeout: 8000
+- tapOn: "Foto"
+
+# REQUIRED: Verify the photos screen loads
+- assertVisible:
+    text: "Foto Pesanan"
+    timeout: 5000
+
+# Open the camera — try both possible button labels (depends on gallery state)
+- tapOn:
+    text: "Tambah Foto"
+    optional: true
+- tapOn:
+    text: "Tambah"
+    optional: true
+
+# If camera permission dialog appears, grant it (platform-dependent)
+- tapOn:
+    text: "Allow"
+    optional: true
+- tapOn:
+    text: "Izinkan"
+    optional: true
+
+# If camera opened, verify and close it
+- assertVisible:
+    text: "Batal"
+    optional: true
+- tapOn:
+    text: "Batal"
+    optional: true
+
+# REQUIRED: Verify we're back on the photos screen after camera interaction
+- assertVisible:
+    text: "Foto Pesanan"
+    timeout: 3000
+
+# REQUIRED: Go back and verify full navigation round-trip
+- back
+- assertVisible:
+    text: "Cardose"
+    timeout: 3000
