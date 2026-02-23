@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import SectionError from './SectionError';
+import type { RecentOrder } from '../../hooks/api/useDashboardApi';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,6 +41,21 @@ function getStatusBadgeClass(status: string): string {
   }
 }
 
+const STATUS_I18N_MAP: Record<string, string> = {
+  pending: 'dashboard.statusPending',
+  designing: 'dashboard.statusDesigning',
+  approved: 'dashboard.statusApproved',
+  production: 'dashboard.statusProduction',
+  quality_control: 'dashboard.statusQualityControl',
+  completed: 'dashboard.statusDone',
+  cancelled: 'dashboard.statusCancelled',
+};
+
+function translateStatus(status: string, t: (key: string) => string): string {
+  const key = STATUS_I18N_MAP[status];
+  return key ? t(key) : status.replace(/_/g, ' ');
+}
+
 // ---------------------------------------------------------------------------
 // Skeleton
 // ---------------------------------------------------------------------------
@@ -61,18 +77,6 @@ function ListSkeleton({ rows = 5 }: { rows?: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface RecentOrder {
-  id: string;
-  order_number?: string;
-  customer_name?: string;
-  status: string;
-  created_at: string;
-}
-
-// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
@@ -82,7 +86,7 @@ export interface RecentActivityProps {
   recentOrders: RecentOrder[];
   onRetry: () => void;
   onViewAll: () => void;
-  onOrderClick: () => void;
+  onOrderClick: (orderId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,13 +118,17 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
       {loading ? (
         <ListSkeleton />
       ) : error ? (
-        <SectionError message={error} onRetry={onRetry} retryLabel={retryLabel} />
+        <SectionError
+          message={t('dashboard.loadErrorOrders')}
+          onRetry={onRetry}
+          retryLabel={retryLabel}
+        />
       ) : recentOrders.length > 0 ? (
         <div className="space-y-3">
           {recentOrders.map((order) => (
             <button
               key={order.id}
-              onClick={onOrderClick}
+              onClick={() => onOrderClick(order.id)}
               className="-mx-2 flex w-full items-center justify-between rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-50"
             >
               <div className="min-w-0">
@@ -133,9 +141,9 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
                 </p>
               </div>
               <span
-                className={`ml-2 inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadgeClass(order.status)}`}
+                className={`ml-2 inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${getStatusBadgeClass(order.status)}`}
               >
-                {(order.status || '').replace(/_/g, ' ')}
+                {translateStatus(order.status, t)}
               </span>
             </button>
           ))}
@@ -147,6 +155,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -162,4 +171,4 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
   );
 };
 
-export default RecentActivity;
+export default React.memo(RecentActivity);
