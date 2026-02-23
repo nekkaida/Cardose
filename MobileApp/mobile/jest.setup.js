@@ -22,12 +22,10 @@ jest.mock('expo-sqlite', () => ({
   })),
 }));
 
-// Mock expo-camera
+// Mock expo-camera (v16+ API: CameraView + useCameraPermissions hook)
 jest.mock('expo-camera', () => ({
-  Camera: {
-    useCameraPermissions: jest.fn(() => [{ granted: true }, jest.fn()]),
-  },
   CameraView: 'CameraView',
+  useCameraPermissions: jest.fn(() => [{ granted: true }, jest.fn()]),
 }));
 
 // Mock expo-image-picker
@@ -45,9 +43,31 @@ jest.mock('expo-file-system', () => ({
   readAsStringAsync: jest.fn(() => Promise.resolve('')),
   writeAsStringAsync: jest.fn(() => Promise.resolve()),
   deleteAsync: jest.fn(() => Promise.resolve()),
-  getInfoAsync: jest.fn(() => Promise.resolve({ exists: false })),
+  getInfoAsync: jest.fn(() => Promise.resolve({ exists: true, size: 1024 })),
   makeDirectoryAsync: jest.fn(() => Promise.resolve()),
   copyAsync: jest.fn(() => Promise.resolve()),
+  uploadAsync: jest.fn(() => Promise.resolve({
+    status: 200,
+    body: JSON.stringify({ success: true, file: { id: 'file-1', filename: 'test.jpg', mimetype: 'image/jpeg', size: 1024, url: 'http://test/file-1', thumbnailUrl: null } }),
+  })),
+  createUploadTask: jest.fn(() => ({
+    uploadAsync: jest.fn(() => Promise.resolve({
+      status: 200,
+      body: JSON.stringify({ success: true, file: { id: 'file-1', filename: 'test.jpg', mimetype: 'image/jpeg', size: 1024, url: 'http://test/file-1', thumbnailUrl: null } }),
+    })),
+  })),
+  createDownloadResumable: jest.fn(() => ({
+    downloadAsync: jest.fn(() => Promise.resolve({ uri: '/mock/document/directory/test.jpg' })),
+  })),
+  FileSystemUploadType: { MULTIPART: 1 },
+}));
+
+// Mock react-native-safe-area-context (transitive dep of react-native-paper)
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaProvider: ({ children }) => children,
+  SafeAreaView: ({ children }) => children,
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+  useSafeAreaFrame: () => ({ x: 0, y: 0, width: 375, height: 812 }),
 }));
 
 // Mock @react-navigation
