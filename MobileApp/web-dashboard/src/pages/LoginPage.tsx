@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+
+const MAX_ATTEMPTS_BEFORE_COOLDOWN = 5;
+const COOLDOWN_SECONDS = 30;
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -8,30 +11,66 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { login } = useAuth();
   const { t, language, setLanguage } = useLanguage();
 
+  // Cleanup cooldown timer on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+    };
+  }, []);
+
+  const startCooldown = useCallback(() => {
+    setCooldownRemaining(COOLDOWN_SECONDS);
+    if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+    cooldownTimer.current = setInterval(() => {
+      setCooldownRemaining((prev) => {
+        if (prev <= 1) {
+          if (cooldownTimer.current) clearInterval(cooldownTimer.current);
+          cooldownTimer.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (cooldownRemaining > 0) return;
+
     setLoading(true);
     setError('');
 
     try {
-      const success = await login(username, password);
+      const success = await login(username.trim(), password);
       if (!success) {
-        setError(t('login.error'));
+        const attempts = failedAttempts + 1;
+        setFailedAttempts(attempts);
+        if (attempts >= MAX_ATTEMPTS_BEFORE_COOLDOWN) {
+          startCooldown();
+          setError(t('login.tooManyAttempts'));
+        } else {
+          setError(t('login.error'));
+        }
+      } else {
+        setFailedAttempts(0);
       }
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-        (err as Error)?.message ||
-        'Unable to connect to server';
-      setError(message);
+    } catch {
+      // Never reflect raw server errors — always show a safe, generic message
+      setError(t('login.networkError'));
     } finally {
       setLoading(false);
     }
   };
+
+  const isFormDisabled = loading || cooldownRemaining > 0;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-800 via-primary-700 to-primary-600">
@@ -60,10 +99,11 @@ const LoginPage: React.FC = () => {
           </div>
 
           {/* Language Toggle */}
-          <div className="mb-6 flex justify-center">
+          <div className="mb-6 flex justify-center" role="group" aria-label="Language">
             <div className="flex rounded-lg bg-gray-100 p-1">
               <button
                 onClick={() => setLanguage('en')}
+                aria-pressed={language === 'en'}
                 className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
                   language === 'en'
                     ? 'bg-primary-600 text-white'
@@ -74,6 +114,7 @@ const LoginPage: React.FC = () => {
               </button>
               <button
                 onClick={() => setLanguage('id')}
+                aria-pressed={language === 'id'}
                 className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
                   language === 'id'
                     ? 'bg-primary-600 text-white'
@@ -86,15 +127,18 @@ const LoginPage: React.FC = () => {
           </div>
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div
-                role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700"
-              >
-                {error}
-              </div>
-            )}
+          <form onSubmit={handleSubmit} className="space-y-6" aria-busy={loading}>
+            {/* Persistent live region — content injected into it, not conditionally mounted */}
+            <div aria-live="assertive" aria-atomic="true">
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                >
+                  {error}
+                </div>
+              )}
+            </div>
 
             <div>
               <label htmlFor="username" className="mb-2 block text-sm font-medium text-gray-700">
@@ -108,8 +152,10 @@ const LoginPage: React.FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full rounded-lg border border-gray-300 px-3 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-600"
-                placeholder={t('login.username')}
+                maxLength={100}
+                disabled={isFormDisabled}
+                className="w-full rounded-lg border border-gray-300 px-3 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-gray-50 disabled:text-gray-400"
+                placeholder={t('login.usernamePlaceholder')}
               />
             </div>
 
@@ -125,13 +171,16 @@ const LoginPage: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-600"
-                  placeholder={t('login.password')}
+                  maxLength={128}
+                  disabled={isFormDisabled}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-3 pr-10 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-gray-50 disabled:text-gray-400"
+                  placeholder={t('login.passwordPlaceholder')}
                 />
                 <button
                   type="button"
                   className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                 >
                   {showPassword ? (
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -164,10 +213,12 @@ const LoginPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isFormDisabled}
               className="w-full rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-3 font-medium text-white transition-all duration-200 hover:from-primary-700 hover:to-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? (
+              {cooldownRemaining > 0 ? (
+                t('login.cooldown').replace('{seconds}', String(cooldownRemaining))
+              ) : loading ? (
                 <div className="flex items-center justify-center">
                   <div className="mr-2 h-5 w-5 animate-spin rounded-full border-b-2 border-white"></div>
                   {t('common.loading')}
