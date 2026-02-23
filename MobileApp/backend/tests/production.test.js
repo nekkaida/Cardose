@@ -603,6 +603,279 @@ describe('Production API', () => {
     });
   });
 
+  // ==================== STAGE TRANSITION VALIDATION TESTS ====================
+  describe('Stage transition validation', () => {
+    let transitionOrderId;
+
+    beforeAll(async () => {
+      // Create a fresh order for transition tests
+      transitionOrderId = await createTestOrder(app, authToken, testCustomerId, {
+        order_number: 'ORD-TRANSITION-' + Date.now(),
+        status: 'pending',
+      });
+    });
+
+    test('should allow valid transition pending -> designing', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${transitionOrderId}/stage`,
+        authToken,
+        { stage: 'designing' }
+      );
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(true);
+    });
+
+    test('should reject invalid transition designing -> production (must go through approved)', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${transitionOrderId}/stage`,
+        authToken,
+        { stage: 'production' }
+      );
+
+      expect(response.statusCode).toBe(422);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(false);
+      expect(data.currentStage).toBe('designing');
+      expect(data.allowedStages).toContain('approved');
+      expect(data.allowedStages).not.toContain('production');
+    });
+
+    test('should allow valid transition designing -> approved', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${transitionOrderId}/stage`,
+        authToken,
+        { stage: 'approved' }
+      );
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    test('should allow backward transition approved -> designing', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${transitionOrderId}/stage`,
+        authToken,
+        { stage: 'designing' }
+      );
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    test('should allow full forward workflow to completed', async () => {
+      // designing -> approved
+      await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${transitionOrderId}/stage`,
+        authToken,
+        { stage: 'approved' }
+      );
+      // approved -> production
+      await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${transitionOrderId}/stage`,
+        authToken,
+        { stage: 'production' }
+      );
+      // production -> quality_control
+      await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${transitionOrderId}/stage`,
+        authToken,
+        { stage: 'quality_control' }
+      );
+      // quality_control -> completed
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${transitionOrderId}/stage`,
+        authToken,
+        { stage: 'completed' }
+      );
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(true);
+    });
+
+    test('should reject transition from completed stage', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${transitionOrderId}/stage`,
+        authToken,
+        { stage: 'pending' }
+      );
+
+      expect(response.statusCode).toBe(422);
+    });
+
+    test('should allow cancellation from any active stage', async () => {
+      const cancelOrderId = await createTestOrder(app, authToken, testCustomerId, {
+        order_number: 'ORD-CANCEL-' + Date.now(),
+        status: 'pending',
+      });
+
+      // Move to designing first
+      await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${cancelOrderId}/stage`,
+        authToken,
+        { stage: 'designing' }
+      );
+
+      // Cancel from designing
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${cancelOrderId}/stage`,
+        authToken,
+        { stage: 'cancelled' }
+      );
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.success).toBe(true);
+    });
+  });
+
+  // ==================== BOARD RESPONSE SHAPE TESTS ====================
+  describe('Board response shape', () => {
+    test('should return board with all five stage columns', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/production/board',
+        authToken
+      );
+
+      const data = JSON.parse(response.body);
+      expect(data.board.pending).toBeDefined();
+      expect(data.board.designing).toBeDefined();
+      expect(data.board.approved).toBeDefined();
+      expect(data.board.production).toBeDefined();
+      expect(data.board.quality_control).toBeDefined();
+      expect(typeof data.totalActive).toBe('number');
+    });
+
+    test('board orders should include stage_entered_at field', async () => {
+      // Create and move an order so it has a stage entry
+      const boardOrderId = await createTestOrder(app, authToken, testCustomerId, {
+        order_number: 'ORD-BOARD-' + Date.now(),
+        status: 'pending',
+      });
+
+      await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${boardOrderId}/stage`,
+        authToken,
+        { stage: 'designing' }
+      );
+
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/production/board',
+        authToken
+      );
+
+      const data = JSON.parse(response.body);
+      const designingOrders = data.board.designing;
+      const movedOrder = designingOrders.find((o) => o.id === boardOrderId);
+
+      expect(movedOrder).toBeDefined();
+      expect(movedOrder.order_number).toBeDefined();
+      expect(movedOrder.customer_name).toBeDefined();
+      expect(movedOrder.stage_entered_at).toBeDefined();
+      expect(movedOrder.total_amount).toBeDefined();
+    });
+  });
+
+  // ==================== STATS RESPONSE SHAPE TESTS ====================
+  describe('Stats response shape', () => {
+    test('should return stats with stage_distribution', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/production/stats',
+        authToken
+      );
+
+      const data = JSON.parse(response.body);
+      expect(data.stats.active_orders).toBeDefined();
+      expect(data.stats.completed_today).toBeDefined();
+      expect(data.stats.overdue_orders).toBeDefined();
+      expect(data.stats.quality_issues).toBeDefined();
+      expect(data.stats.stage_distribution).toBeDefined();
+      expect(typeof data.stats.stage_distribution.pending).toBe('number');
+      expect(typeof data.stats.stage_distribution.designing).toBe('number');
+      expect(typeof data.stats.stage_distribution.approved).toBe('number');
+      expect(typeof data.stats.stage_distribution.production).toBe('number');
+      expect(typeof data.stats.stage_distribution.quality_control).toBe('number');
+    });
+
+    test('quality_issues count should be a non-negative number', async () => {
+      const response = await makeAuthenticatedRequest(
+        app,
+        'GET',
+        '/api/production/stats',
+        authToken
+      );
+
+      const data = JSON.parse(response.body);
+      expect(data.stats.quality_issues).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // ==================== AUTHORIZATION TESTS ====================
+  describe('Stage move authorization', () => {
+    test('should reject stage move without authentication', async () => {
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/api/production/orders/${testOrderId}/stage`,
+        payload: { stage: 'designing' },
+      });
+
+      expect(response.statusCode).toBe(401);
+    });
+
+    test('should reject stage move for employee role (not in owner/manager/staff)', async () => {
+      const { token: employeeToken } = await createTestUserAndGetToken(app, {
+        username: 'employee_prod_' + Date.now(),
+        email: `employee_prod_${Date.now()}@test.com`,
+        role: 'employee',
+      });
+
+      const empOrderId = await createTestOrder(app, employeeToken, testCustomerId, {
+        order_number: 'ORD-EMP-' + Date.now(),
+        status: 'pending',
+      });
+
+      const response = await makeAuthenticatedRequest(
+        app,
+        'PATCH',
+        `/api/production/orders/${empOrderId}/stage`,
+        employeeToken,
+        { stage: 'designing' }
+      );
+
+      expect(response.statusCode).toBe(403);
+    });
+  });
+
   // ==================== TASK ASSIGNMENT TESTS ====================
   describe('PUT /api/production/tasks/:id/assign', () => {
     test('should assign task', async () => {
