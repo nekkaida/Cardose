@@ -85,19 +85,22 @@ async function inventoryRoutes(fastify, options) {
           type: 'object',
           required: ['name', 'category'],
           properties: {
-            name: { type: 'string', minLength: 1 },
-            category: { type: 'string' },
-            current_stock: { type: 'number' },
-            reorder_level: { type: 'number' },
-            unit_cost: { type: 'number' },
-            supplier: { type: 'string' },
-            unit: { type: 'string' },
-            notes: { type: 'string' },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            category: {
+              type: 'string',
+              enum: ['cardboard', 'fabric', 'ribbon', 'accessories', 'packaging', 'tools'],
+            },
+            current_stock: { type: 'number', minimum: 0 },
+            reorder_level: { type: 'number', minimum: 0 },
+            unit_cost: { type: 'number', minimum: 0 },
+            supplier: { type: 'string', maxLength: 200 },
+            unit: { type: 'string', maxLength: 50 },
+            notes: { type: 'string', maxLength: 1000 },
           },
           additionalProperties: false,
         },
       },
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
     },
     async (request, reply) => {
       try {
@@ -131,19 +134,21 @@ async function inventoryRoutes(fastify, options) {
         body: {
           type: 'object',
           properties: {
-            name: { type: 'string' },
-            category: { type: 'string' },
-            current_stock: { type: 'number' },
-            reorder_level: { type: 'number' },
-            unit_cost: { type: 'number' },
-            supplier: { type: 'string' },
-            unit: { type: 'string' },
-            notes: { type: 'string' },
+            name: { type: 'string', maxLength: 200 },
+            category: {
+              type: 'string',
+              enum: ['cardboard', 'fabric', 'ribbon', 'accessories', 'packaging', 'tools'],
+            },
+            reorder_level: { type: 'number', minimum: 0 },
+            unit_cost: { type: 'number', minimum: 0 },
+            supplier: { type: 'string', maxLength: 200 },
+            unit: { type: 'string', maxLength: 50 },
+            notes: { type: 'string', maxLength: 1000 },
           },
           additionalProperties: false,
         },
       },
-      preHandler: [fastify.authenticate],
+      preHandler: [fastify.authenticate, fastify.authorize(['owner', 'manager'])],
     },
     async (request, reply) => {
       try {
@@ -200,13 +205,13 @@ async function inventoryRoutes(fastify, options) {
           type: 'object',
           required: ['type', 'item_id', 'quantity'],
           properties: {
-            type: { type: 'string' },
+            type: { type: 'string', enum: ['purchase', 'usage', 'sale', 'adjustment', 'waste'] },
             item_id: { type: 'string' },
-            quantity: { type: 'number' },
+            quantity: { type: 'number', minimum: 0 },
             unit_cost: { type: 'number' },
             reason: { type: 'string' },
             order_id: { type: 'string' },
-            notes: { type: 'string' },
+            notes: { type: 'string', maxLength: 1000 },
           },
           additionalProperties: false,
         },
@@ -217,7 +222,7 @@ async function inventoryRoutes(fastify, options) {
       try {
         const { type, item_id, quantity } = request.body;
 
-        if (!type || !item_id || !quantity) {
+        if (!type || !item_id || quantity == null) {
           reply.code(400);
           return { success: false, error: 'Type, item_id, and quantity are required' };
         }
@@ -250,7 +255,8 @@ async function inventoryRoutes(fastify, options) {
   // Get inventory movements (requires authentication)
   fastify.get('/movements', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     try {
-      const { item_id, type, limit = 100 } = request.query;
+      const { item_id, type } = request.query;
+      const limit = Math.min(parseInt(request.query.limit) || 100, 500);
 
       const result = await service.getInventoryMovements({ item_id, type, limit });
 
@@ -280,7 +286,21 @@ async function inventoryRoutes(fastify, options) {
   // Create reorder alert (requires authentication)
   fastify.post(
     '/reorder-alerts',
-    { preHandler: [fastify.authenticate] },
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['item_id'],
+          properties: {
+            item_id: { type: 'string', minLength: 1 },
+            priority: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] },
+            notes: { type: 'string', maxLength: 1000 },
+          },
+          additionalProperties: false,
+        },
+      },
+      preHandler: [fastify.authenticate],
+    },
     async (request, reply) => {
       try {
         const { item_id } = request.body;
@@ -317,7 +337,19 @@ async function inventoryRoutes(fastify, options) {
   // Update reorder alert status (requires authentication)
   fastify.put(
     '/reorder-alerts/:alertId',
-    { preHandler: [fastify.authenticate] },
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['pending', 'acknowledged', 'ordered', 'resolved'] },
+            notes: { type: 'string', maxLength: 1000 },
+          },
+          additionalProperties: false,
+        },
+      },
+      preHandler: [fastify.authenticate],
+    },
     async (request, reply) => {
       try {
         const { alertId } = request.params;
