@@ -3,7 +3,7 @@ import { Text, View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Provider as PaperProvider } from 'react-native-paper';
+import { Provider as PaperProvider, Icon } from 'react-native-paper';
 import { Provider as ReduxProvider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './src/store';
@@ -11,11 +11,13 @@ import { theme } from './src/theme/theme';
 import { useAppSelector, useAppDispatch } from './src/store/hooks';
 import {
   selectIsAuthenticated,
-  selectAuthLoading,
+  selectIsInitialized,
   initializeAuth,
+  forceLogout,
 } from './src/store/slices/authSlice';
 import { ApiService } from './src/services/ApiService';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import type { RootStackParamList, MainTabParamList } from './src/types/navigation';
 
 // Screens
 import { LoginScreen } from './src/screens/Auth/LoginScreen';
@@ -24,8 +26,8 @@ import OrderPhotosScreen from './src/screens/OrderPhotos/OrderPhotosScreen';
 import { QualityControlScreen } from './src/screens/Production/QualityControlScreen';
 import ProfileScreen from './src/screens/Profile/ProfileScreen';
 
-const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator<MainTabParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function MainTabs() {
   return (
@@ -41,8 +43,8 @@ function MainTabs() {
         component={StatusBoardScreen}
         options={{
           title: 'Cardose',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 18 }}>📋</Text>
+          tabBarIcon: ({ color, size }) => (
+            <Icon source="clipboard-list-outline" size={size} color={color} />
           ),
         }}
       />
@@ -50,9 +52,9 @@ function MainTabs() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          title: 'My Profile',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 18 }}>👤</Text>
+          title: 'Profil Saya',
+          tabBarIcon: ({ color, size }) => (
+            <Icon source="account-outline" size={size} color={color} />
           ),
         }}
       />
@@ -63,17 +65,29 @@ function MainTabs() {
 function AppNavigator() {
   const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
-  const isLoading = useAppSelector(selectAuthLoading);
+  const isInitialized = useAppSelector(selectIsInitialized);
 
   useEffect(() => {
-    dispatch(initializeAuth());
+    const init = async () => {
+      // Ensure server URL is loaded before auth initialization
+      await ApiService.initialize();
+
+      // Wire up global 401 handler so ApiService can trigger logout
+      ApiService.setOnUnauthorized(() => {
+        store.dispatch(forceLogout());
+      });
+
+      dispatch(initializeAuth());
+    };
+
+    init();
   }, [dispatch]);
 
-  if (isLoading) {
+  if (!isInitialized) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={styles.loadingText}>Memuat...</Text>
       </View>
     );
   }
@@ -94,7 +108,7 @@ function AppNavigator() {
           name="OrderPhotos"
           component={OrderPhotosScreen}
           options={{
-            title: 'Order Photos',
+            title: 'Foto Pesanan',
             headerStyle: { backgroundColor: theme.colors.primary },
             headerTintColor: theme.colors.surface,
           }}
@@ -103,7 +117,7 @@ function AppNavigator() {
           name="QualityCheck"
           component={QualityControlScreen}
           options={{
-            title: 'Quality Check',
+            title: 'Kontrol Mutu',
             headerStyle: { backgroundColor: theme.colors.primary },
             headerTintColor: theme.colors.surface,
           }}
@@ -114,19 +128,6 @@ function AppNavigator() {
 }
 
 export default function App() {
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        await ApiService.initialize();
-        console.log('App services initialized successfully');
-      } catch (error) {
-        console.error('Failed to initialize app services:', error);
-      }
-    };
-
-    initializeApp();
-  }, []);
-
   return (
     <ErrorBoundary>
       <ReduxProvider store={store}>
@@ -144,7 +145,7 @@ function LoadingScreen() {
   return (
     <View style={styles.loadingContainer}>
       <ActivityIndicator size="large" color={theme.colors.primary} />
-      <Text style={styles.loadingText}>Loading...</Text>
+      <Text style={styles.loadingText}>Memuat...</Text>
     </View>
   );
 }
