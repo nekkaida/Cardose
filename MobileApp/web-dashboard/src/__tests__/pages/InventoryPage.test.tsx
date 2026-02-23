@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import InventoryPage from '../../pages/InventoryPage';
 
@@ -24,15 +24,20 @@ vi.mock('../../contexts/AuthContext', () => ({
     loading: false,
     login: vi.fn(),
     logout: vi.fn(),
-    token: 'test-token',
   }),
 }));
 
 // Mock ApiContext
 const mockGetInventory = vi.fn();
+const mockCreateInventoryItem = vi.fn().mockResolvedValue({});
+const mockUpdateInventoryItem = vi.fn().mockResolvedValue({});
+const mockDeleteInventoryItem = vi.fn().mockResolvedValue({});
 const mockCreateInventoryMovement = vi
   .fn()
   .mockResolvedValue({ success: true, movementId: 'mov-1', newStock: 90, message: 'OK' });
+const mockBulkDeleteInventoryItems = vi.fn().mockResolvedValue({});
+const mockGetInventoryMovements = vi.fn().mockResolvedValue({ movements: [] });
+const mockGetReorderAlerts = vi.fn().mockResolvedValue({ alerts: [] });
 
 vi.mock('../../contexts/ApiContext', () => ({
   useApi: () => ({
@@ -44,11 +49,14 @@ vi.mock('../../contexts/ApiContext', () => ({
     createCustomer: vi.fn().mockResolvedValue({}),
     updateCustomer: vi.fn().mockResolvedValue({}),
     getInventory: mockGetInventory,
-    createInventoryItem: vi.fn().mockResolvedValue({}),
-    updateInventoryItem: vi.fn().mockResolvedValue({}),
+    createInventoryItem: mockCreateInventoryItem,
+    updateInventoryItem: mockUpdateInventoryItem,
     updateInventoryStock: vi.fn().mockResolvedValue({}),
-    deleteInventoryItem: vi.fn().mockResolvedValue({}),
+    deleteInventoryItem: mockDeleteInventoryItem,
     createInventoryMovement: mockCreateInventoryMovement,
+    bulkDeleteInventoryItems: mockBulkDeleteInventoryItems,
+    getInventoryMovements: mockGetInventoryMovements,
+    getReorderAlerts: mockGetReorderAlerts,
     getFinancialSummary: vi.fn().mockResolvedValue({}),
     getTransactions: vi.fn().mockResolvedValue({}),
     createTransaction: vi.fn().mockResolvedValue({}),
@@ -102,7 +110,6 @@ vi.mock('../../contexts/LanguageContext', () => ({
         'inventory.record': 'Record',
         'inventory.recording': 'Recording...',
         'inventory.current': 'current',
-        'inventory.stockAction': 'Stock',
         'inventory.movementSuccess': 'Stock movement recorded successfully',
         'inventory.positiveQuantity': 'Quantity must be a positive number.',
         'inventory.failedMovement': 'Failed to record movement.',
@@ -141,6 +148,9 @@ vi.mock('../../contexts/LanguageContext', () => ({
         'common.delete': 'Delete',
         'common.cancel': 'Cancel',
         'common.save': 'Save',
+        'common.confirm': 'Confirm',
+        'common.back': 'Back',
+        'common.deleting': 'Deleting...',
         'inventory.editMaterial': 'Edit Material',
         'inventory.deleteMaterial': 'Delete Material',
         'inventory.name': 'Name',
@@ -168,11 +178,45 @@ vi.mock('../../contexts/LanguageContext', () => ({
         'inventory.deleteSuccess': 'Material deleted successfully',
         'inventory.confirmDelete':
           'Are you sure? This will remove the material and all its movement history.',
+        'inventory.confirmMovement': 'Confirm Movement',
+        'inventory.setStockTo': 'Set stock to',
+        'inventory.adjustmentInfo':
+          'Adjustment sets the stock to the exact quantity entered, replacing the current value.',
+        'inventory.movementHistory': 'Movement History',
+        'inventory.noMovements': 'No movements recorded yet',
+        'inventory.date': 'Date',
+        'inventory.loadingMovements': 'Failed to load movements',
+        'inventory.exportCsv': 'Export CSV',
+        'inventory.exportSuccess': 'Exported successfully',
+        'inventory.clearFilters': 'Clear Filters',
+        'inventory.overallStats': 'Overall',
+        'inventory.pendingAlerts': 'pending alerts',
+        'inventory.itemsSelected': 'items selected',
+        'inventory.deselectAll': 'Deselect All',
+        'inventory.deleteSelected': 'Delete Selected',
+        'inventory.bulkDeleteSuccess': '{n} items deleted',
+        'inventory.bulkDeleteError': 'Failed to delete items',
+        'inventory.selectAll': 'Select all',
+        'inventory.select': 'Select',
+        'inventory.pageSize': 'Page size',
+        'inventory.page': 'page',
+        'inventory.paginationInfo': 'Page {page} of {totalPages} ({total} {label})',
+        'inventory.items': 'items',
+        'common.close': 'Close',
       };
       return translations[key] || key;
     },
   }),
 }));
+
+// Mock exportToCSV utility
+vi.mock('../../utils/formatters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/formatters')>();
+  return {
+    ...actual,
+    exportToCSV: vi.fn(),
+  };
+});
 
 const mockInventoryData = {
   items: [
@@ -188,7 +232,7 @@ const mockInventoryData = {
     {
       id: '2',
       name: 'Ribbon Gold',
-      category: 'decoration',
+      category: 'ribbon',
       current_stock: 5,
       reorder_level: 10,
       unit_cost: 15000,
@@ -199,6 +243,12 @@ const mockInventoryData = {
   total: 2,
   stats: {
     total: 2,
+    cardboard: 0,
+    fabric: 0,
+    ribbon: 1,
+    accessories: 0,
+    packaging: 1,
+    tools: 0,
     lowStock: 1,
     outOfStock: 0,
     totalValue: 5075000,
@@ -213,9 +263,9 @@ describe('InventoryPage', () => {
   describe('Loading state', () => {
     it('should show loading skeleton initially', () => {
       mockGetInventory.mockImplementation(() => new Promise(() => {}));
+      mockGetReorderAlerts.mockImplementation(() => new Promise(() => {}));
       render(<InventoryPage />);
 
-      // InventoryPage uses skeleton rows with animate-pulse, not spinner
       const skeletonElement = document.querySelector('.animate-pulse');
       expect(skeletonElement).toBeInTheDocument();
     });
@@ -266,7 +316,7 @@ describe('InventoryPage', () => {
 
   describe('Loaded state', () => {
     beforeEach(() => {
-      mockGetInventory.mockResolvedValueOnce(mockInventoryData);
+      mockGetInventory.mockResolvedValue(mockInventoryData);
     });
 
     it('should render without crashing and display title', async () => {
@@ -298,7 +348,6 @@ describe('InventoryPage', () => {
       render(<InventoryPage />);
 
       await waitFor(() => {
-        // The actual page headers: "Material", "Category", "Stock", "Reorder", "Cost", "Status", "Actions"
         expect(screen.getByText('Material')).toBeInTheDocument();
         expect(screen.getByText('Category')).toBeInTheDocument();
         expect(screen.getByText('Stock')).toBeInTheDocument();
@@ -311,10 +360,8 @@ describe('InventoryPage', () => {
       render(<InventoryPage />);
 
       await waitFor(() => {
-        // 'In Stock' appears as a table badge
         const inStockElements = screen.getAllByText('In Stock');
         expect(inStockElements.length).toBeGreaterThanOrEqual(1);
-        // 'Low Stock' appears in both the stats card and as a table badge
         const lowStockElements = screen.getAllByText('Low Stock');
         expect(lowStockElements.length).toBeGreaterThanOrEqual(1);
       });
@@ -325,7 +372,6 @@ describe('InventoryPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Total Items')).toBeInTheDocument();
-        // "Low Stock" appears in stats card AND possibly as a badge
         const lowStockElements = screen.getAllByText('Low Stock');
         expect(lowStockElements.length).toBeGreaterThanOrEqual(1);
         expect(screen.getByText('Total Value')).toBeInTheDocument();
@@ -336,7 +382,6 @@ describe('InventoryPage', () => {
       render(<InventoryPage />);
 
       await waitFor(() => {
-        // Placeholder is "Search materials..." (from t('common.search') + ' materials...')
         expect(screen.getByPlaceholderText('Search materials...')).toBeInTheDocument();
       });
     });
@@ -348,6 +393,30 @@ describe('InventoryPage', () => {
         expect(screen.getByText(/Page 1 of 1/)).toBeInTheDocument();
         expect(screen.getByText('Previous')).toBeInTheDocument();
         expect(screen.getByText('Next')).toBeInTheDocument();
+      });
+    });
+
+    it('should display select-all checkbox in table header', async () => {
+      render(<InventoryPage />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('checkbox', { name: 'Select all' })).toBeInTheDocument();
+      });
+    });
+
+    it('should display Export CSV button', async () => {
+      render(<InventoryPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Export CSV')).toBeInTheDocument();
+      });
+    });
+
+    it('should display page size selector', async () => {
+      render(<InventoryPage />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('combobox', { name: 'Page size' })).toBeInTheDocument();
       });
     });
   });
@@ -368,19 +437,18 @@ describe('InventoryPage', () => {
       await waitFor(() => {
         expect(screen.getByText('Premium Box')).toBeInTheDocument();
       });
-      // Click the first "Stock" button (only match buttons, not table headers)
-      const stockButtons = screen.getAllByRole('button', { name: 'Stock' });
+      // Action buttons are now icon buttons with aria-labels
+      const stockButtons = screen.getAllByRole('button', { name: /Stock Movement Premium Box/ });
       await userEvent.click(stockButtons[0]);
       await waitFor(() => {
         expect(screen.getByText('Stock Movement')).toBeInTheDocument();
       });
     };
 
-    it('should open modal when Stock button is clicked', async () => {
+    it('should open modal when stock movement button is clicked', async () => {
       await openMovementModal();
 
       expect(screen.getByText('Stock Movement')).toBeInTheDocument();
-      // Modal shows item name and current stock in the subtitle
       expect(screen.getByText(/current.*100/)).toBeInTheDocument();
     });
 
@@ -468,14 +536,37 @@ describe('InventoryPage', () => {
       });
     });
 
-    it('should call createInventoryMovement with correct payload on submit', async () => {
+    it('should show confirmation step before submitting', async () => {
       await openMovementModal();
 
       const quantityInput = screen.getByLabelText(/Quantity/);
       await userEvent.type(quantityInput, '10');
 
-      mockGetInventory.mockResolvedValueOnce(mockInventoryData);
+      // Click Record to go to confirmation step
       await userEvent.click(screen.getByText('Record'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Confirm Movement')).toBeInTheDocument();
+        // The confirmation view shows the summary
+        expect(screen.getByText(/100 → 110/)).toBeInTheDocument();
+      });
+    });
+
+    it('should call createInventoryMovement after confirm step', async () => {
+      await openMovementModal();
+
+      const quantityInput = screen.getByLabelText(/Quantity/);
+      await userEvent.type(quantityInput, '10');
+
+      // Step 1: Click Record
+      await userEvent.click(screen.getByText('Record'));
+      await waitFor(() => {
+        expect(screen.getByText('Confirm Movement')).toBeInTheDocument();
+      });
+
+      // Step 2: Click Confirm
+      mockGetInventory.mockResolvedValueOnce(mockInventoryData);
+      await userEvent.click(screen.getByText('Confirm'));
 
       await waitFor(() => {
         expect(mockCreateInventoryMovement).toHaveBeenCalledWith({
@@ -487,12 +578,33 @@ describe('InventoryPage', () => {
       });
     });
 
+    it('should allow going back from confirmation step', async () => {
+      await openMovementModal();
+
+      const quantityInput = screen.getByLabelText(/Quantity/);
+      await userEvent.type(quantityInput, '10');
+
+      await userEvent.click(screen.getByText('Record'));
+      await waitFor(() => {
+        expect(screen.getByText('Confirm Movement')).toBeInTheDocument();
+      });
+
+      // Click Back
+      await userEvent.click(screen.getByText('Back'));
+
+      await waitFor(() => {
+        // Should be back on the form view with Stock Movement title
+        expect(screen.getByText('Stock Movement')).toBeInTheDocument();
+        expect(screen.queryByText('Confirm Movement')).not.toBeInTheDocument();
+      });
+    });
+
     it('should show validation error for empty quantity', async () => {
       await openMovementModal();
 
-      await userEvent.click(screen.getByText('Record'));
-
-      // Record button is disabled when quantity is empty, so the click does nothing
+      // Record button is disabled when quantity is empty
+      const recordButton = screen.getByText('Record');
+      expect(recordButton).toBeDisabled();
       expect(mockCreateInventoryMovement).not.toHaveBeenCalled();
     });
 
@@ -506,7 +618,7 @@ describe('InventoryPage', () => {
       });
     });
 
-    it('should show error message when API call fails', async () => {
+    it('should show error message when API call fails during confirm', async () => {
       mockCreateInventoryMovement.mockRejectedValueOnce({
         response: { data: { error: 'Insufficient stock. Available: 100 pcs' } },
       });
@@ -516,7 +628,13 @@ describe('InventoryPage', () => {
       const quantityInput = screen.getByLabelText(/Quantity/);
       await userEvent.type(quantityInput, '10');
 
+      // Record -> Confirm
       await userEvent.click(screen.getByText('Record'));
+      await waitFor(() => {
+        expect(screen.getByText('Confirm Movement')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText('Confirm'));
 
       await waitFor(() => {
         expect(screen.getByText('Insufficient stock. Available: 100 pcs')).toBeInTheDocument();
@@ -529,8 +647,14 @@ describe('InventoryPage', () => {
       const quantityInput = screen.getByLabelText(/Quantity/);
       await userEvent.type(quantityInput, '10');
 
-      mockGetInventory.mockResolvedValueOnce(mockInventoryData);
+      // Record -> Confirm
       await userEvent.click(screen.getByText('Record'));
+      await waitFor(() => {
+        expect(screen.getByText('Confirm Movement')).toBeInTheDocument();
+      });
+
+      mockGetInventory.mockResolvedValueOnce(mockInventoryData);
+      await userEvent.click(screen.getByText('Confirm'));
 
       await waitFor(() => {
         expect(screen.getByText('Stock movement recorded successfully')).toBeInTheDocument();
@@ -557,7 +681,6 @@ describe('InventoryPage', () => {
       await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Add Material/ })).toBeInTheDocument();
     });
 
     it('should have autoFocus on name input', async () => {
@@ -567,7 +690,7 @@ describe('InventoryPage', () => {
       await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
 
       const nameInput = screen.getByPlaceholderText('Material name');
-      expect(nameInput).toHaveFocus();
+      await waitFor(() => expect(nameInput).toHaveFocus());
     });
 
     it('should close modal when Cancel is clicked', async () => {
@@ -577,7 +700,6 @@ describe('InventoryPage', () => {
       await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
       expect(screen.getByRole('dialog')).toBeInTheDocument();
 
-      // Click the Cancel button in the modal footer
       const cancelButtons = screen.getAllByText('Cancel');
       await userEvent.click(cancelButtons[cancelButtons.length - 1]);
 
@@ -628,9 +750,9 @@ describe('InventoryPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: /Add Material/ }));
 
-      // Check the category select exists with translated options
-      const categorySelect = screen.getAllByRole('combobox')[0];
-      expect(categorySelect).toBeInTheDocument();
+      const dialog = screen.getByRole('dialog');
+      const selects = within(dialog).getAllByRole('combobox');
+      expect(selects.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -643,7 +765,8 @@ describe('InventoryPage', () => {
       render(<InventoryPage />);
       await waitFor(() => screen.getByText('Premium Box'));
 
-      const editButtons = screen.getAllByText('Edit');
+      // Edit buttons are now icon buttons with aria-labels
+      const editButtons = screen.getAllByRole('button', { name: /Edit Premium Box/ });
       await userEvent.click(editButtons[0]);
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -654,7 +777,7 @@ describe('InventoryPage', () => {
       render(<InventoryPage />);
       await waitFor(() => screen.getByText('Premium Box'));
 
-      const editButtons = screen.getAllByText('Edit');
+      const editButtons = screen.getAllByRole('button', { name: /Edit Premium Box/ });
       await userEvent.click(editButtons[0]);
 
       expect(screen.getByText('Update')).toBeInTheDocument();
@@ -664,7 +787,7 @@ describe('InventoryPage', () => {
       render(<InventoryPage />);
       await waitFor(() => screen.getByText('Premium Box'));
 
-      const editButtons = screen.getAllByText('Edit');
+      const editButtons = screen.getAllByRole('button', { name: /Edit Premium Box/ });
       await userEvent.click(editButtons[0]);
 
       expect(screen.getByText('Edit Material')).toBeInTheDocument();
@@ -676,11 +799,12 @@ describe('InventoryPage', () => {
       mockGetInventory.mockResolvedValue(mockInventoryData);
     });
 
-    it('should open delete confirmation when Delete is clicked', async () => {
+    it('should open delete confirmation when delete button is clicked', async () => {
       render(<InventoryPage />);
       await waitFor(() => screen.getByText('Premium Box'));
 
-      const deleteButtons = screen.getAllByText('Delete');
+      // Delete buttons are icon buttons with aria-labels
+      const deleteButtons = screen.getAllByRole('button', { name: /Delete Premium Box/ });
       await userEvent.click(deleteButtons[0]);
 
       expect(screen.getByRole('alertdialog')).toBeInTheDocument();
@@ -691,7 +815,7 @@ describe('InventoryPage', () => {
       render(<InventoryPage />);
       await waitFor(() => screen.getByText('Premium Box'));
 
-      const deleteButtons = screen.getAllByText('Delete');
+      const deleteButtons = screen.getAllByRole('button', { name: /Delete Premium Box/ });
       await userEvent.click(deleteButtons[0]);
       expect(screen.getByRole('alertdialog')).toBeInTheDocument();
 
@@ -700,6 +824,296 @@ describe('InventoryPage', () => {
 
       await waitFor(() => {
         expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Bulk Selection', () => {
+    beforeEach(() => {
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+    });
+
+    it('should show individual row checkboxes', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const selectCheckboxes = screen.getAllByRole('checkbox', { name: /Select/ });
+      // Select all + 2 rows = 3 checkboxes
+      expect(selectCheckboxes.length).toBe(3);
+    });
+
+    it('should show bulk action bar when items are selected', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      // Click the first row checkbox
+      const rowCheckboxes = screen.getAllByRole('checkbox', { name: /Select Premium Box/ });
+      await userEvent.click(rowCheckboxes[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText(/1 items selected/)).toBeInTheDocument();
+      });
+    });
+
+    it('should select all items with Select All checkbox', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const selectAll = screen.getByRole('checkbox', { name: 'Select all' });
+      await userEvent.click(selectAll);
+
+      await waitFor(() => {
+        expect(screen.getByText(/2 items selected/)).toBeInTheDocument();
+      });
+    });
+
+    it('should show Deselect All button when items are selected', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const selectAll = screen.getByRole('checkbox', { name: 'Select all' });
+      await userEvent.click(selectAll);
+
+      await waitFor(() => {
+        expect(screen.getByText('Deselect All')).toBeInTheDocument();
+      });
+    });
+
+    it('should deselect all items when Deselect All is clicked', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const selectAll = screen.getByRole('checkbox', { name: 'Select all' });
+      await userEvent.click(selectAll);
+
+      await waitFor(() => {
+        expect(screen.getByText('Deselect All')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByText('Deselect All'));
+
+      await waitFor(() => {
+        expect(screen.queryByText(/items selected/)).not.toBeInTheDocument();
+      });
+    });
+
+    it('should show Delete Selected button for authorized users', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const selectAll = screen.getByRole('checkbox', { name: 'Select all' });
+      await userEvent.click(selectAll);
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete Selected')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Sorting', () => {
+    beforeEach(() => {
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+    });
+
+    it('should call API with sort params when column header is clicked', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      mockGetInventory.mockClear();
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+
+      // Click the "Cost" column header to sort
+      await userEvent.click(screen.getByText('Cost'));
+
+      await waitFor(() => {
+        expect(mockGetInventory).toHaveBeenCalledWith(
+          expect.objectContaining({ sort_by: 'unit_cost', sort_order: 'asc' })
+        );
+      });
+    });
+
+    it('should toggle sort order when same column is clicked again', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      // Click Material header (default is name/asc, so clicking again toggles to desc)
+      mockGetInventory.mockClear();
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+
+      await userEvent.click(screen.getByText('Material'));
+
+      await waitFor(() => {
+        expect(mockGetInventory).toHaveBeenCalledWith(
+          expect.objectContaining({ sort_by: 'name', sort_order: 'desc' })
+        );
+      });
+    });
+  });
+
+  describe('Category Filter', () => {
+    beforeEach(() => {
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+    });
+
+    it('should call API with category filter when changed', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      mockGetInventory.mockClear();
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+
+      // Find the category filter select (the one with "All Categories")
+      const categorySelect = screen.getByRole('combobox', { name: 'All Categories' });
+      await userEvent.selectOptions(categorySelect, 'packaging');
+
+      await waitFor(() => {
+        expect(mockGetInventory).toHaveBeenCalledWith(
+          expect.objectContaining({ category: 'packaging' })
+        );
+      });
+    });
+
+    it('should show Clear Filters button when filter is active', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      // Select a category filter
+      const selects = document.querySelectorAll('select');
+      // Category filter is the one with "All Categories" option
+      let categorySelect: HTMLSelectElement | null = null;
+      selects.forEach((sel) => {
+        const options = sel.querySelectorAll('option');
+        options.forEach((opt) => {
+          if (opt.textContent === 'All Categories') categorySelect = sel as HTMLSelectElement;
+        });
+      });
+      expect(categorySelect).not.toBeNull();
+
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+      await userEvent.selectOptions(categorySelect!, 'packaging');
+
+      await waitFor(() => {
+        expect(screen.getByText('Clear Filters')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Movement History Modal', () => {
+    beforeEach(() => {
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+    });
+
+    it('should open movement history modal when history button is clicked', async () => {
+      mockGetInventoryMovements.mockResolvedValue({ movements: [] });
+
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      // History button has aria-label with item name
+      const historyButtons = screen.getAllByRole('button', {
+        name: /Movement History Premium Box/,
+      });
+      await userEvent.click(historyButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Movement History')).toBeInTheDocument();
+      });
+    });
+
+    it('should show empty state when no movements', async () => {
+      mockGetInventoryMovements.mockResolvedValue({ movements: [] });
+
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const historyButtons = screen.getAllByRole('button', {
+        name: /Movement History Premium Box/,
+      });
+      await userEvent.click(historyButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('No movements recorded yet')).toBeInTheDocument();
+      });
+    });
+
+    it('should close movement history modal on Close', async () => {
+      mockGetInventoryMovements.mockResolvedValue({ movements: [] });
+
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      const historyButtons = screen.getAllByRole('button', {
+        name: /Movement History Premium Box/,
+      });
+      await userEvent.click(historyButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Movement History')).toBeInTheDocument();
+      });
+
+      // Click Close to dismiss
+      const closeButtons = screen.getAllByText('Close');
+      await userEvent.click(closeButtons[closeButtons.length - 1]);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Movement History')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('CSV Export', () => {
+    beforeEach(() => {
+      mockGetInventory.mockResolvedValue(mockInventoryData);
+    });
+
+    it('should call exportToCSV when Export CSV button is clicked', async () => {
+      const { exportToCSV } = await import('../../utils/formatters');
+
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      await userEvent.click(screen.getByText('Export CSV'));
+
+      expect(exportToCSV).toHaveBeenCalled();
+    });
+
+    it('should show success toast after export', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      await userEvent.click(screen.getByText('Export CSV'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Exported successfully')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Empty state', () => {
+    it('should show contextual empty state with create button when no filters', async () => {
+      mockGetInventory.mockResolvedValue({
+        items: [],
+        totalPages: 0,
+        total: 0,
+        stats: {
+          total: 0,
+          cardboard: 0,
+          fabric: 0,
+          ribbon: 0,
+          accessories: 0,
+          packaging: 0,
+          tools: 0,
+          lowStock: 0,
+          outOfStock: 0,
+          totalValue: 0,
+        },
+      });
+
+      render(<InventoryPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('No items found')).toBeInTheDocument();
+        expect(screen.getByText('Add your first material to get started.')).toBeInTheDocument();
       });
     });
   });
@@ -723,11 +1137,22 @@ describe('InventoryPage', () => {
       render(<InventoryPage />);
       await waitFor(() => screen.getByText('Premium Box'));
 
-      const deleteButtons = screen.getAllByText('Delete');
+      const deleteButtons = screen.getAllByRole('button', { name: /Delete Premium Box/ });
       await userEvent.click(deleteButtons[0]);
 
       const alertDialog = screen.getByRole('alertdialog');
       expect(alertDialog).toHaveAttribute('aria-modal', 'true');
+    });
+
+    it('should have aria-labels on all action icon buttons', async () => {
+      render(<InventoryPage />);
+      await waitFor(() => screen.getByText('Premium Box'));
+
+      // Each row should have: Stock Movement, Movement History, Edit, Delete
+      expect(screen.getAllByRole('button', { name: /Stock Movement/ }).length).toBe(2);
+      expect(screen.getAllByRole('button', { name: /Movement History/ }).length).toBe(2);
+      expect(screen.getAllByRole('button', { name: /Edit/ }).length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByRole('button', { name: /Delete/ }).length).toBeGreaterThanOrEqual(2);
     });
   });
 });
