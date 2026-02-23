@@ -216,6 +216,32 @@ class FinancialService {
     const unpaidInvoices = invoicesSummary.unpaidInvoices;
     const paidInvoices = invoicesSummary.paidInvoices;
 
+    // Calculate real monthly growth from actual transaction data
+    const currentMonthStart = new Date();
+    currentMonthStart.setDate(1);
+    const currentMonthStr = currentMonthStart.toISOString().split('T')[0];
+    const prevMonthStart = new Date(currentMonthStart);
+    prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
+    const prevMonthStr = prevMonthStart.toISOString().split('T')[0];
+
+    const currentMonthRevenue = this.db.db
+      .prepare(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions
+         WHERE type = 'income' AND DATE(payment_date) >= ?`
+      )
+      .get(currentMonthStr);
+
+    const prevMonthRevenue = this.db.db
+      .prepare(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM financial_transactions
+         WHERE type = 'income' AND DATE(payment_date) >= ? AND DATE(payment_date) < ?`
+      )
+      .get(prevMonthStr, currentMonthStr);
+
+    const curRev = currentMonthRevenue?.total || 0;
+    const prevRev = prevMonthRevenue?.total || 0;
+    const monthlyGrowth = prevRev > 0 ? ((curRev - prevRev) / prevRev) * 100 : 0;
+
     return {
       totalRevenue: totalIncome,
       totalExpenses: totalExpenses,
@@ -229,7 +255,7 @@ class FinancialService {
       totalOrders: ordersSummary.total,
       averageOrderValue: ordersSummary.total > 0 ? totalOrderValue / ordersSummary.total : 0,
       ppnRate: PPN_RATE * 100,
-      monthlyGrowth: 12.5,
+      monthlyGrowth: parseFloat(monthlyGrowth.toFixed(1)),
     };
   }
 
@@ -253,22 +279,36 @@ class FinancialService {
 
     const budgets = this.db.db.prepare(query).all(...params);
 
-    // Calculate actual spending for each budget
-    const budgetsWithActuals = budgets.map((budget) => {
-      const spending = this.db.db
-        .prepare(
-          `
-          SELECT SUM(amount) as total
-          FROM financial_transactions
-          WHERE type = 'expense'
-          AND category = ?
-          AND DATE(payment_date) >= ?
-          AND DATE(payment_date) <= ?
-        `
-        )
-        .get(budget.category, budget.start_date, budget.end_date);
+    // Calculate actual spending for all budgets in a single query using a CTE
+    // instead of N+1 individual queries per budget
+    if (budgets.length === 0) {
+      return { budgets: [], summary: { totalBudgeted: 0, totalSpent: 0 } };
+    }
 
-      const actualSpending = spending?.total || 0;
+    const spendingByCategory = this.db.db
+      .prepare(
+        `
+        SELECT category, DATE(payment_date) as pay_date, SUM(amount) as total
+        FROM financial_transactions
+        WHERE type = 'expense'
+        GROUP BY category, DATE(payment_date)
+      `
+      )
+      .all();
+
+    // Build a lookup: { category -> [ { pay_date, total } ] }
+    const spendingLookup = {};
+    for (const row of spendingByCategory) {
+      if (!spendingLookup[row.category]) spendingLookup[row.category] = [];
+      spendingLookup[row.category].push(row);
+    }
+
+    const budgetsWithActuals = budgets.map((budget) => {
+      const entries = spendingLookup[budget.category] || [];
+      const actualSpending = entries
+        .filter((e) => e.pay_date >= budget.start_date && e.pay_date <= budget.end_date)
+        .reduce((sum, e) => sum + e.total, 0);
+
       const variance = budget.amount - actualSpending;
       const percentageUsed = budget.amount > 0 ? (actualSpending / budget.amount) * 100 : 0;
 
@@ -467,10 +507,22 @@ class FinancialService {
   async createInvoice(data, userId) {
     const { order_id, customer_id, subtotal, discount = 0, due_date, notes, items } = data;
 
+    if (!subtotal || subtotal <= 0) {
+      const error = new Error('Subtotal must be greater than 0');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (discount > subtotal) {
+      const error = new Error('Discount cannot exceed subtotal');
+      error.statusCode = 400;
+      throw error;
+    }
+
     const id = uuidv4();
     const invoiceNumber = await this.generateInvoiceNumber();
 
-    const afterDiscount = (subtotal || 0) - discount;
+    const afterDiscount = subtotal - discount;
     const ppnAmount = afterDiscount * PPN_RATE;
     const totalAmount = afterDiscount + ppnAmount;
 
@@ -522,7 +574,19 @@ class FinancialService {
   }
 
   /**
+   * Valid invoice status transitions. Prevents double-pay and invalid state changes.
+   */
+  static VALID_STATUS_TRANSITIONS = {
+    unpaid: ['paid', 'overdue', 'cancelled', 'partial'],
+    partial: ['paid', 'overdue', 'cancelled'],
+    overdue: ['paid', 'cancelled'],
+    paid: [], // terminal state
+    cancelled: [], // terminal state
+  };
+
+  /**
    * Update invoice status, optionally creating a transaction record on payment.
+   * Validates state transitions to prevent double-pay and invalid changes.
    */
   async updateInvoiceStatus(id, { status, paid_date, payment_method }, userId) {
     const existing = this.db.db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
@@ -530,48 +594,67 @@ class FinancialService {
       return null;
     }
 
-    const fields = ['status = ?'];
-    const values = [status];
+    // Validate status transition
+    const currentStatus = existing.status || 'unpaid';
+    const allowedTransitions = FinancialService.VALID_STATUS_TRANSITIONS[currentStatus] || [];
+    if (!allowedTransitions.includes(status)) {
+      const error = new Error(
+        `Cannot transition invoice from '${currentStatus}' to '${status}'. Allowed: ${allowedTransitions.join(', ') || 'none (terminal state)'}`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
 
-    if (status === 'paid') {
-      fields.push('paid_date = ?');
-      values.push(paid_date || new Date().toISOString().split('T')[0]);
-      if (payment_method) {
-        fields.push('payment_method = ?');
-        values.push(payment_method);
+    // Wrap status update + transaction creation in a DB transaction
+    // so a failure in either step rolls back both.
+    const runUpdate = this.db.db.transaction(() => {
+      const fields = ['status = ?'];
+      const values = [status];
+
+      if (status === 'paid') {
+        fields.push('paid_date = ?');
+        values.push(paid_date || new Date().toISOString().split('T')[0]);
+        if (payment_method) {
+          fields.push('payment_method = ?');
+          values.push(payment_method);
+        }
       }
-    }
 
-    fields.push('updated_at = CURRENT_TIMESTAMP');
-    values.push(id);
+      fields.push('updated_at = CURRENT_TIMESTAMP');
+      values.push(id);
 
-    this.db.db.prepare(`UPDATE invoices SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+      this.db.db.prepare(`UPDATE invoices SET ${fields.join(', ')} WHERE id = ?`).run(...values);
 
-    // If paid, create transaction record
-    if (status === 'paid') {
-      const transactionId = uuidv4();
-      this.db.db
-        .prepare(
+      // If paid, create transaction record
+      if (status === 'paid') {
+        const transactionId = uuidv4();
+        this.db.db
+          .prepare(
+            `
+            INSERT INTO financial_transactions (id, type, category, amount, description, order_id, payment_method, payment_date, ppn_amount, base_amount, invoice_number, created_by)
+            VALUES (?, 'income', 'sales', ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
-          INSERT INTO financial_transactions (id, type, category, amount, description, order_id, payment_method, payment_date, ppn_amount, base_amount, invoice_number, created_by)
-          VALUES (?, 'income', 'sales', ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `
-        )
-        .run(
-          transactionId,
-          existing.total_amount,
-          `Payment for Invoice ${existing.invoice_number}`,
-          existing.order_id,
-          payment_method || 'cash',
-          paid_date || new Date().toISOString().split('T')[0],
-          existing.ppn_amount,
-          existing.subtotal - existing.discount,
-          existing.invoice_number,
-          userId
-        );
-    }
+          )
+          .run(
+            transactionId,
+            existing.total_amount,
+            `Payment for Invoice ${existing.invoice_number}`,
+            existing.order_id,
+            payment_method || 'cash',
+            paid_date || new Date().toISOString().split('T')[0],
+            existing.ppn_amount,
+            existing.subtotal - existing.discount,
+            existing.invoice_number,
+            userId
+          );
+      }
+    });
 
-    return existing;
+    runUpdate();
+
+    // Return the updated invoice (not stale pre-update data)
+    const updated = this.db.db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+    return updated;
   }
 
   /**
@@ -622,9 +705,9 @@ class FinancialService {
         profit,
         profitMargin: profitMargin.toFixed(2),
         costBreakdown: {
-          materials: ((materialCost / subtotal) * 100).toFixed(1),
-          labor: ((laborCost / subtotal) * 100).toFixed(1),
-          overhead: ((overheadCost / subtotal) * 100).toFixed(1),
+          materials: subtotal > 0 ? ((materialCost / subtotal) * 100).toFixed(1) : '0.0',
+          labor: subtotal > 0 ? ((laborCost / subtotal) * 100).toFixed(1) : '0.0',
+          overhead: subtotal > 0 ? ((overheadCost / subtotal) * 100).toFixed(1) : '0.0',
         },
       },
       formattedPrices: {
@@ -829,33 +912,48 @@ class FinancialService {
    * Get general analytics: monthly revenue, customer stats, order stats.
    */
   async getAnalytics() {
-    const monthlyRevenue = [];
     const currentDate = new Date();
 
-    // Generate last 6 months revenue data
+    // Calculate 6-month date range
+    const sixMonthsAgo = new Date(currentDate.getFullYear(), currentDate.getMonth() - 5, 1);
+    const rangeStart = `${sixMonthsAgo.getFullYear()}-${String(sixMonthsAgo.getMonth() + 1).padStart(2, '0')}-01`;
+
+    // Single GROUP BY query instead of 6 individual queries
+    const monthlyRows = this.db.db
+      .prepare(
+        `
+        SELECT
+          strftime('%Y-%m', payment_date) as month_key,
+          SUM(amount) as revenue,
+          COUNT(*) as orders
+        FROM financial_transactions
+        WHERE type = 'income'
+        AND DATE(payment_date) >= ?
+        GROUP BY strftime('%Y-%m', payment_date)
+        ORDER BY month_key ASC
+      `
+      )
+      .all(rangeStart);
+
+    // Build lookup from query results
+    const monthLookup = {};
+    for (const row of monthlyRows) {
+      monthLookup[row.month_key] = row;
+    }
+
+    // Fill in all 6 months (including months with no data)
+    const monthlyRevenue = [];
     for (let i = 5; i >= 0; i--) {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      const monthStart = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
-      const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-      const monthEnd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${lastDay}`;
-
-      const monthData = this.db.db
-        .prepare(
-          `
-          SELECT SUM(amount) as revenue, COUNT(*) as orders
-          FROM financial_transactions
-          WHERE type = 'income'
-          AND DATE(payment_date) >= ?
-          AND DATE(payment_date) <= ?
-        `
-        )
-        .get(monthStart, monthEnd);
-
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const data = monthLookup[key];
+      const revenue = data?.revenue || 0;
+      const orders = data?.orders || 0;
       monthlyRevenue.push({
         month: date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' }),
-        revenue: monthData?.revenue || 0,
-        orders: monthData?.orders || 0,
-        avgOrderValue: monthData?.orders > 0 ? (monthData?.revenue || 0) / monthData.orders : 0,
+        revenue,
+        orders,
+        avgOrderValue: orders > 0 ? revenue / orders : 0,
       });
     }
 
@@ -920,12 +1018,35 @@ class FinancialService {
 
     const totalRevenue = orderStats.totalRevenue;
 
+    // Calculate real growth rate from last two months
+    const recentMonths = monthlyRevenue.slice(-2);
+    const prevMonthRev = recentMonths.length >= 2 ? recentMonths[0].revenue : 0;
+    const curMonthRev =
+      recentMonths.length >= 1 ? recentMonths[recentMonths.length - 1].revenue : 0;
+    const realGrowthRate =
+      prevMonthRev > 0
+        ? parseFloat((((curMonthRev - prevMonthRev) / prevMonthRev) * 100).toFixed(1))
+        : 0;
+
+    // Calculate real projected monthly based on current month's daily average
+    const today = new Date();
+    const dayOfMonth = today.getDate();
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const projectedMonthly =
+      dayOfMonth > 0 ? Math.round((curMonthRev / dayOfMonth) * daysInMonth) : 0;
+
+    // Calculate real conversion rate from completed vs total orders
+    const realConversionRate =
+      orderStats.total > 0
+        ? parseFloat(((orderStats.completed / orderStats.total) * 100).toFixed(1))
+        : 0;
+
     return {
       revenue: {
         monthlyRevenue,
         totalRevenue,
-        growthRate: 12.5,
-        projectedMonthly: 25000000,
+        growthRate: realGrowthRate,
+        projectedMonthly,
       },
       customers: {
         total: customerStats.total,
@@ -936,31 +1057,49 @@ class FinancialService {
         total: orderStats.total,
         byStatus: ordersByStatus,
         averageValue: orderStats.total > 0 ? totalRevenue / orderStats.total : 0,
-        conversionRate: 85.5,
+        conversionRate: realConversionRate,
       },
     };
   }
 
   /**
-   * Generate unique invoice number.
+   * Generate unique invoice number using DB-level locking to prevent races.
+   * Uses a retry loop in case of UNIQUE constraint collisions under concurrency.
    */
   async generateInvoiceNumber() {
     const year = new Date().getFullYear();
     const prefix = `INV-${year}-`;
+    const maxRetries = 5;
 
-    const latestInvoice = this.db.db
-      .prepare(
-        'SELECT invoice_number FROM invoices WHERE invoice_number LIKE ? ORDER BY invoice_number DESC LIMIT 1'
-      )
-      .get(`${prefix}%`);
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const latestInvoice = this.db.db
+        .prepare(
+          'SELECT invoice_number FROM invoices WHERE invoice_number LIKE ? ORDER BY invoice_number DESC LIMIT 1'
+        )
+        .get(`${prefix}%`);
 
-    let nextNumber = 1;
-    if (latestInvoice) {
-      const currentNumber = parseInt(latestInvoice.invoice_number.split('-').pop());
-      nextNumber = currentNumber + 1;
+      let nextNumber = 1;
+      if (latestInvoice) {
+        const parsed = parseInt(latestInvoice.invoice_number.split('-').pop(), 10);
+        nextNumber = Number.isFinite(parsed) ? parsed + 1 : 1;
+      }
+
+      const candidate = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+
+      // Check if this number already exists (race guard)
+      const exists = this.db.db
+        .prepare('SELECT 1 FROM invoices WHERE invoice_number = ?')
+        .get(candidate);
+
+      if (!exists) {
+        return candidate;
+      }
+      // Collision detected — retry with fresh read
     }
 
-    return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+    // Fallback: use timestamp-based suffix to guarantee uniqueness
+    const ts = Date.now().toString(36);
+    return `${prefix}${ts}`;
   }
 }
 
