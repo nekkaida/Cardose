@@ -1,16 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import type { Customer, BusinessType, CustomerCreatePayload } from '@shared/types/customers';
-
-const BUSINESS_TYPES: BusinessType[] = ['corporate', 'individual', 'wedding', 'trading', 'event'];
-
-const BUSINESS_TYPE_I18N: Record<BusinessType, string> = {
-  corporate: 'customers.corporate',
-  individual: 'customers.individual',
-  wedding: 'customers.wedding',
-  trading: 'customers.trading',
-  event: 'customers.event',
-};
+import { BUSINESS_TYPES, BUSINESS_TYPE_I18N } from '@shared/types/customerConstants';
 
 interface FormData {
   name: string;
