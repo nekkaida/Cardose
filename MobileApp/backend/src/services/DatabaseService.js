@@ -65,10 +65,12 @@ class DatabaseService {
         name TEXT NOT NULL,
         email TEXT,
         phone TEXT,
+        address TEXT,
         business_type TEXT,
         loyalty_status TEXT DEFAULT 'new',
         total_orders INTEGER DEFAULT 0,
         total_spent REAL DEFAULT 0,
+        notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`,
@@ -885,6 +887,7 @@ class DatabaseService {
       'CREATE INDEX IF NOT EXISTS idx_prod_tasks_due_date ON production_tasks(due_date)',
       'CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date)',
       'CREATE INDEX IF NOT EXISTS idx_inv_movements_type ON inventory_movements(type)',
+      'CREATE INDEX IF NOT EXISTS idx_order_stages_order_start ON order_stages(order_id, start_date DESC)',
     ];
 
     for (const sql of indexes) {
