@@ -40,10 +40,99 @@ export const REPORT_TABS: Array<{
   },
 ];
 
+// ── Date presets ──────────────────────────────────────────────────
+
+export interface DatePreset {
+  labelKey: string;
+  fallback: string;
+  getRange: () => { start: string; end: string };
+}
+
+const toISO = (d: Date) => d.toISOString().split('T')[0];
+
+export const DATE_PRESETS: DatePreset[] = [
+  {
+    labelKey: 'reports.preset7d',
+    fallback: 'Last 7 days',
+    getRange: () => {
+      const end = new Date();
+      const start = new Date(end);
+      start.setDate(start.getDate() - 7);
+      return { start: toISO(start), end: toISO(end) };
+    },
+  },
+  {
+    labelKey: 'reports.preset30d',
+    fallback: 'Last 30 days',
+    getRange: () => {
+      const end = new Date();
+      const start = new Date(end);
+      start.setDate(start.getDate() - 30);
+      return { start: toISO(start), end: toISO(end) };
+    },
+  },
+  {
+    labelKey: 'reports.presetThisMonth',
+    fallback: 'This month',
+    getRange: () => {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start: toISO(start), end: toISO(now) };
+    },
+  },
+  {
+    labelKey: 'reports.presetLastMonth',
+    fallback: 'Last month',
+    getRange: () => {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { start: toISO(start), end: toISO(end) };
+    },
+  },
+  {
+    labelKey: 'reports.presetThisQuarter',
+    fallback: 'This quarter',
+    getRange: () => {
+      const now = new Date();
+      const qStart = Math.floor(now.getMonth() / 3) * 3;
+      const start = new Date(now.getFullYear(), qStart, 1);
+      return { start: toISO(start), end: toISO(now) };
+    },
+  },
+  {
+    labelKey: 'reports.presetThisYear',
+    fallback: 'This year',
+    getRange: () => {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), 0, 1);
+      return { start: toISO(start), end: toISO(now) };
+    },
+  },
+];
+
+// ── CSV export ────────────────────────────────────────────────────
+
 export const sanitizeCsvValue = (value: unknown): string => {
   const str = String(value ?? '');
-  if (/^[=+\-@\t\r]/.test(str)) return `\t${str}`;
-  return str;
+  // Escape inner double quotes per RFC 4180
+  const escaped = str.replace(/"/g, '""');
+  if (/^[=+\-@\t\r]/.test(escaped)) return `\t${escaped}`;
+  return escaped;
+};
+
+const SECTION_LABELS: Record<string, string> = {
+  sales: 'Daily Sales',
+  topCustomers: 'Top Customers',
+  byCategory: 'By Category',
+  lowStockItems: 'Low Stock Items',
+  recentMovements: 'Recent Movements',
+  ordersByStatus: 'Orders by Status',
+  taskStats: 'Task Statistics',
+  qualityStats: 'Quality Statistics',
+  byBusinessType: 'By Business Type',
+  byLoyaltyStatus: 'By Loyalty Status',
+  invoiceStats: 'Invoice Statistics',
 };
 
 export const exportReportToCSV = (
@@ -51,31 +140,62 @@ export const exportReportToCSV = (
   filename: string,
   sanitize: (v: unknown) => string = sanitizeCsvValue
 ) => {
-  const rows: Record<string, unknown>[] = [];
+  const sheets: Array<{ section: string; rows: Record<string, unknown>[] }> = [];
+
+  // Include period as context row
+  if (data.period && typeof data.period === 'object' && !Array.isArray(data.period)) {
+    const period = data.period as Record<string, unknown>;
+    if (period.start && period.end) {
+      sheets.push({ section: 'Period', rows: [{ Start: period.start, End: period.end }] });
+    }
+  }
+
+  // Include summary as key-value rows
+  if (data.summary && typeof data.summary === 'object' && !Array.isArray(data.summary)) {
+    const summary = data.summary as Record<string, unknown>;
+    const rows = Object.entries(summary).map(([key, val]) => ({
+      Metric: formatSectionKey(key),
+      Value: val,
+    }));
+    if (rows.length > 0) {
+      sheets.push({ section: 'Summary', rows });
+    }
+  }
 
   const collectRows = (obj: Record<string, unknown>) => {
     Object.entries(obj).forEach(([key, value]) => {
+      if (key === 'period' || key === 'summary') return;
       if (Array.isArray(value) && value.length > 0) {
-        value.forEach((item: Record<string, unknown>) => rows.push({ _section: key, ...item }));
+        sheets.push({
+          section: SECTION_LABELS[key] || formatSectionKey(key),
+          rows: value as Record<string, unknown>[],
+        });
       } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const rec = value as Record<string, unknown>;
         const hasArrays = Object.values(rec).some((v) => Array.isArray(v));
         if (hasArrays) {
           collectRows(rec);
-        } else {
-          rows.push({ _section: key, ...rec });
         }
       }
     });
   };
-  collectRows(data);
-  if (rows.length === 0) return;
 
-  const headers = Object.keys(rows[0]);
-  const csvLines = [
-    headers.join(','),
-    ...rows.map((row) => headers.map((h) => `"${sanitize(row[h])}"`).join(',')),
-  ];
+  collectRows(data);
+  if (sheets.length === 0) return;
+
+  const csvLines: string[] = [];
+
+  sheets.forEach((sheet, idx) => {
+    if (idx > 0) csvLines.push('');
+    csvLines.push(`"${sanitize(sheet.section)}"`);
+
+    const headers = Object.keys(sheet.rows[0]).filter((k) => k !== '_section');
+    csvLines.push(headers.map((h) => `"${sanitize(formatSectionKey(h))}"`).join(','));
+    sheet.rows.forEach((row) => {
+      csvLines.push(headers.map((h) => `"${sanitize(row[h])}"`).join(','));
+    });
+  });
+
   const BOM = '\uFEFF';
   const blob = new Blob([BOM + csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -83,5 +203,12 @@ export const exportReportToCSV = (
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 150);
 };
+
+function formatSectionKey(key: string): string {
+  return key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+}
