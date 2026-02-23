@@ -1,30 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
 import { theme } from '../../theme/theme';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { login, register, selectAuthLoading, clearError } from '../../store/slices/authSlice';
+import {
+  login,
+  register,
+  selectAuthLoading,
+  clearError,
+} from '../../store/slices/authSlice';
 import { ApiService } from '../../services/ApiService';
 import { API_CONFIG } from '../../config';
-import { BrandHeader, LoginForm, ServerConfig } from './components';
+import { BrandHeader, LoginForm, ServerConfig, ForgotPasswordForm } from './components';
 import type { AuthMode, ServerStatus } from './components';
-import { validateLoginFields, validateRegisterFields } from './helpers/validation';
+import {
+  validateLoginFields,
+  validateRegisterFields,
+  isValid,
+  type FieldErrors,
+} from './helpers/validation';
+
+type ScreenMode = AuthMode | 'forgotPassword';
+
+// ── Rate limiting ──────────────────────────────────────────────────────
+const MAX_ATTEMPTS = 5;
+const BASE_LOCKOUT_MS = 30_000; // 30 seconds
 
 export const LoginScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const isLoading = useAppSelector(selectAuthLoading);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<AuthMode>('login');
+  const [mode, setMode] = useState<ScreenMode>('login');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   // Registration fields
   const [email, setEmail] = useState('');
@@ -36,28 +51,60 @@ export const LoginScreen: React.FC = () => {
   const [serverUrl, setServerUrl] = useState(ApiService.getBaseUrl());
   const [serverStatus, setServerStatus] = useState<ServerStatus>('unknown');
 
+  // Rate limiting state
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number>(0);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+  const lockoutTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     setServerUrl(ApiService.getBaseUrl());
+  }, []);
+
+  // Countdown timer for lockout display
+  useEffect(() => {
+    if (lockoutUntil <= Date.now()) {
+      setLockoutRemaining(0);
+      return;
+    }
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
+      setLockoutRemaining(remaining);
+      if (remaining <= 0 && lockoutTimerRef.current) {
+        clearInterval(lockoutTimerRef.current);
+        lockoutTimerRef.current = null;
+      }
+    };
+
+    tick();
+    lockoutTimerRef.current = setInterval(tick, 1000);
+    return () => {
+      if (lockoutTimerRef.current) clearInterval(lockoutTimerRef.current);
+    };
+  }, [lockoutUntil]);
+
+  const isLockedOut = lockoutRemaining > 0;
+
+  const clearFieldError = useCallback((field: string) => {
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   }, []);
 
   // ── Server handlers ──────────────────────────────────────────────────
 
   const handleTestConnection = async () => {
-    if (!serverUrl.trim()) {
-      Alert.alert('Error', 'Please enter a server URL');
-      return;
-    }
+    if (!serverUrl.trim()) return;
     setServerStatus('checking');
     try {
       await ApiService.setBaseUrl(serverUrl.trim());
       const reachable = await ApiService.ping();
       setServerStatus(reachable ? 'online' : 'offline');
-      if (!reachable) {
-        Alert.alert('Connection Failed', 'Could not reach the server. Check the URL and make sure the server is running.');
-      }
     } catch {
       setServerStatus('offline');
-      Alert.alert('Connection Failed', 'Could not reach the server.');
     }
   };
 
@@ -67,32 +114,61 @@ export const LoginScreen: React.FC = () => {
     setServerStatus('unknown');
   };
 
+  // ── Network check ─────────────────────────────────────────────────────
+
+  const checkConnectivity = (): Promise<boolean> => ApiService.ping();
+
   // ── Auth handlers ────────────────────────────────────────────────────
 
   const handleLogin = async () => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
+    if (isLoading || isLockedOut) return;
 
-    if (!validateLoginFields({ username, password })) {
-      setIsSubmitting(false);
+    const errors = validateLoginFields({ username, password });
+    setFieldErrors(errors);
+    if (!isValid(errors)) return;
+
+    // Quick connectivity check
+    const online = await checkConnectivity();
+    if (!online) {
+      setFieldErrors({ _form: 'Cannot reach the server. Check your connection and server settings.' });
       return;
     }
 
     try {
       await dispatch(login({ username, password })).unwrap();
+      // Reset rate limiting on success
+      setFailedAttempts(0);
+      setLockoutUntil(0);
     } catch (error: any) {
-      Alert.alert('Login Failed', typeof error === 'string' ? error : error?.message || 'Invalid credentials');
-    } finally {
-      setIsSubmitting(false);
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        const multiplier = Math.pow(2, Math.floor((newAttempts - MAX_ATTEMPTS) / MAX_ATTEMPTS));
+        const lockoutMs = BASE_LOCKOUT_MS * multiplier;
+        const lockoutSec = Math.ceil(lockoutMs / 1000);
+        setLockoutUntil(Date.now() + lockoutMs);
+        setFieldErrors({
+          _form: `Too many failed attempts. Please wait ${lockoutSec} seconds before trying again.`,
+        });
+      } else {
+        const message = typeof error === 'string' ? error : error?.message || 'Invalid credentials';
+        setFieldErrors({ _form: message });
+      }
     }
   };
 
   const handleRegister = async () => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
+    if (isLoading) return;
 
-    if (!validateRegisterFields({ username, password, email, fullName, phone })) {
-      setIsSubmitting(false);
+    const errors = validateRegisterFields({ username, password, email, fullName, phone });
+    setFieldErrors(errors);
+    if (!isValid(errors)) return;
+
+    // Quick connectivity check
+    const online = await checkConnectivity();
+    if (!online) {
+      setFieldErrors({ _form: 'Cannot reach the server. Check your connection and server settings.' });
       return;
     }
 
@@ -101,21 +177,36 @@ export const LoginScreen: React.FC = () => {
         username,
         password,
         email,
-        full_name: fullName,
+        fullName,
         phone: phone || undefined,
       })).unwrap();
-      Alert.alert('Success', 'Registration successful!');
     } catch (error: any) {
-      Alert.alert('Registration Failed', typeof error === 'string' ? error : error?.message || 'Unable to register');
-    } finally {
-      setIsSubmitting(false);
+      const message = typeof error === 'string' ? error : error?.message || 'Unable to register';
+      setFieldErrors({ _form: message });
     }
   };
 
   const toggleMode = () => {
-    setMode(mode === 'login' ? 'register' : 'login');
+    setMode((prev) => (prev === 'login' ? 'register' : 'login'));
+    // Clear all fields on mode switch
     setPassword('');
+    setEmail('');
+    setFullName('');
+    setPhone('');
+    setFieldErrors({});
+    setFailedAttempts(0);
+    setLockoutUntil(0);
     dispatch(clearError());
+  };
+
+  const goToForgotPassword = () => {
+    setFieldErrors({});
+    setMode('forgotPassword');
+  };
+
+  const backToLogin = () => {
+    setFieldErrors({});
+    setMode('login');
   };
 
   // ── Render ───────────────────────────────────────────────────────────
@@ -125,27 +216,38 @@ export const LoginScreen: React.FC = () => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        testID="login-scroll-view"
+      >
         <View style={styles.content}>
           <BrandHeader />
 
-          <LoginForm
-            mode={mode}
-            username={username}
-            password={password}
-            email={email}
-            fullName={fullName}
-            phone={phone}
-            isLoading={isLoading}
-            isSubmitting={isSubmitting}
-            onChangeUsername={setUsername}
-            onChangePassword={setPassword}
-            onChangeEmail={setEmail}
-            onChangeFullName={setFullName}
-            onChangePhone={setPhone}
-            onSubmit={mode === 'login' ? handleLogin : handleRegister}
-            onToggleMode={toggleMode}
-          />
+          {mode === 'forgotPassword' ? (
+            <ForgotPasswordForm onBackToLogin={backToLogin} />
+          ) : (
+            <LoginForm
+              mode={mode}
+              username={username}
+              password={password}
+              email={email}
+              fullName={fullName}
+              phone={phone}
+              isLoading={isLoading}
+              isLockedOut={isLockedOut}
+              lockoutRemaining={lockoutRemaining}
+              errors={fieldErrors}
+              onChangeUsername={setUsername}
+              onChangePassword={setPassword}
+              onChangeEmail={setEmail}
+              onChangeFullName={setFullName}
+              onChangePhone={setPhone}
+              onClearError={clearFieldError}
+              onSubmit={mode === 'login' ? handleLogin : handleRegister}
+              onToggleMode={toggleMode}
+              onForgotPassword={goToForgotPassword}
+            />
+          )}
 
           <ServerConfig
             isVisible={showServerConfig}
@@ -158,7 +260,13 @@ export const LoginScreen: React.FC = () => {
           />
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Self-hosted • Secure • Private</Text>
+            <Text
+              style={styles.footerText}
+              accessibilityRole="text"
+              testID="login-footer"
+            >
+              Self-hosted {'\u00B7'} Private
+            </Text>
           </View>
         </View>
       </ScrollView>
