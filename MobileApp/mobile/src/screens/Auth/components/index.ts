@@ -3,3 +3,6 @@ export { LoginForm } from './LoginForm';
 export type { LoginFormProps, AuthMode } from './LoginForm';
 export { ServerConfig } from './ServerConfig';
 export type { ServerConfigProps, ServerStatus } from './ServerConfig';
+export { ForgotPasswordForm } from './ForgotPasswordForm';
+export type { ForgotPasswordFormProps } from './ForgotPasswordForm';
+export { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
