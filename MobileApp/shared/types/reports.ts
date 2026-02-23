@@ -23,21 +23,21 @@ export interface InventoryReportData {
     totalValue: number;
   };
   byCategory: Array<{
-    category: string;
+    category: string | null;
     item_count: number;
     total_stock: number;
     total_value: number;
   }>;
   lowStockItems: Array<{
     name: string;
-    sku: string;
-    category: string;
+    sku: string | null;
+    category: string | null;
     current_stock: number;
     reorder_level: number;
     unit: string;
   }>;
   recentMovements: Array<{
-    item_name: string;
+    item_name: string | null;
     type: string;
     quantity: number;
     created_at: string;
@@ -46,8 +46,12 @@ export interface InventoryReportData {
 
 export interface ProductionReportData {
   period: { start: string; end: string };
+  summary: {
+    totalOrders: number;
+    completedOrders: number;
+    completionRate: number;
+  };
   ordersByStatus: Array<{ status: string; count: number; value: number }>;
-  completionRate: number;
   taskStats: Array<{ status: string; count: number }>;
   qualityStats: Array<{ overall_status: string; count: number }>;
 }
@@ -61,20 +65,20 @@ export interface CustomerReportData {
     newThisMonth: number;
   };
   byBusinessType: Array<{
-    business_type: string;
+    business_type: string | null;
     count: number;
     total_spent: number;
     avg_orders: number;
   }>;
   byLoyaltyStatus: Array<{
-    loyalty_status: string;
+    loyalty_status: string | null;
     count: number;
     total_spent: number;
   }>;
   topCustomers: Array<{
     name: string;
-    business_type: string;
-    loyalty_status: string;
+    business_type: string | null;
+    loyalty_status: string | null;
     total_orders: number;
     total_spent: number;
   }>;
